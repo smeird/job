@@ -4,6 +4,10 @@ declare(strict_types=1);
 
 namespace App;
 
+
+use App\Prompts\PromptLibrary;
+use App\Validation\DraftValidator;
+use InvalidArgumentException;
 use App\Documents\DocumentPreviewer;
 use App\Documents\DocumentService;
 use App\Documents\DocumentValidationException;
@@ -12,6 +16,7 @@ use App\Documents\DocumentRepository;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\App;
+use Slim\Exception\HttpBadRequestException;
 
 class Routes
 {
@@ -27,77 +32,53 @@ class Routes
             return $response->withHeader('Content-Type', 'text/plain');
         });
 
-        $app->post('/documents/upload', static function (Request $request, Response $response) use ($documentService): Response {
-            $files = $request->getUploadedFiles();
-            $uploadedFile = $files['document'] ?? null;
 
-            if ($uploadedFile === null) {
-                $response->getBody()->write((string) json_encode(['error' => 'No document uploaded.']));
+        $app->get('/prompts', static function (Request $request, Response $response): Response {
+            $payload = [
+                'system' => PromptLibrary::systemPrompt(),
+                'tailor' => PromptLibrary::tailorPrompt(),
+            ];
 
-                return $response
-                    ->withStatus(400)
-                    ->withHeader('Content-Type', 'application/json');
-            }
+            $response->getBody()->write((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-            try {
-                $document = $documentService->storeUploadedDocument($uploadedFile);
-            } catch (DocumentValidationException $exception) {
-                $response->getBody()->write((string) json_encode(['error' => $exception->getMessage()]));
-
-                return $response
-                    ->withStatus($exception->statusCode())
-                    ->withHeader('Content-Type', 'application/json');
-            } catch (\Throwable $exception) {
-                $response->getBody()->write((string) json_encode(['error' => 'Unable to process the uploaded document.']));
-
-                return $response
-                    ->withStatus(400)
-                    ->withHeader('Content-Type', 'application/json');
-            }
-
-            $payload = json_encode([
-                'id' => $document->id(),
-                'filename' => $document->filename(),
-                'mime_type' => $document->mimeType(),
-                'size_bytes' => $document->sizeBytes(),
-                'sha256' => $document->sha256(),
-            ]);
-
-            $response->getBody()->write($payload === false ? '{}' : $payload);
-
-            return $response
-                ->withStatus(201)
-                ->withHeader('Content-Type', 'application/json');
+            return $response->withHeader('Content-Type', 'application/json');
         });
 
-        $app->get('/documents/{id}/preview', static function (Request $request, Response $response, array $args) use ($documentService, $documentPreviewer): Response {
-            $id = isset($args['id']) ? (int) $args['id'] : 0;
+        $app->post('/draft/validate', static function (Request $request, Response $response): Response {
+            $parsed = $request->getParsedBody();
 
-            if ($id <= 0) {
-                $response->getBody()->write('Document not found.');
-
-                return $response->withStatus(404)->withHeader('Content-Type', 'text/plain; charset=utf-8');
+            if (!is_array($parsed)) {
+                throw new HttpBadRequestException($request, 'Invalid request payload.');
             }
 
-            $document = $documentService->find($id);
+            $sourceCv = isset($parsed['source_cv']) ? trim((string) $parsed['source_cv']) : '';
+            $draft = isset($parsed['draft_markdown']) ? trim((string) $parsed['draft_markdown']) : '';
 
-            if ($document === null) {
-                $response->getBody()->write('Document not found.');
-
-                return $response->withStatus(404)->withHeader('Content-Type', 'text/plain; charset=utf-8');
+            if ($sourceCv === '' || $draft === '') {
+                throw new HttpBadRequestException($request, 'Both source_cv and draft_markdown are required.');
             }
 
-            $preview = $documentPreviewer->render($document);
+            $validator = new DraftValidator();
 
-            if (function_exists('mb_substr')) {
-                $preview = mb_substr($preview, 0, 5000);
-            } else {
-                $preview = substr($preview, 0, 5000);
+            try {
+                $validator->ensureNoUnknownOrganisations($sourceCv, $draft);
+            } catch (InvalidArgumentException $exception) {
+                $response->getBody()->write((string) json_encode([
+                    'status' => 'rejected',
+                    'reason' => $exception->getMessage(),
+                ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+                return $response
+                    ->withStatus(422)
+                    ->withHeader('Content-Type', 'application/json');
             }
 
-            $response->getBody()->write($preview);
+            $response->getBody()->write((string) json_encode([
+                'status' => 'accepted',
+            ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
-            return $response->withHeader('Content-Type', 'text/plain; charset=utf-8');
+            return $response->withHeader('Content-Type', 'application/json');
+
         });
     }
 }
