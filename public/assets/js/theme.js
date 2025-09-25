@@ -266,20 +266,26 @@ const buildStatusPill = (status) => {
   pill.classList.add('status-pill');
 
   const normalized = String(status ?? '').toLowerCase();
-  if (normalized === 'active' || normalized === 'success' || normalized === 'completed') {
+  const successStatuses = new Set(['completed', 'success', 'delivered', 'ready', 'downloaded']);
+  const pendingStatuses = new Set(['pending', 'queued', 'processing', 'drafting', 'generating', 'in review']);
+
+  pill.setAttribute('data-status', normalized);
+  pill.setAttribute('title', String(status ?? ''));
+
+  if (successStatuses.has(normalized)) {
     pill.classList.add('status-pill--success');
-    pill.textContent = 'Active';
+    pill.textContent = 'Ready';
     return pill;
   }
 
-  if (normalized === 'pending' || normalized === 'in review') {
+  if (pendingStatuses.has(normalized)) {
     pill.classList.add('status-pill--pending');
-    pill.textContent = 'Pending';
+    pill.textContent = 'In progress';
     return pill;
   }
 
   pill.classList.add('status-pill--blocked');
-  pill.textContent = 'Blocked';
+  pill.textContent = 'Needs attention';
   return pill;
 };
 
@@ -291,47 +297,47 @@ const initializeDataTable = () => {
 
   const rows = [
     {
-      workspace: 'Nova UX Research',
-      owner: 'Ada Lovelace',
-      status: 'active',
-      usage: '87%',
-      updated: '2024-07-01',
+      draft: 'Cover letter — Frontend Engineer',
+      job: 'Lumen Analytics',
+      status: 'delivered',
+      tokens: '12.4k',
+      updated: '2 minutes ago',
     },
     {
-      workspace: 'Quantum Finance',
-      owner: 'Grace Hopper',
-      status: 'pending',
-      usage: '54%',
-      updated: '2024-06-24',
+      draft: 'CV highlights — Platform Lead',
+      job: 'Northwind Digital',
+      status: 'drafting',
+      tokens: '8.1k',
+      updated: '5 minutes ago',
     },
     {
-      workspace: 'Atlas Manufacturing',
-      owner: 'George Boole',
-      status: 'blocked',
-      usage: '31%',
-      updated: '2024-06-13',
+      draft: 'Follow-up email — Product Manager',
+      job: 'Opteryx',
+      status: 'queued',
+      tokens: '3.6k',
+      updated: '12 minutes ago',
     },
     {
-      workspace: 'Lumen Analytics',
-      owner: 'Evelyn Boyd',
-      status: 'active',
-      usage: '92%',
-      updated: '2024-07-04',
+      draft: 'Cover letter — Data Scientist',
+      job: 'Helios Labs',
+      status: 'failed',
+      tokens: '0',
+      updated: '18 minutes ago',
     },
   ];
 
   const table = new Tabulator(container, {
     data: rows,
     columns: [
-      { title: 'Workspace', field: 'workspace' },
-      { title: 'Owner', field: 'owner' },
+      { title: 'Draft', field: 'draft' },
+      { title: 'Job', field: 'job' },
       {
         title: 'Status',
         field: 'status',
         formatter: ({ value }) => buildStatusPill(value),
       },
-      { title: 'Usage', field: 'usage' },
-      { title: 'Last Updated', field: 'updated' },
+      { title: 'Tokens', field: 'tokens' },
+      { title: 'Updated', field: 'updated' },
     ],
   });
 
