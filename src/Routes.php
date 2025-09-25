@@ -6,9 +6,11 @@ namespace App;
 
 use App\Controllers\AuthController;
 use App\Controllers\HomeController;
+use App\Controllers\RetentionController;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use RuntimeException;
 use Slim\App;
 use Slim\Exception\HttpBadRequestException;
 
@@ -90,6 +92,32 @@ class Routes
 
             return $response->withHeader('Content-Type', 'application/json');
 
+        });
+
+        $app->get('/retention', static function (Request $request, Response $response) use ($app): Response {
+            $container = $app->getContainer();
+
+            if ($container === null) {
+                throw new RuntimeException('Container is not available.');
+            }
+
+            /** @var RetentionController $controller */
+            $controller = $container->get(RetentionController::class);
+
+            return $controller->show($request, $response);
+        });
+
+        $app->post('/retention', static function (Request $request, Response $response) use ($app): Response {
+            $container = $app->getContainer();
+
+            if ($container === null) {
+                throw new RuntimeException('Container is not available.');
+            }
+
+            /** @var RetentionController $controller */
+            $controller = $container->get(RetentionController::class);
+
+            return $controller->update($request, $response);
         });
     }
 }

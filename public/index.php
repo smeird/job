@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Bootstrap;
 use App\Controllers\AuthController;
 use App\Controllers\HomeController;
+use App\Controllers\RetentionController;
 use App\Infrastructure\Database\Connection;
 use App\Infrastructure\Database\Migrator;
 use App\Middleware\SessionMiddleware;
@@ -13,6 +14,7 @@ use App\Services\AuthService;
 use App\Services\LogMailer;
 use App\Services\MailerInterface;
 use App\Services\RateLimiter;
+use App\Services\RetentionPolicyService;
 use App\Services\SmtpMailer;
 use App\Views\Renderer;
 use DI\Container;
@@ -92,6 +94,14 @@ $container->set(AuthController::class, static function (Container $c): AuthContr
 
 $container->set(HomeController::class, static function (Container $c): HomeController {
     return new HomeController($c->get(Renderer::class));
+});
+
+$container->set(RetentionPolicyService::class, static function (Container $c): RetentionPolicyService {
+    return new RetentionPolicyService($c->get(\PDO::class));
+});
+
+$container->set(RetentionController::class, static function (Container $c): RetentionController {
+    return new RetentionController($c->get(Renderer::class), $c->get(RetentionPolicyService::class));
 });
 
 $container->set(SessionMiddleware::class, static function (Container $c): SessionMiddleware {
