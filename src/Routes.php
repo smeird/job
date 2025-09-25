@@ -7,9 +7,11 @@ namespace App;
 use App\Controllers\AuthController;
 use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
+use App\Controllers\RetentionController;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use RuntimeException;
 use Slim\App;
 use Slim\Exception\HttpBadRequestException;
 use RuntimeException;
@@ -94,17 +96,32 @@ class Routes
 
         });
 
-        $app->get('/generations/{id}/download', function (Request $request, Response $response, array $args) use ($app): Response {
+
+        $app->get('/retention', static function (Request $request, Response $response) use ($app): Response {
             $container = $app->getContainer();
 
             if ($container === null) {
-                throw new RuntimeException('Application container is not available.');
+                throw new RuntimeException('Container is not available.');
             }
 
-            /** @var GenerationDownloadController $controller */
-            $controller = $container->get(GenerationDownloadController::class);
+            /** @var RetentionController $controller */
+            $controller = $container->get(RetentionController::class);
 
-            return $controller->download($request, $response, $args);
+            return $controller->show($request, $response);
+        });
+
+        $app->post('/retention', static function (Request $request, Response $response) use ($app): Response {
+            $container = $app->getContainer();
+
+            if ($container === null) {
+                throw new RuntimeException('Container is not available.');
+            }
+
+            /** @var RetentionController $controller */
+            $controller = $container->get(RetentionController::class);
+
+            return $controller->update($request, $response);
+
         });
     }
 }
