@@ -4,9 +4,15 @@ declare(strict_types=1);
 
 namespace App;
 
+
 use App\Prompts\PromptLibrary;
 use App\Validation\DraftValidator;
 use InvalidArgumentException;
+use App\Documents\DocumentPreviewer;
+use App\Documents\DocumentService;
+use App\Documents\DocumentValidationException;
+use App\Documents\DocumentValidator;
+use App\Documents\DocumentRepository;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
 use Slim\App;
@@ -16,11 +22,16 @@ class Routes
 {
     public static function register(App $app): void
     {
+        $documentRepository = new DocumentRepository(Database::connection());
+        $documentService = new DocumentService($documentRepository, new DocumentValidator());
+        $documentPreviewer = new DocumentPreviewer();
+
         $app->get('/healthz', static function (Request $request, Response $response): Response {
             $response->getBody()->write('ok');
 
             return $response->withHeader('Content-Type', 'text/plain');
         });
+
 
         $app->get('/prompts', static function (Request $request, Response $response): Response {
             $payload = [
@@ -67,6 +78,7 @@ class Routes
             ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
             return $response->withHeader('Content-Type', 'application/json');
+
         });
     }
 }
