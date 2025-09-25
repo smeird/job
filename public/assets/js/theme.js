@@ -127,6 +127,97 @@ window.Tabulator = Tabulator;
 
 const THEME_STORAGE_KEY = 'app-theme-preference';
 
+const clampProgress = (value) => {
+  const numeric = Number.parseInt(value ?? '0', 10);
+  const fallback = Number.isFinite(numeric) ? numeric : 0;
+
+  return Math.min(100, Math.max(0, fallback));
+};
+
+const setProgressBarValue = (bar, value, labelElement) => {
+  if (!bar) {
+    return;
+  }
+
+  const clamped = clampProgress(value);
+  bar.dataset.progressBar = String(clamped);
+  bar.style.setProperty('--progress', `${clamped}%`);
+  bar.setAttribute('aria-valuenow', String(clamped));
+  bar.setAttribute('aria-valuemin', '0');
+  bar.setAttribute('aria-valuemax', '100');
+
+  if (labelElement) {
+    labelElement.textContent = `${clamped}% complete`;
+  }
+};
+
+const safeJsonParse = (value) => {
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    console.warn('Unable to parse stream payload', error);
+    return null;
+  }
+};
+
+const formatTokens = (total) => {
+  const numeric = Number.parseInt(total ?? '0', 10);
+  const formatter = new Intl.NumberFormat('en-GB');
+
+  return `${formatter.format(Math.max(0, numeric))} tokens`;
+};
+
+const formatCost = (pence) => {
+  const numeric = Number.parseInt(pence ?? '0', 10);
+  const formatter = new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: 'GBP',
+    currencyDisplay: 'symbol',
+    minimumFractionDigits: 2,
+  });
+
+  return `${formatter.format(numeric / 100)} spent`;
+};
+
+const TERMINAL_STATUSES = new Set(['completed', 'succeeded', 'success', 'failed', 'cancelled', 'canceled']);
+
+const updateStatusPillForGeneration = (pill, status) => {
+  if (!pill) {
+    return;
+  }
+
+  const normalized = String(status ?? '').toLowerCase();
+  const labelMap = {
+    pending: 'Pending',
+    queued: 'Queued',
+    running: 'Processing',
+    processing: 'Processing',
+    active: 'Processing',
+    completed: 'Completed',
+    succeeded: 'Completed',
+    success: 'Completed',
+    failed: 'Failed',
+    error: 'Failed',
+    cancelled: 'Cancelled',
+    canceled: 'Cancelled',
+  };
+
+  pill.classList.remove('status-pill--success', 'status-pill--pending', 'status-pill--blocked');
+  pill.removeAttribute('title');
+
+  if (['completed', 'succeeded', 'success'].includes(normalized)) {
+    pill.classList.add('status-pill--success');
+  } else if (['failed', 'error', 'cancelled', 'canceled'].includes(normalized)) {
+    pill.classList.add('status-pill--blocked');
+  } else {
+    pill.classList.add('status-pill--pending');
+  }
+
+  const label = labelMap[normalized] ?? (status ? String(status) : 'Unknown');
+  pill.textContent = label;
+  pill.setAttribute('data-status', normalized);
+};
+
 const applyTheme = (theme) => {
   const root = document.documentElement;
   const normalized = theme === 'dark' ? 'dark' : 'light';
@@ -254,14 +345,10 @@ const initializeDataTable = () => {
 
 const initializeProgressIndicators = () => {
   document.querySelectorAll('[data-progress-bar]').forEach((bar) => {
-    const value = Number.parseInt(bar.getAttribute('data-progress-bar') ?? '0', 10);
-    const fallback = Number.isFinite(value) ? value : 0;
-    const clamped = Math.min(100, Math.max(0, fallback));
+    const container = bar.closest('[data-generation-monitor]');
+    const label = container?.querySelector('[data-progress-label]') ?? bar.parentElement?.querySelector('[data-progress-label]');
 
-    bar.style.setProperty('--progress', `${clamped}%`);
-    bar.setAttribute('aria-valuenow', String(clamped));
-    bar.setAttribute('aria-valuemin', '0');
-    bar.setAttribute('aria-valuemax', '100');
+    setProgressBarValue(bar, bar.getAttribute('data-progress-bar'), label);
   });
 };
 
@@ -298,10 +385,102 @@ const initializeWizardStepper = () => {
   });
 };
 
+const initializeGenerationStreams = () => {
+  const monitors = document.querySelectorAll('[data-generation-monitor][data-generation-id]');
+
+  monitors.forEach((monitor) => {
+    if (monitor.dataset.streamInitialised === 'true') {
+      return;
+    }
+
+    const generationId = monitor.getAttribute('data-generation-id');
+
+    if (!generationId) {
+      return;
+    }
+
+    monitor.dataset.streamInitialised = 'true';
+
+    const progressBar = monitor.querySelector('[data-progress-bar]');
+    const progressLabel = monitor.querySelector('[data-progress-label]');
+    const statusPill = monitor.querySelector('[data-generation-status]');
+    const costTicker = monitor.querySelector('[data-cost-ticker]');
+    const tokenLabel = monitor.querySelector('[data-generation-tokens]');
+
+    try {
+      const source = new EventSource(`/generations/${encodeURIComponent(generationId)}/stream`);
+
+      source.addEventListener('status', (event) => {
+        const payload = safeJsonParse(event.data);
+        if (!payload || typeof payload.value !== 'string') {
+          return;
+        }
+
+        updateStatusPillForGeneration(statusPill, payload.value);
+
+        if (TERMINAL_STATUSES.has(payload.value.toLowerCase())) {
+          window.setTimeout(() => source.close(), 250);
+        }
+      });
+
+      source.addEventListener('progress', (event) => {
+        const payload = safeJsonParse(event.data);
+        if (!payload) {
+          return;
+        }
+
+        setProgressBarValue(progressBar, payload.percent, progressLabel);
+      });
+
+      source.addEventListener('tokens', (event) => {
+        const payload = safeJsonParse(event.data);
+        if (!payload || !tokenLabel) {
+          return;
+        }
+
+        tokenLabel.textContent = formatTokens(payload.total);
+      });
+
+      source.addEventListener('cost', (event) => {
+        const payload = safeJsonParse(event.data);
+        if (!payload || !costTicker) {
+          return;
+        }
+
+        costTicker.textContent = formatCost(payload.pence);
+      });
+
+      source.addEventListener('error', (event) => {
+        if (!event.data) {
+          if (statusPill) {
+            statusPill.classList.remove('status-pill--success', 'status-pill--blocked');
+            statusPill.classList.add('status-pill--pending');
+            statusPill.textContent = 'Reconnecting…';
+            statusPill.setAttribute('data-status', 'reconnecting');
+          }
+
+          return;
+        }
+
+        const payload = safeJsonParse(event.data);
+        if (payload && payload.message && statusPill) {
+          updateStatusPillForGeneration(statusPill, 'failed');
+          statusPill.title = String(payload.message);
+        }
+
+        source.close();
+      });
+    } catch (error) {
+      console.error('Failed to initialise generation stream', error);
+    }
+  });
+};
+
 document.addEventListener('DOMContentLoaded', () => {
   initializeTheme();
   initializeDataTable();
   initializeProgressIndicators();
   initializeToasts();
   initializeWizardStepper();
+  initializeGenerationStreams();
 });

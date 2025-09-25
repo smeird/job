@@ -6,6 +6,7 @@ namespace App;
 
 use App\Controllers\AuthController;
 use App\Controllers\HomeController;
+use App\Controllers\GenerationStreamController;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -90,6 +91,12 @@ class Routes
 
             return $response->withHeader('Content-Type', 'application/json');
 
+        });
+
+        $app->get('/generations/{id}/stream', static function (Request $request, Response $response, array $args): Response {
+            $controller = new GenerationStreamController();
+
+            return $controller($request, $response, $args);
         });
     }
 }
