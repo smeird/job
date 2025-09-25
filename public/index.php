@@ -7,7 +7,7 @@ use App\Controllers\AuthController;
 use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
 
-use App\Controllers\RetentionController;
+use App\Controllers\UsageController;
 
 use App\Infrastructure\Database\Connection;
 use App\Infrastructure\Database\Migrator;
@@ -19,6 +19,7 @@ use App\Services\MailerInterface;
 use App\Services\RateLimiter;
 use App\Services\RetentionPolicyService;
 use App\Services\SmtpMailer;
+use App\Services\UsageService;
 use App\Views\Renderer;
 use DI\Container;
 use Slim\Factory\AppFactory;
@@ -99,12 +100,14 @@ $container->set(HomeController::class, static function (Container $c): HomeContr
     return new HomeController($c->get(Renderer::class));
 });
 
-$container->set(RetentionPolicyService::class, static function (Container $c): RetentionPolicyService {
-    return new RetentionPolicyService($c->get(\PDO::class));
+
+$container->set(UsageService::class, static function (Container $c): UsageService {
+    return new UsageService($c->get(\PDO::class));
 });
 
-$container->set(RetentionController::class, static function (Container $c): RetentionController {
-    return new RetentionController($c->get(Renderer::class), $c->get(RetentionPolicyService::class));
+$container->set(UsageController::class, static function (Container $c): UsageController {
+    return new UsageController($c->get(UsageService::class), $c->get(Renderer::class));
+
 });
 
 $container->set(SessionMiddleware::class, static function (Container $c): SessionMiddleware {

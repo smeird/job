@@ -7,6 +7,7 @@ namespace App;
 use App\Controllers\AuthController;
 use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
+use App\Controllers\UsageController;
 
 use App\Controllers\GenerationStreamController;
 
@@ -99,11 +100,8 @@ class Routes
         });
 
 
-        $app->get('/generations/{id}/stream', static function (Request $request, Response $response, array $args): Response {
-            $controller = new GenerationStreamController();
+        $app->get('/usage', UsageController::class . ':index');
+        $app->get('/usage/data', UsageController::class . ':data');
 
-            return $controller($request, $response, $args);
-
-        });
     }
 }
