@@ -14,7 +14,8 @@
         "phpoffice/phpword": "^1.1",
         "ramsey/uuid": "^4.7",
         "paragonie/constant_time_encoding": "^2.6",
-        "php-di/php-di": "^7.0"
+        "php-di/php-di": "^7.0",
+        "smalot/pdfparser": "^2.6"
     },
     "autoload": {
         "psr-4": {

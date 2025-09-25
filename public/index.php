@@ -23,6 +23,9 @@ require_once __DIR__ . '/../vendor/autoload.php';
 
 $rootPath = dirname(__DIR__);
 
+ini_set('upload_max_filesize', '1M');
+ini_set('post_max_size', '2M');
+
 session_set_cookie_params([
     'lifetime' => 0,
     'path' => '/',
