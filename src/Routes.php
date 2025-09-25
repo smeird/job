@@ -17,25 +17,24 @@ class Routes
     public static function register(App $app): void
     {
 
-        $container = $app->getContainer();
-        $homeController = $container->get(HomeController::class);
-        $authController = $container->get(AuthController::class);
+        $viewPath = dirname(__DIR__) . '/resources/views/home.php';
 
-        $app->get('/', [$homeController, 'index']);
+        $app->get('/', static function (Request $request, Response $response) use ($viewPath): Response {
+            $html = (static function (string $path): string {
+                if (!is_file($path)) {
+                    return '<!DOCTYPE html><title>View missing</title><body><h1>View missing</h1></body>';
+                }
 
-        $app->get('/auth/register', [$authController, 'showRegister']);
-        $app->post('/auth/register', [$authController, 'register']);
-        $app->get('/auth/register/verify', [$authController, 'showRegisterVerify']);
-        $app->post('/auth/register/verify', [$authController, 'registerVerify']);
+                ob_start();
+                include $path;
 
-        $app->get('/auth/login', [$authController, 'showLogin']);
-        $app->post('/auth/login', [$authController, 'login']);
-        $app->get('/auth/login/verify', [$authController, 'showLoginVerify']);
-        $app->post('/auth/login/verify', [$authController, 'loginVerify']);
+                return (string) ob_get_clean();
+            })($viewPath);
 
-        $app->get('/auth/backup-codes', [$authController, 'showBackupCodes']);
-        $app->post('/auth/backup-codes', [$authController, 'backupCodes']);
-        $app->post('/auth/logout', [$authController, 'logout']);
+            $response->getBody()->write($html);
+
+            return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
+        });
 
 
         $app->get('/healthz', static function (Request $request, Response $response): Response {
