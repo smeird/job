@@ -34,7 +34,7 @@ class AuditLogger
         if ($details !== []) {
             try {
                 $detailsPayload = json_encode($details, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-            } catch (JsonException) {
+            } catch (JsonException $exception) {
                 $detailsPayload = null;
             }
         }
