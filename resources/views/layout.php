@@ -1,12 +1,15 @@
 <?php
 /** @var string $title */
 /** @var string $body */
+
+use App\Security\CspConfig;
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
     <title><?= htmlspecialchars($title ?? 'job.smeird.com', ENT_QUOTES) ?></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.4/dist/tailwind.min.css">
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js" defer></script>
@@ -42,8 +45,11 @@
                 <?php endif; ?>
             </div>
             <?= $body ?>
+
         </div>
     </div>
+
 <?php endif; ?>
+
 </body>
 </html>

@@ -20,17 +20,19 @@ class AuthService
         private readonly PDO $pdo,
         private readonly MailerInterface $mailer,
         private readonly RateLimiter $requestLimiter,
-        private readonly RateLimiter $verifyLimiter
+        private readonly RateLimiter $verifyLimiter,
+        private readonly AuditLogger $auditLogger
     ) {
     }
 
-    public function initiateRegistration(string $email, string $ip): void
+    public function initiateRegistration(string $email, string $ip, ?string $userAgent = null): void
     {
         $email = strtolower(trim($email));
         $this->validateEmail($email);
-        $this->applyRateLimiting($this->requestLimiter, $ip, $email, self::REGISTER_REQUEST_ACTION);
+        $this->applyRateLimiting($this->requestLimiter, $ip, $email, self::REGISTER_REQUEST_ACTION, $userAgent);
 
         if ($this->userExists($email)) {
+            $this->auditLogger->log('auth.register.denied', ['reason' => 'account_exists'], null, $email, $ip, $userAgent);
             throw new \RuntimeException('An account with that email already exists. Please log in.');
         }
 
@@ -38,7 +40,7 @@ class AuthService
         $expiresAt = (new DateTimeImmutable())->add(new DateInterval('PT10M'));
 
         $this->storePasscode($email, 'register', $code, $expiresAt);
-        $this->logAttempt($ip, $email, self::REGISTER_REQUEST_ACTION);
+        $this->logAttempt($this->requestLimiter, $ip, $email, self::REGISTER_REQUEST_ACTION, $userAgent, ['stage' => 'request']);
 
         $message = <<<TEXT
         Your registration code is: {$code}
@@ -46,30 +48,55 @@ class AuthService
         It expires in 10 minutes. If you did not request this code, please ignore this email.
         TEXT;
 
-        $this->mailer->send($email, 'Your job.smeird.com registration code', trim($message));
+        try {
+            $this->mailer->send($email, 'Your job.smeird.com registration code', trim($message));
+        } catch (\Throwable $exception) {
+            $this->auditLogger->log('auth.register.mail_failed', [
+                'error' => $exception->getMessage(),
+            ], null, $email, $ip, $userAgent);
+
+            throw $exception;
+        }
+
+        $this->auditLogger->log('auth.register.requested', ['status' => 'code_sent'], null, $email, $ip, $userAgent);
     }
 
-    public function verifyRegistration(string $email, string $code, string $ip): array
+    public function verifyRegistration(string $email, string $code, string $ip, ?string $userAgent = null): array
     {
         $email = strtolower(trim($email));
         $this->validateEmail($email);
         $code = trim($code);
-        $this->applyRateLimiting($this->verifyLimiter, $ip, $email, self::REGISTER_VERIFY_ACTION);
+        $this->applyRateLimiting($this->verifyLimiter, $ip, $email, self::REGISTER_VERIFY_ACTION, $userAgent);
 
-        $this->logAttempt($ip, $email, self::REGISTER_VERIFY_ACTION);
-        $this->assertPasscodeValid($email, 'register', $code);
+        $this->logAttempt($this->verifyLimiter, $ip, $email, self::REGISTER_VERIFY_ACTION, $userAgent, ['stage' => 'verify']);
+
+        try {
+            $this->assertPasscodeValid($email, 'register', $code);
+        } catch (\RuntimeException $exception) {
+            $this->auditLogger->log('auth.register.verify_failed', ['reason' => $exception->getMessage()], null, $email, $ip, $userAgent);
+
+            throw $exception;
+        }
+
         $userId = $this->findOrCreateUser($email);
 
-        return $this->createSession($userId);
+        $session = $this->createSession($userId);
+
+        $this->auditLogger->log('auth.register.completed', [
+            'session_expires_at' => $session['expires_at']->format('c'),
+        ], $userId, $email, $ip, $userAgent);
+
+        return $session;
     }
 
-    public function initiateLogin(string $email, string $ip): void
+    public function initiateLogin(string $email, string $ip, ?string $userAgent = null): void
     {
         $email = strtolower(trim($email));
         $this->validateEmail($email);
-        $this->applyRateLimiting($this->requestLimiter, $ip, $email, self::LOGIN_REQUEST_ACTION);
+        $this->applyRateLimiting($this->requestLimiter, $ip, $email, self::LOGIN_REQUEST_ACTION, $userAgent);
 
         if (!$this->userExists($email)) {
+            $this->auditLogger->log('auth.login.denied', ['reason' => 'account_missing'], null, $email, $ip, $userAgent);
             throw new \RuntimeException('No account was found with that email. Please register first.');
         }
 
@@ -77,7 +104,7 @@ class AuthService
         $expiresAt = (new DateTimeImmutable())->add(new DateInterval('PT10M'));
 
         $this->storePasscode($email, 'login', $code, $expiresAt);
-        $this->logAttempt($ip, $email, self::LOGIN_REQUEST_ACTION);
+        $this->logAttempt($this->requestLimiter, $ip, $email, self::LOGIN_REQUEST_ACTION, $userAgent, ['stage' => 'request']);
 
         $message = <<<TEXT
         Your login code is: {$code}
@@ -85,29 +112,53 @@ class AuthService
         It expires in 10 minutes. If you did not request this code, please ignore this email.
         TEXT;
 
-        $this->mailer->send($email, 'Your job.smeird.com login code', trim($message));
+        try {
+            $this->mailer->send($email, 'Your job.smeird.com login code', trim($message));
+        } catch (\Throwable $exception) {
+            $this->auditLogger->log('auth.login.mail_failed', [
+                'error' => $exception->getMessage(),
+            ], null, $email, $ip, $userAgent);
+
+            throw $exception;
+        }
+
+        $this->auditLogger->log('auth.login.requested', ['status' => 'code_sent'], null, $email, $ip, $userAgent);
     }
 
-    public function verifyLogin(string $email, string $code, string $ip): array
+    public function verifyLogin(string $email, string $code, string $ip, ?string $userAgent = null): array
     {
         $email = strtolower(trim($email));
         $this->validateEmail($email);
         $code = trim($code);
-        $this->applyRateLimiting($this->verifyLimiter, $ip, $email, self::LOGIN_VERIFY_ACTION);
+        $this->applyRateLimiting($this->verifyLimiter, $ip, $email, self::LOGIN_VERIFY_ACTION, $userAgent);
 
         $userId = $this->getUserIdByEmail($email);
 
         if ($userId === null) {
+            $this->auditLogger->log('auth.login.denied', ['reason' => 'account_missing'], null, $email, $ip, $userAgent);
             throw new \RuntimeException('No account was found with that email.');
         }
 
-        $this->logAttempt($ip, $email, self::LOGIN_VERIFY_ACTION);
-        $this->assertPasscodeValid($email, 'login', $code);
+        $this->logAttempt($this->verifyLimiter, $ip, $email, self::LOGIN_VERIFY_ACTION, $userAgent, ['stage' => 'verify']);
 
-        return $this->createSession($userId);
+        try {
+            $this->assertPasscodeValid($email, 'login', $code);
+        } catch (\RuntimeException $exception) {
+            $this->auditLogger->log('auth.login.verify_failed', ['reason' => $exception->getMessage()], $userId, $email, $ip, $userAgent);
+
+            throw $exception;
+        }
+
+        $session = $this->createSession($userId);
+
+        $this->auditLogger->log('auth.login.success', [
+            'session_expires_at' => $session['expires_at']->format('c'),
+        ], $userId, $email, $ip, $userAgent);
+
+        return $session;
     }
 
-    public function generateBackupCodes(int $userId): array
+    public function generateBackupCodes(int $userId, ?string $ip = null, ?string $userAgent = null): array
     {
         $this->pdo->prepare('DELETE FROM backup_codes WHERE user_id = :user_id')->execute(['user_id' => $userId]);
 
@@ -125,6 +176,8 @@ class AuthService
             ]);
             $codes[] = $code;
         }
+
+        $this->auditLogger->log('auth.backup_codes.generated', ['count' => count($codes)], $userId, null, $ip, $userAgent);
 
         return $codes;
     }
@@ -163,23 +216,34 @@ class AuthService
         ]);
     }
 
-    public function destroySession(string $token): void
+    public function destroySession(string $token, ?string $ip = null, ?string $userAgent = null, ?int $userId = null, ?string $email = null): void
     {
         $hash = hash('sha256', $token, true);
         $statement = $this->pdo->prepare('DELETE FROM sessions WHERE token_hash = :token_hash');
         $statement->execute(['token_hash' => $hash]);
+
+        $this->auditLogger->log('auth.logout', [], $userId, $email, $ip, $userAgent);
     }
 
     private function validateEmail(string $email): void
     {
-        if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+        if ($email === '' || mb_strlen($email) > 255 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
             throw new \RuntimeException('Please enter a valid email address.');
         }
     }
 
-    private function applyRateLimiting(RateLimiter $limiter, string $ip, string $email, string $action): void
-    {
+    private function applyRateLimiting(
+        RateLimiter $limiter,
+        string $ip,
+        string $email,
+        string $action,
+        ?string $userAgent = null
+    ): void {
         if ($limiter->tooManyAttempts($ip, $email, $action)) {
+            $this->auditLogger->log('security.auth.rate_limited', [
+                'action' => $action,
+            ], null, $email, $ip, $userAgent);
+
             throw new \RuntimeException('Too many attempts. Please try again later.');
         }
     }
@@ -286,13 +350,14 @@ class AuthService
         ];
     }
 
-    private function logAttempt(string $ip, string $email, string $action): void
-    {
-        $this->pdo->prepare('INSERT INTO audit_logs (ip_address, email, action, created_at) VALUES (:ip, :email, :action, :created_at)')->execute([
-            'ip' => $ip,
-            'email' => $email,
-            'action' => $action,
-            'created_at' => (new DateTimeImmutable())->format('Y-m-d H:i:s'),
-        ]);
+    private function logAttempt(
+        RateLimiter $limiter,
+        string $ip,
+        string $email,
+        string $action,
+        ?string $userAgent = null,
+        array $details = []
+    ): void {
+        $limiter->hit($ip, $email, $action, $userAgent, $details);
     }
 }

@@ -11,7 +11,7 @@
     </div>
     <div class="grid grid-cols-2 gap-3">
         <?php foreach ($codes as $code): ?>
-            <div class="rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-center text-lg font-semibold tracking-widest"><?= htmlspecialchars($code, ENT_QUOTES) ?></div>
+            <div class="rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-center text-lg font-semibold tracking-widest"><?= htmlspecialchars($code, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></div>
         <?php endforeach; ?>
     </div>
     <a href="/" class="block w-full rounded-md bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-center font-semibold">Return to dashboard</a>

@@ -21,6 +21,10 @@ class Renderer
             throw new RuntimeException(sprintf('Template "%s" not found.', $template));
         }
 
+        if (!array_key_exists('csrfToken', $data)) {
+            $data['csrfToken'] = $_SESSION['csrf_token'] ?? null;
+        }
+
         extract($data);
 
         ob_start();

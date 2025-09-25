@@ -41,9 +41,10 @@ class AuthController
         $data = $request->getParsedBody();
         $email = is_array($data) ? ($data['email'] ?? '') : '';
         $ip = $this->getClientIp($request);
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
 
         try {
-            $this->authService->initiateRegistration($email, $ip);
+            $this->authService->initiateRegistration($email, $ip, $userAgent);
             $status = 'We sent a 6-digit code to your email.';
             $error = null;
         } catch (\Throwable $throwable) {
@@ -81,9 +82,10 @@ class AuthController
         $email = is_array($data) ? ($data['email'] ?? '') : '';
         $code = is_array($data) ? ($data['code'] ?? '') : '';
         $ip = $this->getClientIp($request);
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
 
         try {
-            $session = $this->authService->verifyRegistration($email, $code, $ip);
+            $session = $this->authService->verifyRegistration($email, $code, $ip, $userAgent);
 
             return $this->redirectWithSession($response, $session['token'], $session['expires_at']);
         } catch (\Throwable $throwable) {
@@ -117,9 +119,10 @@ class AuthController
         $data = $request->getParsedBody();
         $email = is_array($data) ? ($data['email'] ?? '') : '';
         $ip = $this->getClientIp($request);
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
 
         try {
-            $this->authService->initiateLogin($email, $ip);
+            $this->authService->initiateLogin($email, $ip, $userAgent);
             $status = 'We sent a 6-digit code to your email.';
             $error = null;
         } catch (\Throwable $throwable) {
@@ -157,9 +160,10 @@ class AuthController
         $email = is_array($data) ? ($data['email'] ?? '') : '';
         $code = is_array($data) ? ($data['code'] ?? '') : '';
         $ip = $this->getClientIp($request);
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
 
         try {
-            $session = $this->authService->verifyLogin($email, $code, $ip);
+            $session = $this->authService->verifyLogin($email, $code, $ip, $userAgent);
 
             return $this->redirectWithSession($response, $session['token'], $session['expires_at']);
         } catch (\Throwable $throwable) {
@@ -190,7 +194,7 @@ class AuthController
             return $response->withHeader('Location', '/auth/login')->withStatus(302);
         }
 
-        $codes = $this->authService->generateBackupCodes((int) $user['user_id']);
+        $codes = $this->authService->generateBackupCodes((int) $user['user_id'], $this->getClientIp($request), $request->getHeaderLine('User-Agent') ?: null);
 
         return $this->renderer->render($response, 'auth/backup-codes', [
             'title' => 'Backup codes generated',
@@ -202,9 +206,14 @@ class AuthController
     public function logout(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $sessionToken = $request->getAttribute('sessionToken');
+        $user = $request->getAttribute('user');
+        $ip = $this->getClientIp($request);
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
 
         if (is_string($sessionToken)) {
-            $this->authService->destroySession($sessionToken);
+            $userId = is_array($user) && isset($user['user_id']) ? (int) $user['user_id'] : null;
+            $email = is_array($user) && isset($user['email']) ? (string) $user['email'] : null;
+            $this->authService->destroySession($sessionToken, $ip, $userAgent, $userId, $email);
         }
 
         return $this->expireSessionCookie($response)->withHeader('Location', '/')->withStatus(302);

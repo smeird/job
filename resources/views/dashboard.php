@@ -23,6 +23,7 @@ $wizardJson = htmlspecialchars(
 );
 ?>
 <?php ob_start(); ?>
+
 <div
     x-data="generationWizard(<?= $wizardJson ?>)"
     class="space-y-10"
@@ -40,6 +41,7 @@ $wizardJson = htmlspecialchars(
             <button type="submit" class="inline-flex items-center justify-center rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800">
                 Sign out
             </button>
+
         </form>
     </div>
 
