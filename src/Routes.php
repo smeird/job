@@ -7,7 +7,9 @@ namespace App;
 use App\Controllers\AuthController;
 use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
-use App\Controllers\RetentionController;
+
+use App\Controllers\GenerationStreamController;
+
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -97,30 +99,10 @@ class Routes
         });
 
 
-        $app->get('/retention', static function (Request $request, Response $response) use ($app): Response {
-            $container = $app->getContainer();
+        $app->get('/generations/{id}/stream', static function (Request $request, Response $response, array $args): Response {
+            $controller = new GenerationStreamController();
 
-            if ($container === null) {
-                throw new RuntimeException('Container is not available.');
-            }
-
-            /** @var RetentionController $controller */
-            $controller = $container->get(RetentionController::class);
-
-            return $controller->show($request, $response);
-        });
-
-        $app->post('/retention', static function (Request $request, Response $response) use ($app): Response {
-            $container = $app->getContainer();
-
-            if ($container === null) {
-                throw new RuntimeException('Container is not available.');
-            }
-
-            /** @var RetentionController $controller */
-            $controller = $container->get(RetentionController::class);
-
-            return $controller->update($request, $response);
+            return $controller($request, $response, $args);
 
         });
     }

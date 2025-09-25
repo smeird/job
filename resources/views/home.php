@@ -1,3 +1,16 @@
+<?php
+$generationIdRaw = $_GET['generation'] ?? null;
+$generationId = null;
+
+if (is_string($generationIdRaw)) {
+    $trimmed = trim($generationIdRaw);
+
+    if ($trimmed !== '') {
+        $sanitised = preg_replace('/[^0-9]/', '', $trimmed);
+        $generationId = $sanitised !== '' ? $sanitised : null;
+    }
+}
+?>
 
 <!DOCTYPE html>
 <html lang="en" data-theme="light">
@@ -151,17 +164,24 @@
                 </div>
             </article>
 
-            <article class="surface-card progress-card" aria-labelledby="progress-title">
+            <article class="surface-card progress-card" aria-labelledby="progress-title" data-generation-monitor<?php if ($generationId !== null) {
+                echo ' data-generation-id="' . htmlspecialchars($generationId, ENT_QUOTES, 'UTF-8') . '"';
+            } ?>>
                 <div>
                     <h4 id="progress-title" class="card-heading">Progress &amp; feedback</h4>
                     <p class="card-description">Soft gradients, rounded corners, and toasts reinforce meaningful state changes.</p>
+                </div>
+                <div class="progress-card__status" aria-live="polite">
+                    <span class="status-pill status-pill--pending" data-generation-status>Pending</span>
+                    <span class="progress-card__metric" data-generation-tokens>0 tokens</span>
+                    <span class="progress-card__metric" data-cost-ticker>&pound;0.00 spent</span>
                 </div>
                 <div class="progress-bar" role="progressbar" data-progress-bar="72">
                     <div class="progress-bar__value"></div>
                 </div>
                 <footer>
                     <span>Integration readiness</span>
-                    <strong>72% complete</strong>
+                    <strong data-progress-label>72% complete</strong>
                 </footer>
                 <div class="toast-stack" aria-live="polite">
                     <article class="toast toast--success" data-toast>
