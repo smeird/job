@@ -15,10 +15,15 @@ final class CsrfMiddleware implements MiddlewareInterface
 {
     private const TOKEN_SESSION_KEY = 'csrf_token';
 
+    private ResponseFactoryInterface $responseFactory;
+    private AuditLogger $auditLogger;
+
     public function __construct(
-        private readonly ResponseFactoryInterface $responseFactory,
-        private readonly AuditLogger $auditLogger
+        ResponseFactoryInterface $responseFactory,
+        AuditLogger $auditLogger
     ) {
+        $this->responseFactory = $responseFactory;
+        $this->auditLogger = $auditLogger;
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

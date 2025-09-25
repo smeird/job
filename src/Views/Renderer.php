@@ -9,8 +9,11 @@ use RuntimeException;
 
 class Renderer
 {
-    public function __construct(private readonly string $basePath)
+    private string $basePath;
+
+    public function __construct(string $basePath)
     {
+        $this->basePath = $basePath;
     }
 
     public function render(ResponseInterface $response, string $template, array $data = [], int $status = 200): ResponseInterface

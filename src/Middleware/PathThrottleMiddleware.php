@@ -14,12 +14,21 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 final class PathThrottleMiddleware implements MiddlewareInterface
 {
+    private RateLimiter $authLimiter;
+    private RateLimiter $uploadLimiter;
+    private ResponseFactoryInterface $responseFactory;
+    private AuditLogger $auditLogger;
+
     public function __construct(
-        private readonly RateLimiter $authLimiter,
-        private readonly RateLimiter $uploadLimiter,
-        private readonly ResponseFactoryInterface $responseFactory,
-        private readonly AuditLogger $auditLogger
+        RateLimiter $authLimiter,
+        RateLimiter $uploadLimiter,
+        ResponseFactoryInterface $responseFactory,
+        AuditLogger $auditLogger
     ) {
+        $this->authLimiter = $authLimiter;
+        $this->uploadLimiter = $uploadLimiter;
+        $this->responseFactory = $responseFactory;
+        $this->auditLogger = $auditLogger;
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

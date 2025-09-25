@@ -16,12 +16,21 @@ final class InputValidationMiddleware implements MiddlewareInterface
     private const DEFAULT_MAX_BODY_BYTES = 1048576; // 1 MiB
     private const DEFAULT_MAX_FIELD_LENGTH = 10000;
 
+    private ResponseFactoryInterface $responseFactory;
+    private AuditLogger $auditLogger;
+    private int $maxBodyBytes;
+    private int $maxFieldLength;
+
     public function __construct(
-        private readonly ResponseFactoryInterface $responseFactory,
-        private readonly AuditLogger $auditLogger,
-        private readonly int $maxBodyBytes = self::DEFAULT_MAX_BODY_BYTES,
-        private readonly int $maxFieldLength = self::DEFAULT_MAX_FIELD_LENGTH
+        ResponseFactoryInterface $responseFactory,
+        AuditLogger $auditLogger,
+        int $maxBodyBytes = self::DEFAULT_MAX_BODY_BYTES,
+        int $maxFieldLength = self::DEFAULT_MAX_FIELD_LENGTH
     ) {
+        $this->responseFactory = $responseFactory;
+        $this->auditLogger = $auditLogger;
+        $this->maxBodyBytes = $maxBodyBytes;
+        $this->maxFieldLength = $maxFieldLength;
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

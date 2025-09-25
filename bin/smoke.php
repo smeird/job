@@ -47,8 +47,11 @@ namespace Ramsey\Uuid {
 namespace League\CommonMark {
     final class RenderedContent
     {
-        public function __construct(private readonly string $content)
+        private string $content;
+
+        public function __construct(string $content)
         {
+            $this->content = $content;
         }
 
         public function getContent(): string
@@ -73,6 +76,11 @@ namespace League\CommonMark {
             $html = '<p>' . str_replace("\n", '<br>', $escaped) . '</p>';
 
             return new RenderedContent($html);
+        }
+
+        public function convertToHtml(string $markdown): RenderedContent
+        {
+            return $this->convert($markdown);
         }
     }
 }
@@ -380,9 +388,11 @@ final class SmokeUploadedFile implements UploadedFileInterface
 final class SmokeEnvironment
 {
     private string $databasePath;
+    private string $rootPath;
 
-    public function __construct(private readonly string $rootPath)
+    public function __construct(string $rootPath)
     {
+        $this->rootPath = $rootPath;
         $this->databasePath = $this->rootPath . '/database/smoke.sqlite';
     }
 
@@ -409,8 +419,11 @@ final class SmokeEnvironment
 
 final class SmokeSchema
 {
-    public function __construct(private readonly GlobalPDO $pdo)
+    private GlobalPDO $pdo;
+
+    public function __construct(GlobalPDO $pdo)
     {
+        $this->pdo = $pdo;
     }
 
     public function migrate(): void
@@ -566,8 +579,11 @@ final class SmokeAuth
     private SmokeMailer $mailer;
     private AuthService $service;
 
-    public function __construct(private readonly GlobalPDO $pdo)
+    private GlobalPDO $pdo;
+
+    public function __construct(GlobalPDO $pdo)
     {
+        $this->pdo = $pdo;
         $auditLogger = new AuditLogger($pdo);
         $requestLimiter = new RateLimiter($pdo, $auditLogger, 10, new GlobalDateInterval('PT15M'));
         $verifyLimiter = new RateLimiter($pdo, $auditLogger, 10, new GlobalDateInterval('PT15M'));
@@ -589,6 +605,12 @@ final class SmokeAuth
         $loginCode = $this->extractLatestCode();
         $this->service->verifyLogin($email, $loginCode, $ip, $agent);
 
+        $statement = $this->pdo->prepare('SELECT id FROM users WHERE email = :email LIMIT 1');
+        $statement->execute(['email' => $email]);
+        $userId = (int) $statement->fetchColumn();
+
+        $session['user_id'] = $userId;
+
         return $session;
     }
 
@@ -607,19 +629,22 @@ final class SmokeAuth
 
 final class SmokeDocuments
 {
-    public function __construct(private readonly GlobalPDO $pdo)
+    private GlobalPDO $pdo;
+
+    public function __construct(GlobalPDO $pdo)
     {
+        $this->pdo = $pdo;
     }
 
     /**
      * @return array{document_id: int, extracted: string}
      */
-    public function run(): array
+    public function run(int $userId): array
     {
         $documentService = new DocumentService(new DocumentRepository($this->pdo), new DocumentValidator());
         $content = "# Sample CV\n\n* Results-driven engineer\n";
         $uploaded = SmokeUploadedFile::fromString('cv.md', 'text/markdown', $content);
-        $document = $documentService->storeUploadedDocument($uploaded);
+        $document = $documentService->storeUploadedDocument($uploaded, $userId, 'cv');
 
         $tempFile = tempnam(sys_get_temp_dir(), 'smoke-cv-');
 
@@ -648,8 +673,11 @@ final class SmokeFakeOpenAIProvider
 {
     private GlobalPDO $pdo;
 
-    public function __construct(private readonly int $userId, ?object $client = null, ?GlobalPDO $pdo = null)
+    private int $userId;
+
+    public function __construct(int $userId, ?object $client = null, ?GlobalPDO $pdo = null)
     {
+        $this->userId = $userId;
         $this->pdo = $pdo ?? DB::getConnection();
     }
 
@@ -703,8 +731,11 @@ MARKDOWN;
 
 final class SmokeGeneration
 {
-    public function __construct(private readonly GlobalPDO $pdo)
+    private GlobalPDO $pdo;
+
+    public function __construct(GlobalPDO $pdo)
     {
+        $this->pdo = $pdo;
     }
 
     /**
@@ -823,8 +854,11 @@ final class SmokeGeneration
 
 final class SmokePurge
 {
-    public function __construct(private readonly GlobalPDO $pdo)
+    private GlobalPDO $pdo;
+
+    public function __construct(GlobalPDO $pdo)
     {
+        $this->pdo = $pdo;
     }
 
     public function seed(): void
@@ -892,10 +926,10 @@ try {
     echo "✔ Authentication flow completed (session expires {$session['expires_at']->format('c')})\n";
 
     $documents = new SmokeDocuments($pdo);
-    $documentResult = $documents->run();
+    $documentResult = $documents->run($session['user_id']);
     echo "✔ Document uploaded and extracted ({$documentResult['extracted']})\n";
 
-    $userId = 1;
+    $userId = $session['user_id'];
     $generation = new SmokeGeneration($pdo);
     $generationResult = $generation->run($documentResult, $userId);
     echo "✔ Generation job processed (ID {$generationResult['generation_id']})\n";

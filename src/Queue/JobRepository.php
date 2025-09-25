@@ -18,8 +18,11 @@ final class JobRepository
 {
     private const MAX_ERROR_LENGTH = 1000;
 
-    public function __construct(private readonly PDO $pdo)
+    private PDO $pdo;
+
+    public function __construct(PDO $pdo)
     {
+        $this->pdo = $pdo;
     }
 
     public function reserveNextPending(): ?Job

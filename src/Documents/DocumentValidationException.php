@@ -8,9 +8,13 @@ use RuntimeException;
 
 class DocumentValidationException extends RuntimeException
 {
-    public function __construct(string $message, private readonly int $statusCode = 400)
+    private int $statusCode;
+
+    public function __construct(string $message, int $statusCode = 400)
     {
         parent::__construct($message);
+
+        $this->statusCode = $statusCode;
     }
 
     public function statusCode(): int

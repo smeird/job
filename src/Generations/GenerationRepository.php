@@ -9,8 +9,11 @@ use PDO;
 
 final class GenerationRepository
 {
-    public function __construct(private readonly PDO $pdo)
+    private PDO $pdo;
+
+    public function __construct(PDO $pdo)
     {
+        $this->pdo = $pdo;
     }
 
     public function create(int $userId, int $jobDocumentId, int $cvDocumentId, string $model, float $temperature): array

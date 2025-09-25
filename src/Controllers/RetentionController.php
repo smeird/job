@@ -13,10 +13,15 @@ use RuntimeException;
 
 class RetentionController
 {
+    private Renderer $renderer;
+    private RetentionPolicyService $retentionPolicyService;
+
     public function __construct(
-        private readonly Renderer $renderer,
-        private readonly RetentionPolicyService $retentionPolicyService
+        Renderer $renderer,
+        RetentionPolicyService $retentionPolicyService
     ) {
+        $this->renderer = $renderer;
+        $this->retentionPolicyService = $retentionPolicyService;
     }
 
     public function show(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface

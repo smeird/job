@@ -27,24 +27,25 @@ class DocumentValidator
             throw new DocumentValidationException('Unsupported file type.');
         }
 
-        return match ($extension) {
-            'docx' => [
-                'mime' => $this->validateDocx($content, $temporaryPath),
-                'size' => $size,
-            ],
-            'pdf' => [
-                'mime' => $this->validatePdf($content),
-                'size' => $size,
-            ],
-            'md' => [
-                'mime' => $this->validateTextLike($content, 'text/markdown'),
-                'size' => $size,
-            ],
-            default => [
-                'mime' => $this->validateTextLike($content, 'text/plain'),
-                'size' => $size,
-            ],
-        };
+        switch ($extension) {
+            case 'docx':
+                $mime = $this->validateDocx($content, $temporaryPath);
+                break;
+            case 'pdf':
+                $mime = $this->validatePdf($content);
+                break;
+            case 'md':
+                $mime = $this->validateTextLike($content, 'text/markdown');
+                break;
+            default:
+                $mime = $this->validateTextLike($content, 'text/plain');
+                break;
+        }
+
+        return [
+            'mime' => $mime,
+            'size' => $size,
+        ];
     }
 
     private function validateDocx(string $content, ?string $temporaryPath): string

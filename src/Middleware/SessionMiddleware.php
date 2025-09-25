@@ -12,8 +12,11 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class SessionMiddleware implements MiddlewareInterface
 {
-    public function __construct(private readonly AuthService $authService)
+    private AuthService $authService;
+
+    public function __construct(AuthService $authService)
     {
+        $this->authService = $authService;
     }
 
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface

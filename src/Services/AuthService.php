@@ -16,13 +16,24 @@ class AuthService
     private const LOGIN_REQUEST_ACTION = 'login.request';
     private const LOGIN_VERIFY_ACTION = 'login.verify';
 
+    private PDO $pdo;
+    private MailerInterface $mailer;
+    private RateLimiter $requestLimiter;
+    private RateLimiter $verifyLimiter;
+    private AuditLogger $auditLogger;
+
     public function __construct(
-        private readonly PDO $pdo,
-        private readonly MailerInterface $mailer,
-        private readonly RateLimiter $requestLimiter,
-        private readonly RateLimiter $verifyLimiter,
-        private readonly AuditLogger $auditLogger
+        PDO $pdo,
+        MailerInterface $mailer,
+        RateLimiter $requestLimiter,
+        RateLimiter $verifyLimiter,
+        AuditLogger $auditLogger
     ) {
+        $this->pdo = $pdo;
+        $this->mailer = $mailer;
+        $this->requestLimiter = $requestLimiter;
+        $this->verifyLimiter = $verifyLimiter;
+        $this->auditLogger = $auditLogger;
     }
 
     public function initiateRegistration(string $email, string $ip, ?string $userAgent = null): void

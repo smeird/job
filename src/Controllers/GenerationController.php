@@ -19,10 +19,15 @@ final class GenerationController
         ['value' => 'claude-3-5-sonnet', 'label' => 'Claude 3.5 Sonnet · Balanced reasoning'],
     ];
 
+    private GenerationRepository $generationRepository;
+    private DocumentRepository $documentRepository;
+
     public function __construct(
-        private readonly GenerationRepository $generationRepository,
-        private readonly DocumentRepository $documentRepository,
+        GenerationRepository $generationRepository,
+        DocumentRepository $documentRepository,
     ) {
+        $this->generationRepository = $generationRepository;
+        $this->documentRepository = $documentRepository;
     }
 
     public function create(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
@@ -101,7 +106,10 @@ final class GenerationController
         return self::MODELS;
     }
 
-    private function extractInt(mixed $value): ?int
+    /**
+     * @param mixed $value
+     */
+    private function extractInt($value): ?int
     {
         if ($value === null) {
             return null;
@@ -118,7 +126,10 @@ final class GenerationController
         return null;
     }
 
-    private function extractFloat(mixed $value): ?float
+    /**
+     * @param mixed $value
+     */
+    private function extractFloat($value): ?float
     {
         if ($value === null) {
             return null;

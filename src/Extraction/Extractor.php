@@ -17,9 +17,12 @@ class Extractor
 {
     /** @var ReaderInterface[] */
     private array $readers = [];
+    private PDO $connection;
 
-    public function __construct(private readonly PDO $connection, iterable $readers = [])
+    public function __construct(PDO $connection, iterable $readers = [])
     {
+        $this->connection = $connection;
+
         foreach ($readers as $reader) {
             $this->addReader($reader);
         }
@@ -58,7 +61,7 @@ class Extractor
 
             throw $throwable instanceof ExtractionException
                 ? $throwable
-                : new ExtractionException('Failed to extract document text.', previous: $throwable);
+                : new ExtractionException('Failed to extract document text.', 0, $throwable);
         }
     }
 
@@ -164,7 +167,7 @@ final class DocxReader implements ReaderInterface
 
             return $this->convertHtmlToText($html);
         } catch (Throwable $throwable) {
-            throw new ExtractionException('Unable to extract text from DOCX file.', previous: $throwable);
+            throw new ExtractionException('Unable to extract text from DOCX file.', 0, $throwable);
         }
     }
 
@@ -219,10 +222,10 @@ final class PdfReader implements ReaderInterface
             return $this->extractWithPdftotext($filePath);
         } catch (Throwable $throwable) {
             if ($parserException !== null) {
-                throw new ExtractionException('Unable to extract text from PDF (parser and pdftotext both failed).', previous: $parserException);
+                throw new ExtractionException('Unable to extract text from PDF (parser and pdftotext both failed).', 0, $parserException);
             }
 
-            throw new ExtractionException('Unable to extract text from PDF.', previous: $throwable);
+            throw new ExtractionException('Unable to extract text from PDF.', 0, $throwable);
         }
     }
 
@@ -264,11 +267,15 @@ final class PdfReader implements ReaderInterface
 
 final class TextReader implements ReaderInterface
 {
+    /** @var string[] */
+    private array $extensions;
+
     /**
      * @param string[] $extensions
      */
-    public function __construct(private readonly array $extensions)
+    public function __construct(array $extensions)
     {
+        $this->extensions = $extensions;
     }
 
     public function supports(?string $mimeType, string $extension): bool
