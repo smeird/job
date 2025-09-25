@@ -18,18 +18,18 @@ if (is_string($generationIdRaw)) {
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Adaptive Workspace Design System</title>
-    <meta name="description" content="Glassmorphic Tailwind design tokens showcasing upload cards, data tables, steppers, progress, and toast notifications.">
+    <title>job.smeird.com Workspace</title>
+    <meta name="description" content="Upload job descriptions and CVs, generate tailored drafts with AI, and monitor usage in the job.smeird.com workspace.">
     <link rel="stylesheet" href="/assets/css/theme.css">
 </head>
 <body>
 <main>
     <header>
         <div>
-            <h1>Adaptive Workspace UI</h1>
+            <h1>job.smeird.com workspace</h1>
             <p>
-                A cohesive token-driven theme with glassmorphic surfaces, gradient actions, soft shadows, and a responsive
-                dark/light mode built for complex, data-rich workflows.
+                Purpose-built tooling for applicants who need to ingest job descriptions, match them with curated CVs, and ship
+                polished drafts without juggling spreadsheets or ad-hoc prompts.
             </p>
         </div>
         <button type="button" class="theme-toggle" data-theme-toggle aria-pressed="false">
@@ -51,24 +51,24 @@ if (is_string($generationIdRaw)) {
     <section class="hero-card">
         <div class="hero-card-content">
             <div>
-                <span class="badge">AA contrast compliant</span>
-                <h2>Design once, respond everywhere</h2>
+                <span class="badge">AI-assisted job applications</span>
+                <h2>Tailor every submission with confidence</h2>
                 <p>
-                    Each component inherits the design tokens defined in <code>tailwind.config.js</code> and the layered
-                    CSS variables, ensuring translucency, soft radii, and focus states remain consistent across the
-                    application.
+                    Upload job specs, pair them with the right CV, and queue drafts that honour your brand voice. The workspace
+                    keeps authentication passwordless, enforces document safety checks, and signs download links so only you can
+                    access the finished artefacts.
                 </p>
             </div>
             <div class="hero-actions">
-                <button type="button" class="gradient-button focus-ring">
-                    Launch workflow
+                <a class="gradient-button focus-ring" href="/dashboard">
+                    Open your workspace
                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                         <path d="M5 12h14"></path>
                         <path d="M13 6l6 6-6 6"></path>
                     </svg>
-                </button>
+                </a>
                 <a class="secondary-link focus-ring" href="#components">
-                    Explore tokens
+                    Explore the flow
                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                         <path d="M5 12h14"></path>
                         <path d="M13 6l6 6-6 6"></path>
@@ -81,10 +81,10 @@ if (is_string($generationIdRaw)) {
     <section id="components">
         <header>
             <div>
-                <h3 class="section-title">Component showcase</h3>
+                <h3 class="section-title">Workspace highlights</h3>
                 <p class="section-subtitle">
-                    Upload pipelines, real-time data visibility, wizard flows, progress tracking, and toast feedback all
-                    inherit translucent surfaces, gradient accents, and accessible focus treatments.
+                    From passcode-based sign-in to usage analytics, every feature on this page reflects the experience you get
+                    after logging in.
                 </p>
             </div>
         </header>
@@ -92,8 +92,8 @@ if (is_string($generationIdRaw)) {
         <div class="component-grid">
             <article class="surface-card upload-card" aria-labelledby="upload-title">
                 <div>
-                    <h4 id="upload-title" class="card-heading">Upload workspace assets</h4>
-                    <p class="card-description">Drop compliant CSV or JSON exports for instant processing.</p>
+                    <h4 id="upload-title" class="card-heading">Ingest job descriptions and CVs</h4>
+                    <p class="card-description">Drop structured job specs or CV updates directly into the secure document store.</p>
                 </div>
                 <label class="upload-dropzone" for="workspace-upload">
                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -101,7 +101,7 @@ if (is_string($generationIdRaw)) {
                         <path d="M6 10l6-6 6 6"></path>
                         <rect x="4" y="16" width="16" height="4" rx="1.4"></rect>
                     </svg>
-                    <span>Drag &amp; drop files here</span>
+                    <span>Drag &amp; drop PDFs, DOCX, Markdown, or text files</span>
                 </label>
                 <input id="workspace-upload" name="workspace-upload" type="file" hidden>
                 <div class="upload-actions">
@@ -111,25 +111,25 @@ if (is_string($generationIdRaw)) {
                             <path d="M9 12h6"></path>
                             <path d="M12 9v6"></path>
                         </svg>
-                        Choose file
+                        Choose a file
                     </label>
-                    <p>Supported formats: CSV, JSON, PDF • Max 15&nbsp;MB</p>
+                    <p>Uploads are capped at 1&nbsp;MiB and scanned for risky macros before storage.</p>
                 </div>
             </article>
 
             <article class="surface-card data-table" aria-labelledby="table-title">
                 <div>
-                    <h4 id="table-title" class="card-heading">Workspace usage</h4>
-                    <p class="card-description">Adaptive density table with quick search and status indicators.</p>
+                    <h4 id="table-title" class="card-heading">Recent tailored drafts</h4>
+                    <p class="card-description">Tabulator powers sortable previews of queued and completed generations.</p>
                 </div>
                 <div class="data-table__toolbar">
-                    <span class="badge">Live data</span>
-                    <label class="data-table__search" aria-label="Search workspace data">
+                    <span class="badge">Sample queue</span>
+                    <label class="data-table__search" aria-label="Search tailored drafts">
                         <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                             <circle cx="11" cy="11" r="6"></circle>
                             <path d="M20 20l-3.35-3.35"></path>
                         </svg>
-                        <input type="search" placeholder="Search" data-table-search aria-label="Search workspaces">
+                        <input type="search" placeholder="Search drafts" data-table-search aria-label="Search tailored drafts">
                     </label>
                 </div>
                 <div class="data-table__table" id="data-table"></div>
@@ -137,29 +137,29 @@ if (is_string($generationIdRaw)) {
 
             <article class="surface-card" aria-labelledby="wizard-title">
                 <div>
-                    <h4 id="wizard-title" class="card-heading">Wizard stepper</h4>
-                    <p class="card-description">Progressive steps keep teams aligned while maintaining contrast in both themes.</p>
+                    <h4 id="wizard-title" class="card-heading">Workflow preview</h4>
+                    <p class="card-description">The same wizard guides every generation once you sign in.</p>
                 </div>
                 <div class="wizard-stepper" role="list">
                     <div class="step" role="listitem" data-step-index="1" data-step-complete="true">
                         <span class="step__indicator">1</span>
-                        <p class="step__label">Plan</p>
-                        <p class="step__description">Define cohorts and success metrics.</p>
+                        <p class="step__label">Upload job spec</p>
+                        <p class="step__description">Capture each posting so you can reference it later.</p>
                     </div>
                     <div class="step" role="listitem" data-step-index="2" data-step-complete="true">
                         <span class="step__indicator">2</span>
-                        <p class="step__label">Ingest</p>
-                        <p class="step__description">Securely sync vendor and first-party data.</p>
+                        <p class="step__label">Select the right CV</p>
+                        <p class="step__description">Swap between tailored resumes stored securely in the vault.</p>
                     </div>
                     <div class="step" role="listitem" data-step-index="3" data-step-active="true">
                         <span class="step__indicator">3</span>
-                        <p class="step__label">Model</p>
-                        <p class="step__description">Train forecasting pipelines with guardrails.</p>
+                        <p class="step__label">Configure the draft</p>
+                        <p class="step__description">Pick a model, adjust creativity, and confirm usage expectations.</p>
                     </div>
                     <div class="step" role="listitem" data-step-index="4">
                         <span class="step__indicator">4</span>
-                        <p class="step__label">Launch</p>
-                        <p class="step__description">Share dashboards &amp; automate alerts.</p>
+                        <p class="step__label">Review &amp; download</p>
+                        <p class="step__description">Receive a signed link and archive outputs alongside analytics.</p>
                     </div>
                 </div>
             </article>
@@ -168,20 +168,20 @@ if (is_string($generationIdRaw)) {
                 echo ' data-generation-id="' . htmlspecialchars($generationId, ENT_QUOTES, 'UTF-8') . '"';
             } ?>>
                 <div>
-                    <h4 id="progress-title" class="card-heading">Progress &amp; feedback</h4>
-                    <p class="card-description">Soft gradients, rounded corners, and toasts reinforce meaningful state changes.</p>
+                    <h4 id="progress-title" class="card-heading">Live generation monitor</h4>
+                    <p class="card-description">Server-sent events track status, token usage, and spend while drafts are built.</p>
                 </div>
                 <div class="progress-card__status" aria-live="polite">
-                    <span class="status-pill status-pill--pending" data-generation-status>Pending</span>
+                    <span class="status-pill status-pill--pending" data-generation-status>Queued</span>
                     <span class="progress-card__metric" data-generation-tokens>0 tokens</span>
                     <span class="progress-card__metric" data-cost-ticker>&pound;0.00 spent</span>
                 </div>
-                <div class="progress-bar" role="progressbar" data-progress-bar="72">
+                <div class="progress-bar" role="progressbar" data-progress-bar="48">
                     <div class="progress-bar__value"></div>
                 </div>
                 <footer>
-                    <span>Integration readiness</span>
-                    <strong data-progress-label>72% complete</strong>
+                    <span>Queue progress</span>
+                    <strong data-progress-label>48% complete</strong>
                 </footer>
                 <div class="toast-stack" aria-live="polite">
                     <article class="toast toast--success" data-toast>
@@ -189,8 +189,8 @@ if (is_string($generationIdRaw)) {
                             <path d="M5 13l4 4L19 7"></path>
                         </svg>
                         <div>
-                            <p class="toast__title">Upload processed</p>
-                            <p class="toast__message">Nova UX Research synced 28k events just now.</p>
+                            <p class="toast__title">Draft delivered</p>
+                            <p class="toast__message">Your frontend engineer cover letter is ready to download.</p>
                         </div>
                         <button type="button" class="toast__close" aria-label="Dismiss success toast" data-toast-dismiss>
                             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -206,8 +206,8 @@ if (is_string($generationIdRaw)) {
                             <path d="M12 16h.01"></path>
                         </svg>
                         <div>
-                            <p class="toast__title">Workflow reminder</p>
-                            <p class="toast__message">Stakeholder review begins tomorrow at 10:00 AM.</p>
+                            <p class="toast__title">Retention reminder</p>
+                            <p class="toast__message">Policy is set to purge unused drafts after 30 days.</p>
                         </div>
                         <button type="button" class="toast__close" aria-label="Dismiss info toast" data-toast-dismiss>
                             <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
@@ -222,11 +222,10 @@ if (is_string($generationIdRaw)) {
     </section>
 
     <footer>
-        <small>Theme tokens ship with Tailwind utilities for backdrop blur, gradients, shadows, and focus safety nets.</small>
+        <small>Powered by Tailwind design tokens, Tabulator tables, and Highcharts dashboards across the authenticated workspace.</small>
     </footer>
 </main>
 
 <script src="/assets/js/theme.js" defer></script>
 </body>
 </html>
-
