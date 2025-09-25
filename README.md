@@ -1,179 +1,124 @@
-# job.smeird.com Deployment Guide
+# job.smeird.com Application Guide
 
-This application tailors CVs and cover letters via queued background jobs and integrates with OpenAI. The repository ships with a deterministic smoke suite that exercises the core features (database migration, authentication, document upload/extraction, generation workflow, downloads, and data retention purge).
+This repository contains the production code that powers the job.smeird.com workspace. It is a Slim 4/PHP application that provides passcode-based authentication, CV and job description ingestion, AI-assisted drafting, secure download links, usage analytics, and automated retention tooling.
 
-## Prerequisites
+## Overview of capabilities
 
-* **PHP:** 8.3 or newer with CLI access.
-* **Database:** MySQL 8.x (or compatible) configured with UTF-8 (`utf8mb4`).
-* **Composer:** Latest stable release to install PHP dependencies.
-* **Node.js:** Only required when rebuilding frontend assets (Tailwind CSS).
+* **Passwordless authentication and recovery.** Registration and login both rely on short-lived email passcodes, are rate-limited, and produce sessions plus downloadable backup codes for break-glass access.【F:src/Services/AuthService.php†L39-L194】
+* **Safe document handling.** Uploads are capped at 1&nbsp;MiB, are limited to DOCX/PDF/Markdown/Text formats, and undergo structure checks (e.g. macro detection) before storage.【F:src/Documents/DocumentValidator.php†L11-L154】
+* **Generation workflow with guarded downloads.** Tailored artefacts are produced through queued jobs and exposed through HMAC-protected links that honour per-user tokens, format scopes, and expirations.【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:src/Controllers/GenerationDownloadController.php†L29-L137】
+* **Spend and token insight.** A Tailwind/Tabulator/Highcharts dashboard visualises per-call usage, running totals, and monthly aggregates sourced from the `api_usage` table.【F:resources/views/usage.php†L10-L112】【F:src/Services/UsageService.php†L20-L134】【F:src/Routes.php†L141-L142】
+* **Retention governance.** A dedicated `retention_settings` table captures purge policy state and drives the CLI purge utility that clears documents, generation outputs, usage rows, and audit logs after the configured number of days.【F:src/Services/RetentionPolicyService.php†L13-L182】【F:bin/purge.php†L18-L63】
 
-### Required PHP Extensions
+## Architecture at a glance
 
-Enable the following extensions in `php.ini` (most are compiled by default in modern PHP builds):
+* A PHP-DI container wires controllers, services, repositories, and middleware inside `public/index.php`, including mail transport selection, rate limiters, and download token services.【F:public/index.php†L53-L179】
+* Runtime bootstrap loads environment variables and normalises the application URL for downstream consumers.【F:src/Bootstrap.php†L12-L43】
+* Every HTTP request runs lightweight database migrations that ensure core tables (users, pending passcodes, sessions, documents, generations, backup codes, audit logs) exist before handling traffic.【F:public/index.php†L181-L186】【F:src/Infrastructure/Database/Migrator.php†L19-L160】
+* Additional SQL migrations live in `database/migrations` and can be applied out-of-band through the `bin/migrate.php` helper, which tracks state via the `schema_migrations` table.【F:bin/migrate.php†L21-L76】
+* Background work is dispatched into the `jobs` table and processed by the `bin/worker.php` daemon, which requires `pcntl` and graceful signal handling.【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:bin/worker.php†L1-L68】
+* OpenAI interactions read model configuration, tariff data, and max token limits from environment variables and persist usage rows for reporting.【F:src/AI/OpenAIProvider.php†L52-L117】【F:src/Services/UsageService.php†L20-L102】
 
-* `pdo_mysql`, `pdo_sqlite` (for local smoke tests)
-* `curl`
-* `mbstring`
-* `openssl`
-* `json`
-* `zip`
-* `dom`, `xml`
-* `fileinfo`
-* `iconv`
-* `simplexml`
-* `sodium`
-* `pcntl` (needed for the queue worker)
+## Requirements
 
-## Installation Steps
+### Server prerequisites
+
+* **PHP 8.0+ CLI** – the codebase uses union/mixed types and other PHP&nbsp;8 language features.【F:bin/verify.helpers.php†L37-L121】
+* **Database** – MySQL 8.x (production) or SQLite for local experimentation; configure via DSN/driver variables.【F:src/DB.php†L36-L78】
+* **Composer** – to install PHP dependencies.
+* **Web server** – Apache or Nginx configured to serve the `public/` directory.
+
+### PHP extensions
+
+Enable or install the following extensions:
+
+* `pdo_mysql` (or `pdo_sqlite` when using SQLite) for persistence.【F:src/DB.php†L36-L69】
+* `mbstring` for multi-byte validation and extraction logic across middleware and extractors.【F:src/Middleware/InputValidationMiddleware.php†L62-L109】【F:src/Extraction/Extractor.php†L296-L319】
+* `zip` and `fileinfo` to validate DOCX/PDF uploads.【F:src/Documents/DocumentValidator.php†L51-L154】
+* `pcntl` for the long-running worker process.【F:bin/worker.php†L13-L34】
+
+### Optional tooling
+
+* Node.js is only necessary when rebuilding or customising the pre-built Tailwind assets that live under `public/assets/`.
+
+## Installation
 
 1. **Clone the repository**
    ```bash
    git clone https://github.com/smeird/job.git /var/www/job
    cd /var/www/job
    ```
-
-2. **Install dependencies**
+2. **Install PHP dependencies**
    ```bash
-   composer install --no-dev
+   composer install --no-dev --optimize-autoloader
    ```
-
-3. **Copy and configure the environment file**
+3. **Bootstrap environment variables**
    ```bash
    cp .env.example .env
    ```
-   Then populate the variables described below.
-
+   Edit `.env` to match your environment (see the configuration table below). The bootstrapper automatically reads it on each request.【F:src/Bootstrap.php†L20-L43】
 4. **Run database migrations**
    ```bash
    php bin/migrate.php
    ```
+   This applies the SQL migrations in `database/migrations/` so the schema matches production before traffic hits the runtime migrator.【F:bin/migrate.php†L21-L76】
+5. **Set directory permissions**
+   Ensure the web server user can read the codebase and create the mail log directory specified by `MAIL_LOG_PATH` if SMTP is not configured.【F:public/index.php†L73-L89】
 
-5. **Verify the installation with the smoke suite**
-   The smoke script uses SQLite and lightweight stubs, so it can run on any workstation without external services.
-   ```bash
-   php bin/smoke.php
-   ```
-   Successful output confirms migrations, authentication, document workflows, OpenAI job handling (mocked), download rendering, and retention purge logic.
+After these steps, point your virtual host at `public/index.php` and restart PHP-FPM or Apache so new environment variables take effect.
 
-6. **Set correct permissions**
-   Ensure the web server user can read the project directory and write to any configured storage paths (e.g., logs).
+## Configuration reference
 
-## Environment Configuration
+| Variable | Purpose | Reference |
+| --- | --- | --- |
+| `APP_ENV`, `APP_DEBUG` | Standard Slim environment flags. | 【F:src/Bootstrap.php†L12-L43】 |
+| `APP_URL` | Canonical URL used in redirects and CSPs. | 【F:src/Bootstrap.php†L35-L43】 |
+| `APP_COOKIE_DOMAIN` | Domain used when setting secure session cookies. | 【F:public/index.php†L40-L47】 |
+| `APP_KEY` / `DOWNLOAD_TOKEN_SECRET` | Secret used to sign download tokens (set at least one). | 【F:public/index.php†L158-L171】 |
+| `DOWNLOAD_TOKEN_TTL` | Lifetime (seconds) for download URLs; defaults to 300. | 【F:public/index.php†L165-L169】 |
+| `DB_DSN` or `DB_DRIVER` + `DB_HOST`/`DB_PORT`/`DB_DATABASE`/`DB_SOCKET`/`DB_CHARSET`/`DB_USERNAME`/`DB_PASSWORD` | Database connection settings. | 【F:src/DB.php†L36-L78】 |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_TLS`, `SMTP_FROM` | Outbound email configuration for passcode delivery. When unset, messages are appended to `MAIL_LOG_PATH`. | 【F:public/index.php†L73-L89】 |
+| `MAIL_LOG_PATH` | Fallback file path when SMTP is not available. | 【F:public/index.php†L86-L88】 |
+| `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL_PLAN`, `OPENAI_MODEL_DRAFT`, `OPENAI_TARIFF_JSON`, `OPENAI_MAX_TOKENS` | OpenAI credentials, endpoints, tariff data, and token ceilings. | 【F:src/AI/OpenAIProvider.php†L52-L117】 |
 
-The following variables are consumed by the application. Values shown are illustrative.
+The application also respects `DB_DATABASE=':memory:'` when `DB_DRIVER=sqlite`, which is convenient for smoke testing.【F:src/DB.php†L41-L58】
 
-```dotenv
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://job.smeird.com
+## Database and background jobs
 
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=job
-DB_USERNAME=job
-DB_PASSWORD=change-me
+* The runtime migrator only creates the core tables required for authentication, document storage, generations, backup codes, and audit logs; it also amends audit log columns when needed for backwards compatibility.【F:src/Infrastructure/Database/Migrator.php†L19-L191】
+* SQL migrations introduce higher-level constructs such as the JSON-backed `api_usage` ledger, retention policies, and the job queue schema.【F:database/migrations/20240326000000_initial.php†L7-L141】【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:database/migrations/20240718000001_add_generation_stream_columns.php†L1-L13】
+* Run the worker under a supervisor (systemd, supervisord, etc.) using `php bin/worker.php` so queued `tailor_cv` jobs are processed continuously.【F:bin/worker.php†L29-L68】
+* Configure a cron entry to execute `php bin/purge.php` daily. It honours the active retention policy and reports how many rows were removed per resource.【F:bin/purge.php†L18-L63】
 
-SMTP_HOST=smtp.mailprovider.com
-SMTP_PORT=587
-SMTP_USERNAME=apikey
-SMTP_PASSWORD=change-me
-SMTP_ENCRYPTION=tls
+## Usage analytics & retention
 
-OPENAI_API_KEY=sk-your-key
-OPENAI_BASE_URL=https://api.openai.com/v1
-OPENAI_MODEL_PLAN=gpt-4o-mini-plan
-OPENAI_MODEL_DRAFT=gpt-4o-mini
-OPENAI_TARIFF_JSON={"gpt-4o-mini":{"prompt":0.00025,"completion":0.001}}
-OPENAI_MAX_TOKENS=4000
-```
+* `/usage` renders a Tailwind-styled dashboard that fetches data from `/usage/data`; both routes require an authenticated session.【F:resources/views/usage.php†L10-L112】【F:src/Controllers/UsageController.php†L20-L47】【F:src/Routes.php†L141-L142】
+* The analytics service aggregates per-call token counts, costs, and month-to-date totals, and falls back gracefully when metadata is missing.【F:src/Services/UsageService.php†L35-L134】
+* Retention settings are stored in `retention_settings` with JSON lists of the resources to purge; invalid configurations are rejected and sensible defaults (30 days, all resources) are provided when no row exists.【F:src/Services/RetentionPolicyService.php†L15-L139】
 
-Additional optional variables:
+## Document workflow highlights
 
-* `APP_TIMEZONE` – override the default timezone.
-* `SMTP_FROM_ADDRESS` / `SMTP_FROM_NAME` – customise outbound email sender details.
+* Authenticated uploads are throttled at the middleware layer and validated server-side to ensure content integrity before insertion into the `documents` table.【F:src/Middleware/PathThrottleMiddleware.php†L49-L107】【F:src/Documents/DocumentValidator.php†L11-L154】
+* Generation downloads require a signed token that must match both the requested format and the owning user, and links expire automatically to prevent replay.【F:src/Controllers/GenerationDownloadController.php†L29-L116】
 
-## Apache Virtual Host Example
+## Testing & verification
 
-```apache
-<VirtualHost *:80>
-    ServerName job.smeird.com
-    DocumentRoot /var/www/job/public
+* **Static checks** – run `composer test` to execute the bundled PHP lint targets defined in `composer.json`.【F:composer.json†L28-L36】
+* **Smoke test** – execute `php bin/smoke.php` locally; it boots an isolated environment with in-memory dependencies and walks through authentication, document ingestion, AI generation, downloads, and retention purge paths.【F:bin/smoke.php†L594-L729】
 
-    <Directory /var/www/job/public>
-        AllowOverride All
-        Options FollowSymLinks
-        Require all granted
-    </Directory>
+Both scripts rely on PHP&nbsp;8 features and expect the same extensions listed in the requirements section.【F:bin/verify.helpers.php†L37-L121】
 
-    ErrorLog  ${APACHE_LOG_DIR}/job-error.log
-    CustomLog ${APACHE_LOG_DIR}/job-access.log combined
+## Deployment checklist
 
-    SetEnv APP_ENV production
-    SetEnv APP_DEBUG false
-</VirtualHost>
-```
+1. Deploy application code and vendor assets to your host.
+2. Ensure environment variables (.env or server-level) are populated with the configuration values above.
+3. Create the `storage/logs` directory (or adjust `MAIL_LOG_PATH`) if you plan to use the log mailer fallback.【F:public/index.php†L86-L88】
+4. Run `php bin/migrate.php` after every deployment that ships new migrations.【F:bin/migrate.php†L21-L76】
+5. Restart PHP-FPM/Apache and queue workers so new configuration takes effect.
+6. Verify the deployment by signing in, uploading a document, submitting a generation, downloading each output, and confirming analytics/retention pages render as expected.【F:src/Controllers/AuthController.php†L20-L193】【F:src/Documents/DocumentRepository.php†L23-L109】【F:src/Controllers/GenerationController.php†L78-L142】【F:resources/views/usage.php†L10-L112】
 
-For HTTPS, wrap the virtual host in a `<VirtualHost *:443>` block with your TLS configuration and redirect HTTP to HTTPS.
+## Support & further reading
 
-## PHP Upload Limits
-
-Documents are validated to 1 MiB (`DocumentValidator::MAX_FILE_SIZE`). Set matching limits in your `php.ini` or pool configuration:
-
-```ini
-upload_max_filesize = 1M
-post_max_size = 1M
-max_file_uploads = 5
-file_uploads = On
-```
-
-Restart PHP-FPM or Apache after adjusting the configuration.
-
-## Background Worker
-
-The queue worker processes CV tailoring jobs and requires the `pcntl` extension. Run it under a supervisor such as systemd:
-
-```ini
-# /etc/systemd/system/job-worker.service
-[Unit]
-Description=job.smeird.com queue worker
-After=network.target
-
-[Service]
-Type=simple
-User=www-data
-WorkingDirectory=/var/www/job
-ExecStart=/usr/bin/php /var/www/job/bin/worker.php
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start the service:
-
-```bash
-sudo systemctl enable --now job-worker.service
-```
-
-## Retention Purge
-
-Configure a nightly cron job to enforce the retention policy configured in the admin UI (`/retention`):
-
-```cron
-0 2 * * * /usr/bin/php /var/www/job/bin/purge.php >> /var/log/job/purge.log 2>&1
-```
-
-## Smoke Suite Summary
-
-The smoke suite (`php bin/smoke.php`) performs the following steps against an isolated SQLite database and lightweight mocks:
-
-1. Creates the schema used by the application.
-2. Drives the authentication flow (registration + login) with fake mail delivery.
-3. Uploads and validates a Markdown document and extracts plain text.
-4. Seeds and executes a generation job end-to-end using a mocked OpenAI provider and ensures download endpoints are available for Markdown, DOCX, and PDF artefacts.
-5. Seeds retention data and runs the purge logic.
-
-Use this script during CI or local development to confirm core behaviour without external dependencies.
+* Prompts powering the OpenAI planner/drafter live under `prompts/`.【F:prompts/system.txt†L1-L3】
+* Tailwind theming for the marketing landing page and supporting UI components is in `public/assets/css/theme.css`.【F:public/assets/css/theme.css†L1-L30】
+* Queue handlers (`src/Queue/Handler`) and generation services (`src/Generations`) provide extension points for additional automation.【F:src/Queue/Handler/TailorCvJobHandler.php†L5-L175】
