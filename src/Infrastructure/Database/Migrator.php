@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Infrastructure\Database;
 
 use PDO;
+use PDOException;
 
 class Migrator
 {
@@ -93,14 +94,51 @@ class Migrator
         $sql = <<<SQL
         CREATE TABLE IF NOT EXISTS audit_logs (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT UNSIGNED NULL,
             ip_address VARCHAR(45) NOT NULL,
-            email VARCHAR(255) NOT NULL,
+            email VARCHAR(255) NULL,
             action VARCHAR(64) NOT NULL,
+            user_agent VARCHAR(255) NULL,
+            details TEXT NULL,
             created_at DATETIME NOT NULL,
             INDEX idx_audit_logs_lookup (ip_address, email, action, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         SQL;
 
         $this->pdo->exec($sql);
+        $this->ensureAuditColumnExists('audit_logs', 'user_id', 'ADD COLUMN user_id BIGINT UNSIGNED NULL AFTER id');
+        $this->ensureAuditColumnExists('audit_logs', 'user_agent', 'ADD COLUMN user_agent VARCHAR(255) NULL AFTER action');
+        $this->ensureAuditColumnExists('audit_logs', 'details', 'ADD COLUMN details TEXT NULL AFTER user_agent');
+        $this->ensureAuditEmailNullable();
+    }
+
+    private function ensureAuditColumnExists(string $table, string $column, string $alterStatement): void
+    {
+        try {
+            $statement = $this->pdo->prepare(sprintf('SHOW COLUMNS FROM %s LIKE :column', $table));
+            $statement->execute(['column' => $column]);
+
+            if ($statement->fetch() !== false) {
+                return;
+            }
+
+            $this->pdo->exec(sprintf('ALTER TABLE %s %s', $table, $alterStatement));
+        } catch (PDOException) {
+            // Ignore inability to inspect or alter the table; migration may be running on a database without SHOW COLUMNS support.
+        }
+    }
+
+    private function ensureAuditEmailNullable(): void
+    {
+        try {
+            $statement = $this->pdo->query("SHOW COLUMNS FROM audit_logs LIKE 'email'");
+            $column = $statement === false ? false : $statement->fetch();
+
+            if ($column !== false && isset($column['Null']) && $column['Null'] === 'NO') {
+                $this->pdo->exec('ALTER TABLE audit_logs MODIFY email VARCHAR(255) NULL');
+            }
+        } catch (PDOException) {
+            // Ignore if the column cannot be inspected.
+        }
     }
 }
