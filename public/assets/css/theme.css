@@ -526,6 +526,20 @@ header p {
   gap: 1rem;
 }
 
+.progress-card__status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.progress-card__metric {
+  font-weight: 500;
+  color: var(--color-text);
+}
+
 .progress-bar {
   position: relative;
   height: 0.9rem;
