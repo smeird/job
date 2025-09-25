@@ -30,7 +30,7 @@ use Slim\Middleware\ErrorMiddleware;
 use App\Controllers\GenerationController;
 use App\Generations\GenerationRepository;
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../autoload.php';
 
 $rootPath = dirname(__DIR__);
 

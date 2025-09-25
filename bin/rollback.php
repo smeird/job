@@ -6,7 +6,7 @@ declare(strict_types=1);
 use App\DB;
 use Dotenv\Dotenv;
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../autoload.php';
 
 $rootPath = dirname(__DIR__);
 
