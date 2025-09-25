@@ -1,0 +1,161 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Services;
+
+use DateTimeImmutable;
+use JsonException;
+use PDO;
+
+class UsageService
+{
+    public function __construct(private readonly PDO $pdo)
+    {
+    }
+
+    public function getUsageForUser(int $userId): array
+    {
+        [$perRun, $totals] = $this->fetchPerRun($userId);
+        $monthly = $this->fetchMonthlySummary($userId);
+
+        return [
+            'per_run' => $perRun,
+            'totals' => $totals,
+            'monthly' => $monthly,
+        ];
+    }
+
+    /**
+     * @return array{0: array<int, array<string, int|string|null>>, 1: array{current_month: array<string, int>, lifetime: array<string, int>}}
+     */
+    private function fetchPerRun(int $userId): array
+    {
+        $statement = $this->pdo->prepare(
+            'SELECT id, provider, endpoint, tokens_used, cost_pence, metadata, created_at '
+            . 'FROM api_usage WHERE user_id = :user_id ORDER BY created_at DESC'
+        );
+        $statement->execute(['user_id' => $userId]);
+
+        $perRun = [];
+        $now = new DateTimeImmutable('now');
+        $currentMonthStart = $now->modify('first day of this month 00:00:00');
+
+        $monthTotals = [
+            'prompt_tokens' => 0,
+            'completion_tokens' => 0,
+            'total_tokens' => 0,
+            'cost_pence' => 0,
+        ];
+        $lifetimeTotals = $monthTotals;
+
+        while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
+            $createdAt = $this->normaliseDate($row['created_at'] ?? null);
+            $metadata = $this->decodeMetadata($row['metadata'] ?? null);
+
+            $promptTokens = (int) ($metadata['prompt_tokens'] ?? 0);
+            $completionTokens = (int) ($metadata['completion_tokens'] ?? 0);
+            $totalTokens = (int) ($metadata['total_tokens'] ?? $row['tokens_used'] ?? 0);
+            $costPence = (int) ($row['cost_pence'] ?? 0);
+            $model = (string) ($metadata['model'] ?? 'unknown');
+
+            $entry = [
+                'id' => (int) ($row['id'] ?? 0),
+                'provider' => (string) ($row['provider'] ?? ''),
+                'endpoint' => (string) ($row['endpoint'] ?? ''),
+                'model' => $model !== '' ? $model : 'unknown',
+                'prompt_tokens' => $promptTokens,
+                'completion_tokens' => $completionTokens,
+                'total_tokens' => $totalTokens,
+                'cost_pence' => $costPence,
+                'created_at' => $createdAt?->format(DATE_ATOM) ?? null,
+            ];
+
+            if ($entry['created_at'] === null && isset($row['created_at'])) {
+                $entry['created_at'] = (string) $row['created_at'];
+            }
+
+            $perRun[] = $entry;
+
+            $lifetimeTotals['prompt_tokens'] += $promptTokens;
+            $lifetimeTotals['completion_tokens'] += $completionTokens;
+            $lifetimeTotals['total_tokens'] += $totalTokens;
+            $lifetimeTotals['cost_pence'] += $costPence;
+
+            if ($createdAt !== null && $createdAt >= $currentMonthStart) {
+                $monthTotals['prompt_tokens'] += $promptTokens;
+                $monthTotals['completion_tokens'] += $completionTokens;
+                $monthTotals['total_tokens'] += $totalTokens;
+                $monthTotals['cost_pence'] += $costPence;
+            }
+        }
+
+        return [
+            $perRun,
+            [
+                'current_month' => $monthTotals,
+                'lifetime' => $lifetimeTotals,
+            ],
+        ];
+    }
+
+    /**
+     * @return array<int, array{month: string, total_tokens: int, cost_pence: int}>
+     */
+    private function fetchMonthlySummary(int $userId): array
+    {
+        $statement = $this->pdo->prepare(
+            'SELECT DATE_FORMAT(created_at, "%Y-%m-01") AS month_start, '
+            . 'SUM(tokens_used) AS total_tokens, SUM(cost_pence) AS total_cost '
+            . 'FROM api_usage WHERE user_id = :user_id '
+            . 'GROUP BY month_start ORDER BY month_start'
+        );
+        $statement->execute(['user_id' => $userId]);
+
+        $summary = [];
+
+        while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
+            $monthStart = isset($row['month_start']) ? (string) $row['month_start'] : null;
+
+            if ($monthStart === null || $monthStart === '') {
+                continue;
+            }
+
+            $summary[] = [
+                'month' => $monthStart,
+                'total_tokens' => (int) ($row['total_tokens'] ?? 0),
+                'cost_pence' => (int) ($row['total_cost'] ?? 0),
+            ];
+        }
+
+        return $summary;
+    }
+
+    private function decodeMetadata(?string $json): array
+    {
+        if ($json === null || trim($json) === '') {
+            return [];
+        }
+
+        try {
+            $decoded = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException) {
+            return [];
+        }
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    private function normaliseDate(mixed $value): ?DateTimeImmutable
+    {
+        if (!is_string($value) || trim($value) === '') {
+            return null;
+        }
+
+        try {
+            return new DateTimeImmutable($value);
+        } catch (\Exception) {
+            return null;
+        }
+    }
+}

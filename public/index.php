@@ -4,7 +4,11 @@ declare(strict_types=1);
 
 use App\Bootstrap;
 use App\Controllers\AuthController;
+use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
+
+use App\Controllers\UsageController;
+
 use App\Infrastructure\Database\Connection;
 use App\Infrastructure\Database\Migrator;
 use App\Middleware\CsrfMiddleware;
@@ -18,7 +22,9 @@ use App\Services\AuditLogger;
 use App\Services\LogMailer;
 use App\Services\MailerInterface;
 use App\Services\RateLimiter;
+use App\Services\RetentionPolicyService;
 use App\Services\SmtpMailer;
+use App\Services\UsageService;
 use App\Views\Renderer;
 use DI\Container;
 use Slim\Factory\AppFactory;
@@ -112,8 +118,45 @@ $container->set(HomeController::class, static function (Container $c): HomeContr
     return new HomeController($c->get(Renderer::class));
 });
 
+
+$container->set(UsageService::class, static function (Container $c): UsageService {
+    return new UsageService($c->get(\PDO::class));
+});
+
+$container->set(UsageController::class, static function (Container $c): UsageController {
+    return new UsageController($c->get(UsageService::class), $c->get(Renderer::class));
+
+});
+
 $container->set(SessionMiddleware::class, static function (Container $c): SessionMiddleware {
     return new SessionMiddleware($c->get(AuthService::class));
+});
+
+$container->set(GenerationDownloadService::class, static function (Container $c): GenerationDownloadService {
+    return new GenerationDownloadService($c->get(\PDO::class));
+});
+
+$container->set(GenerationTokenService::class, static function (): GenerationTokenService {
+    $secret = getenv('DOWNLOAD_TOKEN_SECRET') ?: getenv('APP_KEY') ?: '';
+
+    if ($secret === '') {
+        throw new RuntimeException('DOWNLOAD_TOKEN_SECRET or APP_KEY must be configured.');
+    }
+
+    $ttl = (int) (getenv('DOWNLOAD_TOKEN_TTL') ?: 300);
+
+    if ($ttl <= 0) {
+        $ttl = 300;
+    }
+
+    return new GenerationTokenService($secret, $ttl);
+});
+
+$container->set(GenerationDownloadController::class, static function (Container $c): GenerationDownloadController {
+    return new GenerationDownloadController(
+        $c->get(GenerationDownloadService::class),
+        $c->get(GenerationTokenService::class)
+    );
 });
 
 AppFactory::setContainer($container);
