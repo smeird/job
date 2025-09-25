@@ -1,0 +1,5 @@
+/vendor/
+/.env
+/.php-cs-fixer.cache
+/.idea/
+.DS_Store
