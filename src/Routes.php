@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace App;
 
 use App\Controllers\AuthController;
+use App\Controllers\GenerationController;
 use App\Controllers\HomeController;
-
+use App\Prompts\PromptLibrary;
+use App\Validation\DraftValidator;
+use InvalidArgumentException;
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
+use RuntimeException;
 use Slim\App;
 use Slim\Exception\HttpBadRequestException;
 
@@ -16,33 +20,73 @@ class Routes
 {
     public static function register(App $app): void
     {
+        $container = $app->getContainer();
 
-        $viewPath = dirname(__DIR__) . '/resources/views/home.php';
+        if ($container === null) {
+            throw new RuntimeException('Container not available.');
+        }
 
-        $app->get('/', static function (Request $request, Response $response) use ($viewPath): Response {
-            $html = (static function (string $path): string {
-                if (!is_file($path)) {
-                    return '<!DOCTYPE html><title>View missing</title><body><h1>View missing</h1></body>';
-                }
-
-                ob_start();
-                include $path;
-
-                return (string) ob_get_clean();
-            })($viewPath);
-
-            $response->getBody()->write($html);
-
-            return $response->withHeader('Content-Type', 'text/html; charset=utf-8');
+        $app->get('/', static function (Request $request, Response $response) use ($container) {
+            return $container->get(HomeController::class)->index($request, $response);
         });
 
+        $app->get('/auth/register', static function (Request $request, Response $response) use ($container) {
+            return $container->get(AuthController::class)->showRegister($request, $response);
+        });
+
+        $app->post('/auth/register', static function (Request $request, Response $response) use ($container) {
+            return $container->get(AuthController::class)->register($request, $response);
+        });
+
+        $app->get('/auth/register/verify', static function (Request $request, Response $response) use ($container) {
+            return $container->get(AuthController::class)->showRegisterVerify($request, $response);
+        });
+
+        $app->post('/auth/register/verify', static function (Request $request, Response $response) use ($container) {
+            return $container->get(AuthController::class)->registerVerify($request, $response);
+        });
+
+        $app->get('/auth/login', static function (Request $request, Response $response) use ($container) {
+            return $container->get(AuthController::class)->showLogin($request, $response);
+        });
+
+        $app->post('/auth/login', static function (Request $request, Response $response) use ($container) {
+            return $container->get(AuthController::class)->login($request, $response);
+        });
+
+        $app->get('/auth/login/verify', static function (Request $request, Response $response) use ($container) {
+            return $container->get(AuthController::class)->showLoginVerify($request, $response);
+        });
+
+        $app->post('/auth/login/verify', static function (Request $request, Response $response) use ($container) {
+            return $container->get(AuthController::class)->loginVerify($request, $response);
+        });
+
+        $app->get('/auth/backup-codes', static function (Request $request, Response $response) use ($container) {
+            return $container->get(AuthController::class)->showBackupCodes($request, $response);
+        });
+
+        $app->post('/auth/backup-codes', static function (Request $request, Response $response) use ($container) {
+            return $container->get(AuthController::class)->backupCodes($request, $response);
+        });
+
+        $app->post('/auth/logout', static function (Request $request, Response $response) use ($container) {
+            return $container->get(AuthController::class)->logout($request, $response);
+        });
+
+        $app->post('/generations', static function (Request $request, Response $response) use ($container) {
+            return $container->get(GenerationController::class)->create($request, $response);
+        });
+
+        $app->get('/generations/{id}', static function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(GenerationController::class)->show($request, $response, $args);
+        });
 
         $app->get('/healthz', static function (Request $request, Response $response): Response {
             $response->getBody()->write('ok');
 
             return $response->withHeader('Content-Type', 'text/plain');
         });
-
 
         $app->get('/prompts', static function (Request $request, Response $response): Response {
             $payload = [

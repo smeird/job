@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Bootstrap;
 use App\Controllers\AuthController;
 use App\Controllers\HomeController;
+use App\Documents\DocumentRepository;
 use App\Infrastructure\Database\Connection;
 use App\Infrastructure\Database\Migrator;
 use App\Middleware\SessionMiddleware;
@@ -18,6 +19,8 @@ use App\Views\Renderer;
 use DI\Container;
 use Slim\Factory\AppFactory;
 use Slim\Middleware\ErrorMiddleware;
+use App\Controllers\GenerationController;
+use App\Generations\GenerationRepository;
 
 require_once __DIR__ . '/../vendor/autoload.php';
 
@@ -49,6 +52,14 @@ $container->set(\PDO::class, static function (): \PDO {
 
 $container->set(Renderer::class, static function () use ($rootPath): Renderer {
     return new Renderer($rootPath . '/resources/views');
+});
+
+$container->set(DocumentRepository::class, static function (Container $c): DocumentRepository {
+    return new DocumentRepository($c->get(\PDO::class));
+});
+
+$container->set(GenerationRepository::class, static function (Container $c): GenerationRepository {
+    return new GenerationRepository($c->get(\PDO::class));
 });
 
 $container->set(MailerInterface::class, static function () use ($rootPath): MailerInterface {
@@ -91,7 +102,18 @@ $container->set(AuthController::class, static function (Container $c): AuthContr
 });
 
 $container->set(HomeController::class, static function (Container $c): HomeController {
-    return new HomeController($c->get(Renderer::class));
+    return new HomeController(
+        $c->get(Renderer::class),
+        $c->get(DocumentRepository::class),
+        $c->get(GenerationRepository::class)
+    );
+});
+
+$container->set(GenerationController::class, static function (Container $c): GenerationController {
+    return new GenerationController(
+        $c->get(GenerationRepository::class),
+        $c->get(DocumentRepository::class)
+    );
 });
 
 $container->set(SessionMiddleware::class, static function (Container $c): SessionMiddleware {

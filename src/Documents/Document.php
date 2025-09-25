@@ -10,6 +10,8 @@ class Document
 {
     public function __construct(
         private readonly ?int $id,
+        private readonly int $userId,
+        private readonly string $documentType,
         private readonly string $filename,
         private readonly string $mimeType,
         private readonly int $sizeBytes,
@@ -28,6 +30,8 @@ class Document
     {
         return new self(
             $id,
+            $this->userId,
+            $this->documentType,
             $this->filename,
             $this->mimeType,
             $this->sizeBytes,
@@ -35,6 +39,16 @@ class Document
             $this->content,
             $this->createdAt,
         );
+    }
+
+    public function userId(): int
+    {
+        return $this->userId;
+    }
+
+    public function documentType(): string
+    {
+        return $this->documentType;
     }
 
     public function filename(): string

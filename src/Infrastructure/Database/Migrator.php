@@ -20,6 +20,8 @@ class Migrator
         $this->createUsersTable();
         $this->createPendingPasscodesTable();
         $this->createSessionsTable();
+        $this->createDocumentsTable();
+        $this->createGenerationsTable();
         $this->createBackupCodesTable();
         $this->createAuditLogsTable();
     }
@@ -66,6 +68,52 @@ class Migrator
             expires_at DATETIME NOT NULL,
             CONSTRAINT fk_sessions_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             INDEX idx_sessions_token_hash (token_hash)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        SQL;
+
+        $this->pdo->exec($sql);
+    }
+
+    private function createDocumentsTable(): void
+    {
+        $sql = <<<SQL
+        CREATE TABLE IF NOT EXISTS documents (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT UNSIGNED NOT NULL,
+            document_type VARCHAR(32) NOT NULL,
+            filename VARCHAR(255) NOT NULL,
+            mime_type VARCHAR(191) NOT NULL,
+            size_bytes BIGINT UNSIGNED NOT NULL,
+            sha256 CHAR(64) NOT NULL UNIQUE,
+            content LONGBLOB NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_documents_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_documents_user_type (user_id, document_type),
+            INDEX idx_documents_user_created (user_id, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        SQL;
+
+        $this->pdo->exec($sql);
+    }
+
+    private function createGenerationsTable(): void
+    {
+        $sql = <<<SQL
+        CREATE TABLE IF NOT EXISTS generations (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT UNSIGNED NOT NULL,
+            job_document_id BIGINT UNSIGNED NOT NULL,
+            cv_document_id BIGINT UNSIGNED NOT NULL,
+            model VARCHAR(128) NOT NULL,
+            temperature DECIMAL(4,2) NOT NULL DEFAULT 0.20,
+            status VARCHAR(32) NOT NULL DEFAULT 'queued',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            CONSTRAINT fk_generations_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            CONSTRAINT fk_generations_job_document FOREIGN KEY (job_document_id) REFERENCES documents(id) ON DELETE CASCADE,
+            CONSTRAINT fk_generations_cv_document FOREIGN KEY (cv_document_id) REFERENCES documents(id) ON DELETE CASCADE,
+            INDEX idx_generations_user_created (user_id, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         SQL;
 

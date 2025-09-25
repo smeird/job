@@ -16,7 +16,7 @@ class DocumentService
     ) {
     }
 
-    public function storeUploadedDocument(UploadedFileInterface $uploadedFile): Document
+    public function storeUploadedDocument(UploadedFileInterface $uploadedFile, int $userId, string $documentType): Document
     {
         $error = $uploadedFile->getError();
 
@@ -61,6 +61,8 @@ class DocumentService
 
             $document = new Document(
                 null,
+                $userId,
+                $documentType,
                 $clientFilename,
                 $validation['mime'],
                 $validation['size'],

@@ -17,17 +17,20 @@ class DocumentRepository
     public function save(Document $document): Document
     {
         $statement = $this->pdo->prepare(
-            'INSERT INTO documents (filename, mime_type, size_bytes, sha256, content, created_at) VALUES (:filename, :mime_type, :size_bytes, :sha256, :content, :created_at)'
+            'INSERT INTO documents (user_id, document_type, filename, mime_type, size_bytes, sha256, content, created_at, updated_at) VALUES (:user_id, :document_type, :filename, :mime_type, :size_bytes, :sha256, :content, :created_at, :updated_at)'
         );
 
         $createdAt = $document->createdAt()->format('Y-m-d H:i:s');
 
+        $statement->bindValue(':user_id', $document->userId(), PDO::PARAM_INT);
+        $statement->bindValue(':document_type', $document->documentType());
         $statement->bindValue(':filename', $document->filename());
         $statement->bindValue(':mime_type', $document->mimeType());
         $statement->bindValue(':size_bytes', $document->sizeBytes(), PDO::PARAM_INT);
         $statement->bindValue(':sha256', $document->sha256());
         $statement->bindValue(':content', $document->content(), PDO::PARAM_LOB);
         $statement->bindValue(':created_at', $createdAt);
+        $statement->bindValue(':updated_at', $createdAt);
 
         $statement->execute();
 
@@ -48,15 +51,59 @@ class DocumentRepository
             return null;
         }
 
-        return new Document(
-            (int) $row['id'],
-            $row['filename'],
-            $row['mime_type'],
-            (int) $row['size_bytes'],
-            $row['sha256'],
-            is_resource($row['content']) ? stream_get_contents($row['content']) ?: '' : (string) $row['content'],
-            new DateTimeImmutable($row['created_at']),
-        );
+        return $this->hydrate($row);
+    }
+
+    public function findForUser(int $userId, int $documentId): ?Document
+    {
+        $statement = $this->pdo->prepare('SELECT * FROM documents WHERE id = :id AND user_id = :user_id LIMIT 1');
+        $statement->bindValue(':id', $documentId, PDO::PARAM_INT);
+        $statement->bindValue(':user_id', $userId, PDO::PARAM_INT);
+        $statement->execute();
+
+        $row = $statement->fetch();
+
+        if ($row === false) {
+            return null;
+        }
+
+        return $this->hydrate($row);
+    }
+
+    public function findForUserByType(int $userId, int $documentId, string $documentType): ?Document
+    {
+        $statement = $this->pdo->prepare('SELECT * FROM documents WHERE id = :id AND user_id = :user_id AND document_type = :document_type LIMIT 1');
+        $statement->bindValue(':id', $documentId, PDO::PARAM_INT);
+        $statement->bindValue(':user_id', $userId, PDO::PARAM_INT);
+        $statement->bindValue(':document_type', $documentType);
+        $statement->execute();
+
+        $row = $statement->fetch();
+
+        if ($row === false) {
+            return null;
+        }
+
+        return $this->hydrate($row);
+    }
+
+    /**
+     * @return Document[]
+     */
+    public function listForUserAndType(int $userId, string $documentType): array
+    {
+        $statement = $this->pdo->prepare('SELECT * FROM documents WHERE user_id = :user_id AND document_type = :document_type ORDER BY created_at DESC');
+        $statement->bindValue(':user_id', $userId, PDO::PARAM_INT);
+        $statement->bindValue(':document_type', $documentType);
+        $statement->execute();
+
+        $documents = [];
+
+        while ($row = $statement->fetch()) {
+            $documents[] = $this->hydrate($row);
+        }
+
+        return $documents;
     }
 
     private function ensureSchema(): void
@@ -67,12 +114,18 @@ class DocumentRepository
             $this->pdo->exec(
                 'CREATE TABLE IF NOT EXISTS documents (
                     id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                    user_id BIGINT UNSIGNED NOT NULL,
+                    document_type VARCHAR(32) NOT NULL,
                     filename VARCHAR(255) NOT NULL,
                     mime_type VARCHAR(191) NOT NULL,
                     size_bytes BIGINT UNSIGNED NOT NULL,
                     sha256 CHAR(64) NOT NULL UNIQUE,
                     content LONGBLOB NOT NULL,
-                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    CONSTRAINT fk_documents_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    INDEX idx_documents_user_type (user_id, document_type),
+                    INDEX idx_documents_user_created (user_id, created_at)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci'
             );
 
@@ -82,13 +135,34 @@ class DocumentRepository
         $this->pdo->exec(
             'CREATE TABLE IF NOT EXISTS documents (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                document_type TEXT NOT NULL,
                 filename TEXT NOT NULL,
                 mime_type TEXT NOT NULL,
                 size_bytes INTEGER NOT NULL,
                 sha256 TEXT NOT NULL UNIQUE,
                 content BLOB NOT NULL,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
             )'
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function hydrate(array $row): Document
+    {
+        return new Document(
+            (int) $row['id'],
+            (int) $row['user_id'],
+            (string) $row['document_type'],
+            $row['filename'],
+            $row['mime_type'],
+            (int) $row['size_bytes'],
+            $row['sha256'],
+            is_resource($row['content']) ? stream_get_contents($row['content']) ?: '' : (string) $row['content'],
+            new DateTimeImmutable($row['created_at']),
         );
     }
 }
