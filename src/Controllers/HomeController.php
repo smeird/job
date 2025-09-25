@@ -19,7 +19,7 @@ class HomeController
     public function __construct(
         Renderer $renderer,
         DocumentRepository $documentRepository,
-        GenerationRepository $generationRepository,
+        GenerationRepository $generationRepository
     ) {
         $this->renderer = $renderer;
         $this->documentRepository = $documentRepository;
