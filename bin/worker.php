@@ -8,7 +8,7 @@ use App\Queue\Handler\TailorCvJobHandler;
 use App\Queue\JobRepository;
 use App\Queue\JobWorker;
 
-require __DIR__ . '/../vendor/autoload.php';
+require __DIR__ . '/../autoload.php';
 
 if (!extension_loaded('pcntl')) {
     fwrite(STDERR, "The pcntl extension is required to run the worker." . PHP_EOL);
