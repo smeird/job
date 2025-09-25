@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Bootstrap;
 use App\Controllers\AuthController;
 use App\Controllers\HomeController;
+use App\Controllers\UsageController;
 use App\Infrastructure\Database\Connection;
 use App\Infrastructure\Database\Migrator;
 use App\Middleware\SessionMiddleware;
@@ -14,6 +15,7 @@ use App\Services\LogMailer;
 use App\Services\MailerInterface;
 use App\Services\RateLimiter;
 use App\Services\SmtpMailer;
+use App\Services\UsageService;
 use App\Views\Renderer;
 use DI\Container;
 use Slim\Factory\AppFactory;
@@ -92,6 +94,14 @@ $container->set(AuthController::class, static function (Container $c): AuthContr
 
 $container->set(HomeController::class, static function (Container $c): HomeController {
     return new HomeController($c->get(Renderer::class));
+});
+
+$container->set(UsageService::class, static function (Container $c): UsageService {
+    return new UsageService($c->get(\PDO::class));
+});
+
+$container->set(UsageController::class, static function (Container $c): UsageController {
+    return new UsageController($c->get(UsageService::class), $c->get(Renderer::class));
 });
 
 $container->set(SessionMiddleware::class, static function (Container $c): SessionMiddleware {

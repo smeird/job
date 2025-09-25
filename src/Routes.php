@@ -6,6 +6,7 @@ namespace App;
 
 use App\Controllers\AuthController;
 use App\Controllers\HomeController;
+use App\Controllers\UsageController;
 
 use Psr\Http\Message\ResponseInterface as Response;
 use Psr\Http\Message\ServerRequestInterface as Request;
@@ -91,5 +92,8 @@ class Routes
             return $response->withHeader('Content-Type', 'application/json');
 
         });
+
+        $app->get('/usage', UsageController::class . ':index');
+        $app->get('/usage/data', UsageController::class . ':data');
     }
 }
