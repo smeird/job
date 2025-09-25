@@ -29,7 +29,8 @@
             "@php -l src/Bootstrap.php",
             "@php -l src/Routes.php"
         ],
-        "cs-fix": "@php -r \"echo 'Code style fixer not configured yet.' . PHP_EOL;\""
+        "cs-fix": "@php -r \"echo 'Code style fixer not configured yet.' . PHP_EOL;\"",
+        "verify": "php bin/verify.php --interactive=0 --timeout=180"
     },
     "minimum-stability": "stable",
     "prefer-stable": true
