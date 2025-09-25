@@ -171,7 +171,7 @@ class Migrator
             }
 
             $this->pdo->exec(sprintf('ALTER TABLE %s %s', $table, $alterStatement));
-        } catch (PDOException) {
+        } catch (PDOException $exception) {
             // Ignore inability to inspect or alter the table; migration may be running on a database without SHOW COLUMNS support.
         }
     }
@@ -185,7 +185,7 @@ class Migrator
             if ($column !== false && isset($column['Null']) && $column['Null'] === 'NO') {
                 $this->pdo->exec('ALTER TABLE audit_logs MODIFY email VARCHAR(255) NULL');
             }
-        } catch (PDOException) {
+        } catch (PDOException $exception) {
             // Ignore if the column cannot be inspected.
         }
     }
