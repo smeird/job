@@ -15,6 +15,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use RuntimeException;
 use Slim\App;
 use Slim\Exception\HttpBadRequestException;
+use RuntimeException;
 
 class Routes
 {
@@ -135,5 +136,10 @@ class Routes
             return $response->withHeader('Content-Type', 'application/json');
 
         });
+
+
+        $app->get('/usage', UsageController::class . ':index');
+        $app->get('/usage/data', UsageController::class . ':data');
+
     }
 }
