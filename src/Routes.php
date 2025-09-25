@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App;
 
 use App\Controllers\AuthController;
+use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
 use App\Controllers\RetentionController;
 
@@ -13,6 +14,7 @@ use Psr\Http\Message\ServerRequestInterface as Request;
 use RuntimeException;
 use Slim\App;
 use Slim\Exception\HttpBadRequestException;
+use RuntimeException;
 
 class Routes
 {
@@ -94,6 +96,7 @@ class Routes
 
         });
 
+
         $app->get('/retention', static function (Request $request, Response $response) use ($app): Response {
             $container = $app->getContainer();
 
@@ -118,6 +121,7 @@ class Routes
             $controller = $container->get(RetentionController::class);
 
             return $controller->update($request, $response);
+
         });
     }
 }
