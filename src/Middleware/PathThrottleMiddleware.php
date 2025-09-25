@@ -1,0 +1,106 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Middleware;
+
+use App\Services\AuditLogger;
+use App\Services\RateLimiter;
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
+
+final class PathThrottleMiddleware implements MiddlewareInterface
+{
+    public function __construct(
+        private readonly RateLimiter $authLimiter,
+        private readonly RateLimiter $uploadLimiter,
+        private readonly ResponseFactoryInterface $responseFactory,
+        private readonly AuditLogger $auditLogger
+    ) {
+    }
+
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        $method = strtoupper($request->getMethod());
+
+        if (!in_array($method, ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+            return $handler->handle($request);
+        }
+
+        $path = $request->getUri()->getPath();
+
+        if ($this->isAuthPath($path)) {
+            return $this->enforce($request, $handler, $this->authLimiter, 'route:/auth');
+        }
+
+        if ($this->isDocumentUploadPath($path)) {
+            return $this->enforce($request, $handler, $this->uploadLimiter, 'route:/documents/upload');
+        }
+
+        return $handler->handle($request);
+    }
+
+    private function enforce(
+        ServerRequestInterface $request,
+        RequestHandlerInterface $handler,
+        RateLimiter $limiter,
+        string $identifier
+    ): ResponseInterface {
+        $ip = $this->getClientIp($request) ?? '0.0.0.0';
+        $userAgent = $request->getHeaderLine('User-Agent') ?: null;
+        $action = $identifier;
+
+        if ($limiter->tooManyAttempts($ip, $identifier, $action)) {
+            $this->auditLogger->log('security.throttle.blocked', [
+                'path' => $request->getUri()->getPath(),
+                'identifier' => $identifier,
+            ], null, null, $ip, $userAgent);
+
+            $response = $this->responseFactory->createResponse(429);
+            $response->getBody()->write('Too many requests.');
+
+            $retryAfter = $limiter->getIntervalSeconds();
+
+            return $response
+                ->withHeader('Content-Type', 'text/plain; charset=utf-8')
+                ->withHeader('Retry-After', (string) $retryAfter);
+        }
+
+        $limiter->hit($ip, $identifier, $action, $userAgent, [
+            'path' => $request->getUri()->getPath(),
+        ]);
+
+        return $handler->handle($request);
+    }
+
+    private function isAuthPath(string $path): bool
+    {
+        return $path === '/auth' || str_starts_with($path, '/auth/');
+    }
+
+    private function isDocumentUploadPath(string $path): bool
+    {
+        return $path === '/documents/upload';
+    }
+
+    private function getClientIp(ServerRequestInterface $request): ?string
+    {
+        $forwarded = $request->getHeaderLine('X-Forwarded-For');
+
+        if ($forwarded !== '') {
+            $parts = explode(',', $forwarded);
+            $candidate = trim($parts[0]);
+
+            if ($candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        $serverParams = $request->getServerParams();
+
+        return isset($serverParams['REMOTE_ADDR']) ? (string) $serverParams['REMOTE_ADDR'] : null;
+    }
+}

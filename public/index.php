@@ -11,9 +11,14 @@ use App\Controllers\UsageController;
 
 use App\Infrastructure\Database\Connection;
 use App\Infrastructure\Database\Migrator;
+use App\Middleware\CsrfMiddleware;
+use App\Middleware\InputValidationMiddleware;
+use App\Middleware\PathThrottleMiddleware;
+use App\Middleware\SecurityHeadersMiddleware;
 use App\Middleware\SessionMiddleware;
 use App\Routes;
 use App\Services\AuthService;
+use App\Services\AuditLogger;
 use App\Services\LogMailer;
 use App\Services\MailerInterface;
 use App\Services\RateLimiter;
@@ -75,12 +80,24 @@ $container->set(MailerInterface::class, static function () use ($rootPath): Mail
     return new LogMailer($logPath);
 });
 
+$container->set(AuditLogger::class, static function (Container $c): AuditLogger {
+    return new AuditLogger($c->get(\PDO::class));
+});
+
 $container->set('rateLimiter.request', static function (Container $c): RateLimiter {
-    return new RateLimiter($c->get(\PDO::class), 5, new \DateInterval('PT10M'));
+    return new RateLimiter($c->get(\PDO::class), $c->get(AuditLogger::class), 5, new \DateInterval('PT10M'));
 });
 
 $container->set('rateLimiter.verify', static function (Container $c): RateLimiter {
-    return new RateLimiter($c->get(\PDO::class), 10, new \DateInterval('PT10M'));
+    return new RateLimiter($c->get(\PDO::class), $c->get(AuditLogger::class), 10, new \DateInterval('PT10M'));
+});
+
+$container->set('rateLimiter.route.auth', static function (Container $c): RateLimiter {
+    return new RateLimiter($c->get(\PDO::class), $c->get(AuditLogger::class), 20, new \DateInterval('PT5M'));
+});
+
+$container->set('rateLimiter.route.upload', static function (Container $c): RateLimiter {
+    return new RateLimiter($c->get(\PDO::class), $c->get(AuditLogger::class), 10, new \DateInterval('PT10M'));
 });
 
 $container->set(AuthService::class, static function (Container $c): AuthService {
@@ -88,7 +105,8 @@ $container->set(AuthService::class, static function (Container $c): AuthService 
         $c->get(\PDO::class),
         $c->get(MailerInterface::class),
         $c->get('rateLimiter.request'),
-        $c->get('rateLimiter.verify')
+        $c->get('rateLimiter.verify'),
+        $c->get(AuditLogger::class)
     );
 });
 
@@ -147,10 +165,24 @@ $app = AppFactory::create();
 $migrator = new Migrator($container->get(\PDO::class));
 $migrator->migrate();
 
-Bootstrap::init($app, $rootPath);
+$appUrl = Bootstrap::init($app, $rootPath);
 
-$app->addBodyParsingMiddleware();
+$securityHeadersMiddleware = new SecurityHeadersMiddleware($appUrl);
+$csrfMiddleware = new CsrfMiddleware($app->getResponseFactory(), $container->get(AuditLogger::class));
+$inputValidationMiddleware = new InputValidationMiddleware($app->getResponseFactory(), $container->get(AuditLogger::class));
+$pathThrottleMiddleware = new PathThrottleMiddleware(
+    $container->get('rateLimiter.route.auth'),
+    $container->get('rateLimiter.route.upload'),
+    $app->getResponseFactory(),
+    $container->get(AuditLogger::class)
+);
+
 $app->addRoutingMiddleware();
+$app->add($securityHeadersMiddleware);
+$app->add($csrfMiddleware);
+$app->add($pathThrottleMiddleware);
+$app->add($inputValidationMiddleware);
+$app->addBodyParsingMiddleware();
 $app->add($container->get(SessionMiddleware::class));
 
 $displayErrorDetails = filter_var($_ENV['APP_DEBUG'] ?? false, FILTER_VALIDATE_BOOL);

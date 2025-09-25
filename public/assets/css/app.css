@@ -1,0 +1,300 @@
+:root {
+    color-scheme: dark;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    line-height: 1.5;
+    background-color: #0f172a;
+    color: #f1f5f9;
+}
+
+a {
+    color: inherit;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: none;
+}
+
+button,
+input {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+    border: none;
+    background: none;
+}
+
+.min-h-screen {
+    min-height: 100vh;
+}
+
+.bg-slate-900 {
+    background-color: #0f172a;
+}
+
+.bg-slate-800 {
+    background-color: #1e293b;
+}
+
+.bg-red-900\/40 {
+    background-color: rgba(127, 29, 29, 0.4);
+}
+
+.bg-emerald-900\/40 {
+    background-color: rgba(6, 95, 70, 0.4);
+}
+
+.bg-indigo-600 {
+    background-color: #4f46e5;
+}
+
+.hover\:bg-indigo-500:hover {
+    background-color: #6366f1;
+}
+
+.hover\:bg-slate-700:hover {
+    background-color: #334155;
+}
+
+.flex {
+    display: flex;
+}
+
+.flex-col {
+    flex-direction: column;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.justify-center {
+    justify-content: center;
+}
+
+.p-6 {
+    padding: 1.5rem;
+}
+
+.p-8 {
+    padding: 2rem;
+}
+
+.w-full {
+    width: 100%;
+}
+
+.max-w-md {
+    max-width: 28rem;
+}
+
+.shadow-xl {
+    box-shadow: 0 25px 50px -20px rgba(15, 23, 42, 0.9);
+}
+
+.rounded-lg {
+    border-radius: 0.75rem;
+}
+
+.rounded-md {
+    border-radius: 0.375rem;
+}
+
+.text-center {
+    text-align: center;
+}
+
+.space-y-6 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1.5rem;
+}
+
+.space-y-4 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 1rem;
+}
+
+.space-y-3 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.75rem;
+}
+
+.space-y-2 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.5rem;
+}
+
+.space-y-1 > :not([hidden]) ~ :not([hidden]) {
+    margin-top: 0.25rem;
+}
+
+.mt-1 {
+    margin-top: 0.25rem;
+}
+
+.text-3xl {
+    font-size: 1.875rem;
+    line-height: 2.25rem;
+}
+
+.text-xl {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+}
+
+.text-lg {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+}
+
+.text-sm {
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+
+.font-bold {
+    font-weight: 700;
+}
+
+.font-semibold {
+    font-weight: 600;
+}
+
+.font-medium {
+    font-weight: 500;
+}
+
+.tracking-tight {
+    letter-spacing: -0.015em;
+}
+
+.tracking-widest {
+    letter-spacing: 0.2em;
+}
+
+.text-slate-100 {
+    color: #f1f5f9;
+}
+
+.text-slate-200 {
+    color: #e2e8f0;
+}
+
+.text-slate-300 {
+    color: #cbd5f5;
+}
+
+.text-slate-400 {
+    color: #94a3b8;
+}
+
+.text-red-200 {
+    color: #fecaca;
+}
+
+.text-emerald-200 {
+    color: #a7f3d0;
+}
+
+.hover\:text-indigo-300:hover {
+    color: #a5b4fc;
+}
+
+.bg-slate-900 input,
+.bg-slate-900 textarea,
+.bg-slate-900 select {
+    color: #f1f5f9;
+}
+
+.block {
+    display: block;
+}
+
+.border {
+    border-width: 1px;
+    border-style: solid;
+    border-color: #475569;
+}
+
+.border-slate-700 {
+    border-color: #334155;
+}
+
+.border-slate-600 {
+    border-color: #475569;
+}
+
+.border-red-500 {
+    border-color: #ef4444;
+}
+
+.border-emerald-500 {
+    border-color: #10b981;
+}
+
+.px-3 {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+.py-2 {
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+}
+
+.px-4 {
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.py-3 {
+    padding-top: 0.75rem;
+    padding-bottom: 0.75rem;
+}
+
+.focus\:outline-none:focus {
+    outline: none;
+}
+
+.focus\:ring-2:focus {
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.35);
+}
+
+.focus\:ring-indigo-500:focus {
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.55);
+}
+
+.grid {
+    display: grid;
+}
+
+.grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.gap-3 {
+    gap: 0.75rem;
+}
+
+.text-slate-300 code {
+    font-family: "Fira Code", "Source Code Pro", monospace;
+}
+
+button.w-full,
+a.w-full,
+form button.w-full {
+    width: 100%;
+}
+
+button,
+a,
+input {
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
