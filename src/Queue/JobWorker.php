@@ -14,11 +14,26 @@ final class JobWorker
     /**
      * @param array<string, JobHandlerInterface> $handlers
      */
+    private JobRepository $repository;
+
+    /**
+     * @var array<string, JobHandlerInterface>
+     */
+    private array $handlers;
+
+    private int $maxAttempts;
+
+    /**
+     * @param array<string, JobHandlerInterface> $handlers
+     */
     public function __construct(
-        private readonly JobRepository $repository,
-        private readonly array $handlers,
-        private readonly int $maxAttempts = 5
+        JobRepository $repository,
+        array $handlers,
+        int $maxAttempts = 5
     ) {
+        $this->repository = $repository;
+        $this->handlers = $handlers;
+        $this->maxAttempts = $maxAttempts;
     }
 
     public function process(Job $job): void

@@ -12,8 +12,13 @@ use Psr\Http\Message\ServerRequestInterface;
 
 class UsageController
 {
-    public function __construct(private readonly UsageService $usageService, private readonly Renderer $renderer)
+    private UsageService $usageService;
+    private Renderer $renderer;
+
+    public function __construct(UsageService $usageService, Renderer $renderer)
     {
+        $this->usageService = $usageService;
+        $this->renderer = $renderer;
     }
 
     public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface

@@ -20,12 +20,17 @@ class DocumentPreviewer
     {
         $content = $document->content();
 
-        return match ($document->mimeType()) {
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => $this->renderDocx($content),
-            'application/pdf' => $this->renderPdf($content),
-            'text/markdown', 'text/plain' => $this->renderText($content),
-            default => '',
-        };
+        switch ($document->mimeType()) {
+            case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+                return $this->renderDocx($content);
+            case 'application/pdf':
+                return $this->renderPdf($content);
+            case 'text/markdown':
+            case 'text/plain':
+                return $this->renderText($content);
+            default:
+                return '';
+        }
     }
 
     private function renderDocx(string $content): string

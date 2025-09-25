@@ -18,8 +18,11 @@ final class GenerationDownloadService
     private const FORMAT_DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     private const FORMAT_PDF_MIME = 'application/pdf';
 
-    public function __construct(private readonly PDO $pdo)
+    private PDO $pdo;
+
+    public function __construct(PDO $pdo)
     {
+        $this->pdo = $pdo;
     }
 
     /**
@@ -37,12 +40,16 @@ final class GenerationDownloadService
             throw new GenerationAccessDeniedException('You do not have access to this generation.');
         }
 
-        return match ($format) {
-            'md' => $this->fetchMarkdown($generationId),
-            'docx' => $this->fetchBinary($generationId, 'docx', self::FORMAT_DOCX_MIME),
-            'pdf' => $this->fetchBinary($generationId, 'pdf', self::FORMAT_PDF_MIME),
-            default => throw new RuntimeException('Unsupported format requested.'),
-        };
+        switch ($format) {
+            case 'md':
+                return $this->fetchMarkdown($generationId);
+            case 'docx':
+                return $this->fetchBinary($generationId, 'docx', self::FORMAT_DOCX_MIME);
+            case 'pdf':
+                return $this->fetchBinary($generationId, 'pdf', self::FORMAT_PDF_MIME);
+            default:
+                throw new RuntimeException('Unsupported format requested.');
+        }
     }
 
     /**

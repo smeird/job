@@ -10,12 +10,21 @@ use PDO;
 
 class RateLimiter
 {
+    private PDO $pdo;
+    private AuditLogger $auditLogger;
+    private int $limit;
+    private DateInterval $interval;
+
     public function __construct(
-        private readonly PDO $pdo,
-        private readonly AuditLogger $auditLogger,
-        private readonly int $limit,
-        private readonly DateInterval $interval
+        PDO $pdo,
+        AuditLogger $auditLogger,
+        int $limit,
+        DateInterval $interval
     ) {
+        $this->pdo = $pdo;
+        $this->auditLogger = $auditLogger;
+        $this->limit = $limit;
+        $this->interval = $interval;
     }
 
     public function tooManyAttempts(string $ipAddress, string $identifier, string $action): bool

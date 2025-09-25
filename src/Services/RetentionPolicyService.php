@@ -14,6 +14,8 @@ class RetentionPolicyService
 {
     private const TABLE_NAME = 'retention_settings';
 
+    private PDO $pdo;
+
     /**
      * @var array<int, string>
      */
@@ -24,8 +26,9 @@ class RetentionPolicyService
         'audit_logs',
     ];
 
-    public function __construct(private readonly PDO $pdo)
+    public function __construct(PDO $pdo)
     {
+        $this->pdo = $pdo;
         $this->ensureTable();
     }
 

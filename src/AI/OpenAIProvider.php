@@ -42,6 +42,7 @@ final class OpenAIProvider
     private string $modelPlan;
     private string $modelDraft;
     private int $maxTokens;
+    private int $userId;
 
     /**
      * @var array<string, array{prompt: float, completion: float}>
@@ -49,10 +50,11 @@ final class OpenAIProvider
     private array $tariffs;
 
     public function __construct(
-        private readonly int $userId,
+        int $userId,
         ?ClientInterface $client = null,
         ?PDO $pdo = null
     ) {
+        $this->userId = $userId;
         $this->apiKey = $this->requireEnv('OPENAI_API_KEY');
         $this->baseUrl = rtrim($this->env('OPENAI_BASE_URL') ?? self::DEFAULT_BASE_URL, '/');
         $this->modelPlan = $this->requireEnv('OPENAI_MODEL_PLAN');
@@ -207,7 +209,8 @@ final class OpenAIProvider
                 ];
             } catch (RequestException $exception) {
                 $attempt++;
-                $statusCode = $exception->getResponse()?->getStatusCode();
+                $response = $exception->getResponse();
+                $statusCode = $response !== null ? $response->getStatusCode() : null;
 
                 if ($attempt >= self::MAX_ATTEMPTS || !$this->shouldRetry($statusCode)) {
                     throw new RuntimeException('OpenAI API request failed: ' . $exception->getMessage(), 0, $exception);

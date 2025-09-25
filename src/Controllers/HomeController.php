@@ -12,12 +12,18 @@ use Psr\Http\Message\ServerRequestInterface;
 
 class HomeController
 {
+    private Renderer $renderer;
+    private DocumentRepository $documentRepository;
+    private GenerationRepository $generationRepository;
+
     public function __construct(
-        private readonly Renderer $renderer,
-        private readonly DocumentRepository $documentRepository,
-        private readonly GenerationRepository $generationRepository,
-    )
-    {
+        Renderer $renderer,
+        DocumentRepository $documentRepository,
+        GenerationRepository $generationRepository,
+    ) {
+        $this->renderer = $renderer;
+        $this->documentRepository = $documentRepository;
+        $this->generationRepository = $generationRepository;
     }
 
     public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface

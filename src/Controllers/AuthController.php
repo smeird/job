@@ -12,8 +12,13 @@ use Psr\Http\Message\ServerRequestInterface;
 
 class AuthController
 {
-    public function __construct(private readonly AuthService $authService, private readonly Renderer $renderer)
+    private AuthService $authService;
+    private Renderer $renderer;
+
+    public function __construct(AuthService $authService, Renderer $renderer)
     {
+        $this->authService = $authService;
+        $this->renderer = $renderer;
     }
 
     public function showRegister(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface

@@ -9,14 +9,27 @@ use RuntimeException;
 
 final class Job
 {
+    public int $id;
+    public string $type;
+    private array $payload;
+    private int $attempts;
+    public string $status;
+    public DateTimeImmutable $runAfter;
+
     public function __construct(
-        public readonly int $id,
-        public readonly string $type,
-        private array $payload,
-        private int $attempts,
-        public string $status,
-        public DateTimeImmutable $runAfter,
+        int $id,
+        string $type,
+        array $payload,
+        int $attempts,
+        string $status,
+        DateTimeImmutable $runAfter,
     ) {
+        $this->id = $id;
+        $this->type = $type;
+        $this->payload = $payload;
+        $this->attempts = $attempts;
+        $this->status = $status;
+        $this->runAfter = $runAfter;
     }
 
     /**

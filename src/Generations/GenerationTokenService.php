@@ -26,7 +26,10 @@ use function trim;
 
 final class GenerationTokenService
 {
-    public function __construct(private readonly string $secret, private readonly int $ttlSeconds = 300)
+    private string $secret;
+    private int $ttlSeconds;
+
+    public function __construct(string $secret, int $ttlSeconds = 300)
     {
         if ($secret === '') {
             throw new RuntimeException('Download token secret must be configured.');
@@ -35,6 +38,9 @@ final class GenerationTokenService
         if ($ttlSeconds <= 0) {
             throw new RuntimeException('Token TTL must be positive.');
         }
+
+        $this->secret = $secret;
+        $this->ttlSeconds = $ttlSeconds;
     }
 
     public function getTtl(): int

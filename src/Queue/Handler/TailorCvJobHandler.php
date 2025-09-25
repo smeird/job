@@ -31,9 +31,11 @@ use function trim;
 final class TailorCvJobHandler implements JobHandlerInterface
 {
     private CommonMarkConverter $markdownConverter;
+    private PDO $pdo;
 
-    public function __construct(private readonly PDO $pdo)
+    public function __construct(PDO $pdo)
     {
+        $this->pdo = $pdo;
         $this->markdownConverter = new CommonMarkConverter([
             'html_input' => 'strip',
             'allow_unsafe_links' => false,
@@ -100,7 +102,15 @@ final class TailorCvJobHandler implements JobHandlerInterface
     private function convertDraft(string $draft): array
     {
         try {
-            $html = $this->markdownConverter->convert($draft)->getContent();
+            if (method_exists($this->markdownConverter, 'convertToHtml')) {
+                $converted = $this->markdownConverter->convertToHtml($draft);
+            } else {
+                $converted = $this->markdownConverter->convert($draft);
+            }
+
+            $html = is_object($converted) && method_exists($converted, 'getContent')
+                ? $converted->getContent()
+                : (string) $converted;
         } catch (Throwable $exception) {
             throw new RuntimeException('Unable to convert draft markdown into HTML.', 0, $exception);
         }

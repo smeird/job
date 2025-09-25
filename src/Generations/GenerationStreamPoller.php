@@ -10,6 +10,11 @@ class GenerationStreamPoller
 {
     private const TERMINAL_STATUSES = ['completed', 'succeeded', 'success', 'failed', 'cancelled', 'canceled'];
 
+    private GenerationStreamRepository $repository;
+    private int $generationId;
+    private int $pollIntervalSeconds;
+    private int $heartbeatIntervalSeconds;
+    private int $timeoutSeconds;
     private ?string $lastStatus = null;
     private ?int $lastProgress = null;
     private ?int $lastTokens = null;
@@ -22,13 +27,18 @@ class GenerationStreamPoller
     private ?GenerationStreamSnapshot $primedSnapshot;
 
     public function __construct(
-        private readonly GenerationStreamRepository $repository,
-        private readonly int $generationId,
-        private readonly int $pollIntervalSeconds = 1,
-        private readonly int $heartbeatIntervalSeconds = 15,
-        private readonly int $timeoutSeconds = 300,
+        GenerationStreamRepository $repository,
+        int $generationId,
+        int $pollIntervalSeconds = 1,
+        int $heartbeatIntervalSeconds = 15,
+        int $timeoutSeconds = 300,
         ?GenerationStreamSnapshot $initialSnapshot = null,
     ) {
+        $this->repository = $repository;
+        $this->generationId = $generationId;
+        $this->pollIntervalSeconds = $pollIntervalSeconds;
+        $this->heartbeatIntervalSeconds = $heartbeatIntervalSeconds;
+        $this->timeoutSeconds = $timeoutSeconds;
         $this->startedAt = microtime(true);
         $this->lastHeartbeat = $this->startedAt;
         $this->primedSnapshot = $initialSnapshot;
@@ -97,7 +107,9 @@ class GenerationStreamPoller
             $chunks[] = $this->formatEvent('progress', ['percent' => $snapshot->progressPercent]);
             $chunks[] = $this->formatEvent('tokens', [
                 'total' => $snapshot->totalTokens,
-                'updated_at' => $snapshot->latestOutputAt?->format(DateTimeInterface::ATOM),
+                'updated_at' => $snapshot->latestOutputAt !== null
+                    ? $snapshot->latestOutputAt->format(DateTimeInterface::ATOM)
+                    : null,
             ]);
             $chunks[] = $this->formatEvent('cost', [
                 'pence' => $snapshot->costPence,
@@ -134,7 +146,9 @@ class GenerationStreamPoller
             $this->lastTokens = $snapshot->totalTokens;
             $chunks[] = $this->formatEvent('tokens', [
                 'total' => $snapshot->totalTokens,
-                'updated_at' => $snapshot->latestOutputAt?->format(DateTimeInterface::ATOM),
+                'updated_at' => $snapshot->latestOutputAt !== null
+                    ? $snapshot->latestOutputAt->format(DateTimeInterface::ATOM)
+                    : null,
             ]);
         }
 

@@ -10,8 +10,11 @@ use PDO;
 
 class UsageService
 {
-    public function __construct(private readonly PDO $pdo)
+    private PDO $pdo;
+
+    public function __construct(PDO $pdo)
     {
+        $this->pdo = $pdo;
     }
 
     public function getUsageForUser(int $userId): array
@@ -68,7 +71,7 @@ class UsageService
                 'completion_tokens' => $completionTokens,
                 'total_tokens' => $totalTokens,
                 'cost_pence' => $costPence,
-                'created_at' => $createdAt?->format(DATE_ATOM) ?? null,
+                'created_at' => $createdAt !== null ? $createdAt->format(DATE_ATOM) : null,
             ];
 
             if ($entry['created_at'] === null && isset($row['created_at'])) {
@@ -146,7 +149,10 @@ class UsageService
         return is_array($decoded) ? $decoded : [];
     }
 
-    private function normaliseDate(mixed $value): ?DateTimeImmutable
+    /**
+     * @param mixed $value
+     */
+    private function normaliseDate($value): ?DateTimeImmutable
     {
         if (!is_string($value) || trim($value) === '') {
             return null;

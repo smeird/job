@@ -10,8 +10,11 @@ use PDO;
 
 class AuditLogger
 {
-    public function __construct(private readonly PDO $pdo)
+    private PDO $pdo;
+
+    public function __construct(PDO $pdo)
     {
+        $this->pdo = $pdo;
     }
 
     public function log(

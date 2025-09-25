@@ -10,10 +10,15 @@ use RuntimeException;
 
 class DocumentService
 {
+    private DocumentRepository $repository;
+    private DocumentValidator $validator;
+
     public function __construct(
-        private readonly DocumentRepository $repository,
-        private readonly DocumentValidator $validator,
+        DocumentRepository $repository,
+        DocumentValidator $validator,
     ) {
+        $this->repository = $repository;
+        $this->validator = $validator;
     }
 
     public function storeUploadedDocument(UploadedFileInterface $uploadedFile, int $userId, string $documentType): Document

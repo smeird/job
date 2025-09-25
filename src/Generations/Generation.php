@@ -8,16 +8,33 @@ use DateTimeImmutable;
 
 final class Generation
 {
+    private int $id;
+    private int $userId;
+    private int $jobDocumentId;
+    private int $cvDocumentId;
+    private string $model;
+    private float $temperature;
+    private string $status;
+    private DateTimeImmutable $createdAt;
+
     public function __construct(
-        private readonly int $id,
-        private readonly int $userId,
-        private readonly int $jobDocumentId,
-        private readonly int $cvDocumentId,
-        private readonly string $model,
-        private readonly float $temperature,
-        private readonly string $status,
-        private readonly DateTimeImmutable $createdAt,
+        int $id,
+        int $userId,
+        int $jobDocumentId,
+        int $cvDocumentId,
+        string $model,
+        float $temperature,
+        string $status,
+        DateTimeImmutable $createdAt,
     ) {
+        $this->id = $id;
+        $this->userId = $userId;
+        $this->jobDocumentId = $jobDocumentId;
+        $this->cvDocumentId = $cvDocumentId;
+        $this->model = $model;
+        $this->temperature = $temperature;
+        $this->status = $status;
+        $this->createdAt = $createdAt;
     }
 
     public function id(): int
