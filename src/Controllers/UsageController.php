@@ -51,7 +51,7 @@ class UsageController
         try {
             $dataset = $this->usageService->getUsageForUser((int) $user['user_id']);
             $payload = json_encode($dataset, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        } catch (JsonException) {
+        } catch (JsonException $exception) {
             $response->getBody()->write((string) json_encode(
                 ['error' => 'Unable to encode response.'],
                 JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE

@@ -58,7 +58,7 @@ class GenerationStreamRepository
             $totalTokens,
             $errorMessage !== null ? (string) $errorMessage : null,
             $updatedAt,
-            $latestOutputAt,
+            $latestOutputAt
         );
     }
 }

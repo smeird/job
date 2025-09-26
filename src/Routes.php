@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App;
 
 use App\Controllers\AuthController;
+use App\Controllers\DocumentController;
 use App\Controllers\GenerationController;
 use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
@@ -31,6 +32,14 @@ class Routes
 
         $app->get('/', function (Request $request, Response $response) use ($container) {
             return $container->get(HomeController::class)->index($request, $response);
+        });
+
+        $app->get('/documents', function (Request $request, Response $response) use ($container) {
+            return $container->get(DocumentController::class)->index($request, $response);
+        });
+
+        $app->post('/documents/upload', function (Request $request, Response $response) use ($container) {
+            return $container->get(DocumentController::class)->upload($request, $response);
         });
 
 

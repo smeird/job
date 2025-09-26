@@ -41,6 +41,8 @@ class RetentionController
         return $this->renderer->render($response, 'retention', [
             'title' => 'Data retention',
             'subtitle' => 'Control how long sensitive records are kept before purge.',
+            'fullWidth' => true,
+            'navLinks' => $this->navLinks('retention'),
             'policy' => $policy,
             'allowedResources' => $this->retentionPolicyService->getAllowedResources(),
             'resourceLabels' => $this->resourceLabels(),
@@ -88,6 +90,8 @@ class RetentionController
             return $this->renderer->render($response, 'retention', [
                 'title' => 'Data retention',
                 'subtitle' => 'Control how long sensitive records are kept before purge.',
+                'fullWidth' => true,
+                'navLinks' => $this->navLinks('retention'),
                 'policy' => $policy,
                 'allowedResources' => $this->retentionPolicyService->getAllowedResources(),
                 'resourceLabels' => $this->resourceLabels(),
@@ -110,5 +114,26 @@ class RetentionController
             'api_usage' => 'API usage metrics',
             'audit_logs' => 'Audit logs',
         ];
+    }
+
+    /**
+     * @return array<int, array{href: string, label: string, current: bool}>
+     */
+    private function navLinks(string $current): array
+    {
+        $links = [
+            'dashboard' => ['href' => '/', 'label' => 'Dashboard'],
+            'documents' => ['href' => '/documents', 'label' => 'Documents'],
+            'usage' => ['href' => '/usage', 'label' => 'Usage'],
+            'retention' => ['href' => '/retention', 'label' => 'Retention'],
+        ];
+
+        return array_map(function ($key, $link) use ($current) {
+            return [
+                'href' => $link['href'],
+                'label' => $link['label'],
+                'current' => $key === $current,
+            ];
+        }, array_keys($links), $links);
     }
 }
