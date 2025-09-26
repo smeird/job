@@ -4,9 +4,11 @@
 /** @var array<int, array{href: string, label: string, current: bool}> $navLinks */
 /** @var array<int, array<string, mixed>> $outstanding */
 /** @var array<int, array<string, mixed>> $applied */
+/** @var array<int, array<string, mixed>> $failed */
 /** @var array<int, string> $errors */
 /** @var string|null $status */
 /** @var array<string, string> $form */
+/** @var array<string, string> $failureReasons */
 /** @var string|null $csrfToken */
 ?>
 <?php ob_start(); ?>
@@ -127,6 +129,28 @@
                                             Mark applied
                                         </button>
                                     </form>
+                                    <?php $reasonFieldId = 'failure_reason_' . ($item['id'] ?? '0') . '_outstanding'; ?>
+                                    <form method="post" action="/applications/<?= urlencode((string) $item['id']) ?>/status" class="mt-2 flex flex-col gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-100 sm:flex-row sm:items-center sm:gap-3">
+                                        <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                                        <input type="hidden" name="status" value="failed">
+                                        <label for="<?= htmlspecialchars($reasonFieldId, ENT_QUOTES) ?>" class="font-medium text-rose-100">Rejection reason</label>
+                                        <select
+                                            id="<?= htmlspecialchars($reasonFieldId, ENT_QUOTES) ?>"
+                                            name="reason_code"
+                                            required
+                                            class="w-full rounded-lg border border-rose-400/40 bg-rose-500/10 px-2 py-1 text-rose-100 focus:border-rose-200 focus:outline-none focus:ring-rose-200 sm:max-w-xs"
+                                        >
+                                            <option value="" disabled selected>Select reason</option>
+                                            <?php foreach ($failureReasons as $code => $label) : ?>
+                                                <option value="<?= htmlspecialchars($code, ENT_QUOTES) ?>">
+                                                    <?= htmlspecialchars($label, ENT_QUOTES) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-full border border-rose-400/40 bg-rose-500/30 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-100 transition hover:border-rose-200 hover:text-rose-50">
+                                            Mark failed
+                                        </button>
+                                    </form>
                                 </header>
                                 <?php if (!empty($item['source_url'])) : ?>
                                     <a href="<?= htmlspecialchars($item['source_url'], ENT_QUOTES) ?>" target="_blank" rel="noopener" class="mt-2 inline-flex items-center gap-2 text-xs text-indigo-300 hover:text-indigo-200">
@@ -177,6 +201,84 @@
                                         <input type="hidden" name="status" value="outstanding">
                                         <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-300 transition hover:border-slate-500 hover:text-slate-100">
                                             Move back to queue
+                                        </button>
+                                    </form>
+                                    <?php $appliedReasonFieldId = 'failure_reason_' . ($item['id'] ?? '0') . '_applied'; ?>
+                                    <form method="post" action="/applications/<?= urlencode((string) $item['id']) ?>/status" class="mt-2 flex flex-col gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-100 sm:flex-row sm:items-center sm:gap-3">
+                                        <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                                        <input type="hidden" name="status" value="failed">
+                                        <label for="<?= htmlspecialchars($appliedReasonFieldId, ENT_QUOTES) ?>" class="font-medium text-rose-100">Rejection reason</label>
+                                        <select
+                                            id="<?= htmlspecialchars($appliedReasonFieldId, ENT_QUOTES) ?>"
+                                            name="reason_code"
+                                            required
+                                            class="w-full rounded-lg border border-rose-400/40 bg-rose-500/10 px-2 py-1 text-rose-100 focus:border-rose-200 focus:outline-none focus:ring-rose-200 sm:max-w-xs"
+                                        >
+                                            <option value="" disabled selected>Select reason</option>
+                                            <?php foreach ($failureReasons as $code => $label) : ?>
+                                                <option value="<?= htmlspecialchars($code, ENT_QUOTES) ?>">
+                                                    <?= htmlspecialchars($label, ENT_QUOTES) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                        <button type="submit" class="inline-flex items-center justify-center gap-2 rounded-full border border-rose-400/40 bg-rose-500/30 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-100 transition hover:border-rose-200 hover:text-rose-50">
+                                            Mark failed
+                                        </button>
+                                    </form>
+                                </header>
+                                <?php if (!empty($item['source_url'])) : ?>
+                                    <a href="<?= htmlspecialchars($item['source_url'], ENT_QUOTES) ?>" target="_blank" rel="noopener" class="mt-2 inline-flex items-center gap-2 text-xs text-indigo-300 hover:text-indigo-200">
+                                        View listing
+                                        <svg aria-hidden="true" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                            <path d="M7 17L17 7M7 7h10v10" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        </svg>
+                                    </a>
+                                <?php endif; ?>
+                                <p class="mt-3 text-sm text-slate-300">
+                                    <?= nl2br(htmlspecialchars($item['description_preview'], ENT_QUOTES)) ?>
+                                </p>
+                            </article>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </section>
+
+            <section class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6 shadow-xl">
+                <header class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <h3 class="text-lg font-semibold text-white">Rejected applications</h3>
+                        <p class="text-sm text-slate-400">Log outcomes and learn from every response.</p>
+                    </div>
+                    <span class="rounded-full border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-100">
+                        <?= count($failed) ?> recorded
+                    </span>
+                </header>
+                <div class="mt-4 space-y-4">
+                    <?php if (empty($failed)) : ?>
+                        <p class="rounded-xl border border-slate-800 bg-slate-900/70 px-4 py-6 text-sm text-slate-400">
+                            When you capture rejection reasons they will surface here, giving you insight into where to refine your search.
+                        </p>
+                    <?php else : ?>
+                        <?php foreach ($failed as $item) : ?>
+                            <?php $failureLabel = $failureReasons[$item['reason_code'] ?? ''] ?? 'Unknown reason'; ?>
+                            <article class="rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-sm text-slate-200 shadow-inner">
+                                <header class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div class="space-y-2">
+                                        <h4 class="text-base font-semibold text-white">
+                                            <?= htmlspecialchars($item['title'] ?? 'Untitled application', ENT_QUOTES) ?>
+                                        </h4>
+                                        <p class="text-xs text-slate-500">
+                                            Failed <?= htmlspecialchars($item['updated_at'] ?? $item['created_at'], ENT_QUOTES) ?>
+                                        </p>
+                                        <span class="inline-flex w-fit items-center gap-2 rounded-full border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide text-rose-100">
+                                            <?= htmlspecialchars($failureLabel, ENT_QUOTES) ?>
+                                        </span>
+                                    </div>
+                                    <form method="post" action="/applications/<?= urlencode((string) $item['id']) ?>/status" class="self-start">
+                                        <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                                        <input type="hidden" name="status" value="outstanding">
+                                        <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-300 transition hover:border-slate-500 hover:text-slate-100">
+                                            Reopen opportunity
                                         </button>
                                     </form>
                                 </header>

@@ -35,8 +35,8 @@ class JobApplicationRepository
         $createdAt = $now->format('Y-m-d H:i:s');
 
         $statement = $this->pdo->prepare(
-            'INSERT INTO job_applications (user_id, title, source_url, description, status, applied_at, created_at, updated_at)
-             VALUES (:user_id, :title, :source_url, :description, :status, :applied_at, :created_at, :updated_at)'
+            'INSERT INTO job_applications (user_id, title, source_url, description, status, applied_at, reason_code, created_at, updated_at)'
+             VALUES (:user_id, :title, :source_url, :description, :status, :applied_at, :reason_code, :created_at, :updated_at)'
         );
 
         $statement->bindValue(':user_id', $userId, PDO::PARAM_INT);
@@ -51,6 +51,7 @@ class JobApplicationRepository
         $statement->bindValue(':description', $description);
         $statement->bindValue(':status', 'outstanding');
         $statement->bindValue(':applied_at', null, PDO::PARAM_NULL);
+        $statement->bindValue(':reason_code', null, PDO::PARAM_NULL);
         $statement->bindValue(':created_at', $createdAt);
         $statement->bindValue(':updated_at', $createdAt);
 
@@ -65,6 +66,7 @@ class JobApplicationRepository
             $sourceUrl,
             $description,
             'outstanding',
+            null,
             null,
             new DateTimeImmutable($createdAt),
             new DateTimeImmutable($createdAt)
@@ -145,14 +147,22 @@ class JobApplicationRepository
      *
      * The helper keeps state transitions consistent across the service layer.
      */
-    public function updateStatus(JobApplication $application, string $status): JobApplication
+    public function updateStatus(JobApplication $application, string $status, ?string $reasonCode): JobApplication
     {
         $now = new DateTimeImmutable('now');
-        $appliedAt = $status === 'applied' ? $now : null;
+        $appliedAt = $application->appliedAt();
+
+        if ($status === 'applied' && $appliedAt === null) {
+            $appliedAt = $now;
+        }
+
+        if ($status === 'outstanding') {
+            $appliedAt = null;
+        }
 
         $statement = $this->pdo->prepare(
             'UPDATE job_applications
-             SET status = :status, applied_at = :applied_at, updated_at = :updated_at
+             SET status = :status, applied_at = :applied_at, reason_code = :reason_code, updated_at = :updated_at
              WHERE id = :id AND user_id = :user_id'
         );
 
@@ -162,6 +172,13 @@ class JobApplicationRepository
         } else {
             $statement->bindValue(':applied_at', null, PDO::PARAM_NULL);
         }
+
+        if ($reasonCode !== null) {
+            $statement->bindValue(':reason_code', $reasonCode);
+        } else {
+            $statement->bindValue(':reason_code', null, PDO::PARAM_NULL);
+        }
+
         $statement->bindValue(':updated_at', $now->format('Y-m-d H:i:s'));
         $statement->bindValue(':id', (int) $application->id(), PDO::PARAM_INT);
         $statement->bindValue(':user_id', $application->userId(), PDO::PARAM_INT);
@@ -172,7 +189,7 @@ class JobApplicationRepository
             throw new RuntimeException('No job application was updated.');
         }
 
-        return $application->withStatus($status, $appliedAt, $now);
+        return $application->withStatus($status, $appliedAt, $reasonCode, $now);
     }
 
     /**
@@ -194,6 +211,7 @@ class JobApplicationRepository
                 description LONGTEXT NOT NULL,
                 status VARCHAR(32) NOT NULL DEFAULT 'outstanding',
                 applied_at DATETIME NULL,
+                reason_code VARCHAR(64) NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 CONSTRAINT fk_job_applications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -203,6 +221,8 @@ class JobApplicationRepository
             SQL;
 
             $this->pdo->exec($sql);
+
+            $this->ensureReasonCodeColumn();
 
             return;
         }
@@ -216,6 +236,7 @@ class JobApplicationRepository
             description TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'outstanding',
             applied_at TEXT NULL,
+            reason_code TEXT NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
@@ -225,6 +246,8 @@ class JobApplicationRepository
 
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_job_applications_user_status ON job_applications (user_id, status)');
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_job_applications_user_created ON job_applications (user_id, created_at)');
+        $this->ensureReasonCodeColumn();
+
     }
 
     /**
@@ -249,8 +272,45 @@ class JobApplicationRepository
             (string) $row['description'],
             (string) $row['status'],
             $appliedAt,
+            array_key_exists('reason_code', $row) && $row['reason_code'] !== null ? (string) $row['reason_code'] : null,
             new DateTimeImmutable((string) $row['created_at']),
             new DateTimeImmutable((string) $row['updated_at'])
         );
+    }
+
+    /**
+     * Handle the ensure reason code column workflow.
+     *
+     * This helper keeps schema updates for reason tracking predictable across drivers.
+     */
+    private function ensureReasonCodeColumn(): void
+    {
+        $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+        if ($driver === 'mysql') {
+            $statement = $this->pdo->prepare("SHOW COLUMNS FROM job_applications LIKE 'reason_code'");
+            $statement->execute();
+
+            if ($statement->fetch() === false) {
+                $this->pdo->exec("ALTER TABLE job_applications ADD COLUMN reason_code VARCHAR(64) NULL AFTER applied_at");
+            }
+
+            return;
+        }
+
+        $statement = $this->pdo->query("PRAGMA table_info(job_applications)");
+
+        $hasColumn = false;
+
+        while ($row = $statement->fetch()) {
+            if (isset($row['name']) && $row['name'] === 'reason_code') {
+                $hasColumn = true;
+                break;
+            }
+        }
+
+        if ($hasColumn === false) {
+            $this->pdo->exec('ALTER TABLE job_applications ADD COLUMN reason_code TEXT NULL');
+        }
     }
 }

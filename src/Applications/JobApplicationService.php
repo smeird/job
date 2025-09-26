@@ -8,6 +8,14 @@ use RuntimeException;
 
 class JobApplicationService
 {
+    private const FAILURE_REASONS = [
+        'no_response' => 'No response received',
+        'position_filled' => 'Position filled by employer',
+        'skills_gap' => 'Skills or experience gap',
+        'salary_misaligned' => 'Salary expectations misaligned',
+        'other' => 'Other or unspecified reason',
+    ];
+
     /** @var JobApplicationRepository */
     private $repository;
 
@@ -72,15 +80,64 @@ class JobApplicationService
      *
      * This helper keeps status updates predictable and access-controlled.
      */
-    public function transitionStatus(int $userId, int $applicationId, string $status): JobApplication
-    {
-        $normalisedStatus = in_array($status, ['applied', 'outstanding'], true) ? $status : 'outstanding';
+    public function transitionStatus(
+        int $userId,
+        int $applicationId,
+        string $status,
+        ?string $reasonCode = null
+    ): JobApplication {
+        $normalisedStatus = in_array($status, ['applied', 'outstanding', 'failed'], true) ? $status : 'outstanding';
+        $normalisedReason = null;
+
+        if ($normalisedStatus === 'failed') {
+            $normalisedReason = $this->normaliseReasonCode($reasonCode);
+
+            if ($normalisedReason === null) {
+                throw new RuntimeException('Select a valid rejection reason before marking the application as failed.');
+            }
+        }
+
         $application = $this->repository->findForUser($userId, $applicationId);
 
         if ($application === null) {
             throw new RuntimeException('The requested job application could not be found.');
         }
 
-        return $this->repository->updateStatus($application, $normalisedStatus);
+        return $this->repository->updateStatus($application, $normalisedStatus, $normalisedReason);
+    }
+
+    /**
+     * Handle the failure reasons workflow.
+     *
+     * This helper keeps the configured rejection codes available to consumers.
+     * @return array<string, string>
+     */
+    public function failureReasons(): array
+    {
+        return self::FAILURE_REASONS;
+    }
+
+    /**
+     * Handle the reason normalisation workflow.
+     *
+     * This helper ensures only known rejection codes make it to persistence.
+     */
+    private function normaliseReasonCode(?string $reasonCode): ?string
+    {
+        if ($reasonCode === null) {
+            return null;
+        }
+
+        $key = trim($reasonCode);
+
+        if ($key === '') {
+            return null;
+        }
+
+        if (!array_key_exists($key, self::FAILURE_REASONS)) {
+            return null;
+        }
+
+        return $key;
     }
 }
