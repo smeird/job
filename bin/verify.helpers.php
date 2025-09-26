@@ -379,6 +379,12 @@ function verify_zip_has_entry(string $binary, string $entry): bool
     $meta = stream_get_meta_data($temp);
     $filename = $meta['uri'];
 
+    if (!class_exists('ZipArchive')) {
+        fclose($temp);
+
+        return false;
+    }
+
     $zip = new ZipArchive();
     $result = $zip->open($filename);
     if ($result !== true) {

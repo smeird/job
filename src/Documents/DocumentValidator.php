@@ -50,6 +50,10 @@ class DocumentValidator
 
     private function validateDocx(string $content, ?string $temporaryPath): string
     {
+        if (!class_exists(ZipArchive::class)) {
+            throw new DocumentValidationException('DOCX validation is unavailable because the PHP zip extension is missing.');
+        }
+
         if (!str_starts_with($content, "PK")) {
             throw new DocumentValidationException('The DOCX archive is malformed.');
         }
