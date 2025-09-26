@@ -38,6 +38,7 @@ $wizardJson = htmlspecialchars(
             </p>
         </div>
         <form method="post" action="/auth/logout" class="md:self-end">
+            <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
             <button type="submit" class="inline-flex items-center justify-center rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800">
                 Sign out
             </button>
