@@ -151,6 +151,7 @@ $wizardJson = htmlspecialchars(
         </nav>
         <section
             x-ref="wizardPanel"
+            tabindex="-1"
             class="rounded-2xl border border-slate-800/80 bg-slate-900/70 shadow-xl"
         >
             <div class="border-b border-slate-800/60 px-6 py-4">
@@ -353,147 +354,163 @@ $wizardJson = htmlspecialchars(
 
 <script>
     document.addEventListener('alpine:init', () => {
-        Alpine.data('generationWizard', (config) => ({
-            step: 1,
-            steps: [
-                { index: 1, title: 'Choose job description', description: 'Select the role you want to tailor for.', helper: 'Pick the job posting that best matches the next application.' },
-                { index: 2, title: 'Choose CV', description: 'Decide which base CV to tailor.', helper: 'Use the CV with the strongest baseline for this role.' },
-                { index: 3, title: 'Set parameters', description: 'Adjust the model and thinking time.', helper: 'Choose the best model and allow enough thinking time for complex roles.' },
-                { index: 4, title: 'Confirm & queue', description: 'Review before submitting.', helper: 'Double-check your selections before queuing the request.' },
-            ],
-            jobDocuments: config.jobDocuments ?? [],
-            cvDocuments: config.cvDocuments ?? [],
-            models: config.models ?? [],
-            generations: config.generations ?? [],
-            form: {
-                job_document_id: null,
-                cv_document_id: null,
-                model: (config.models?.[0]?.value) ?? '',
-                thinking_time: 30,
-            },
-            isSubmitting: false,
-            error: '',
-            successMessage: '',
-            get isWizardDisabled() {
-                return this.jobDocuments.length === 0 || this.cvDocuments.length === 0;
-            },
-            get canMoveForward() {
-                if (this.step === 1) {
-                    return this.form.job_document_id !== null;
-                }
-                if (this.step === 2) {
-                    return this.form.cv_document_id !== null;
-                }
-                if (this.step === 3) {
-                    return this.form.model !== '' && this.thinkingTimeIsValid;
-                }
-                return true;
-            },
-            get canSubmit() {
-                return this.selectedJobDocument && this.selectedCvDocument && this.thinkingTimeIsValid;
-            },
-            get thinkingTimeIsValid() {
-                return Number.isFinite(this.form.thinking_time) && this.form.thinking_time >= 5 && this.form.thinking_time <= 60;
-            },
-            get selectedJobDocument() {
-                return this.jobDocuments.find((doc) => doc.id === this.form.job_document_id) ?? null;
-            },
-            get selectedCvDocument() {
-                return this.cvDocuments.find((doc) => doc.id === this.form.cv_document_id) ?? null;
-            },
-            get displayModelLabel() {
-                const match = this.models.find((model) => model.value === this.form.model);
-                return match ? match.label : this.form.model;
-            },
-            previous() {
-                if (this.step > 1) {
-                    this.step -= 1;
-                    this.error = '';
-                    this.successMessage = '';
-                }
-            },
-            next() {
-                if (this.step < this.steps.length && this.canMoveForward) {
-                    this.step += 1;
-                    this.error = '';
-                }
-            },
-            async submit() {
-                if (this.isSubmitting || !this.canSubmit) {
-                    return;
-                }
+        Alpine.data('generationWizard', (config) => {
+            const defaultThinkingTime = Number.isFinite(config.defaultThinkingTime)
+                ? config.defaultThinkingTime
+                : 30;
 
-                this.isSubmitting = true;
-                this.error = '';
-                this.successMessage = '';
-
-                try {
-                    const response = await fetch('/generations', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            job_document_id: this.form.job_document_id,
-                            cv_document_id: this.form.cv_document_id,
-                            model: this.form.model,
-                            thinking_time: this.form.thinking_time,
-                        }),
-                    });
-
-                    const data = await response.json();
-
-                    if (!response.ok) {
-                        this.error = data?.error ?? 'Unable to queue the generation. Please try again.';
+            return {
+                step: 1,
+                steps: [
+                    { index: 1, title: 'Choose job description', description: 'Select the role you want to tailor for.', helper: 'Pick the job posting that best matches the next application.' },
+                    { index: 2, title: 'Choose CV', description: 'Decide which base CV to tailor.', helper: 'Use the CV with the strongest baseline for this role.' },
+                    { index: 3, title: 'Set parameters', description: 'Adjust the model and thinking time.', helper: 'Choose the best model and allow enough thinking time for complex roles.' },
+                    { index: 4, title: 'Confirm & queue', description: 'Review before submitting.', helper: 'Double-check your selections before queuing the request.' },
+                ],
+                jobDocuments: config.jobDocuments ?? [],
+                cvDocuments: config.cvDocuments ?? [],
+                models: config.models ?? [],
+                generations: config.generations ?? [],
+                form: {
+                    job_document_id: null,
+                    cv_document_id: null,
+                    model: (config.models?.[0]?.value) ?? '',
+                    thinking_time: defaultThinkingTime,
+                },
+                defaultThinkingTime,
+                isSubmitting: false,
+                error: '',
+                successMessage: '',
+                get isWizardDisabled() {
+                    return this.jobDocuments.length === 0 || this.cvDocuments.length === 0;
+                },
+                get canMoveForward() {
+                    if (this.step === 1) {
+                        return this.form.job_document_id !== null;
+                    }
+                    if (this.step === 2) {
+                        return this.form.cv_document_id !== null;
+                    }
+                    if (this.step === 3) {
+                        return this.form.model !== '' && this.thinkingTimeIsValid;
+                    }
+                    return true;
+                },
+                get canSubmit() {
+                    return this.selectedJobDocument && this.selectedCvDocument && this.thinkingTimeIsValid;
+                },
+                get thinkingTimeIsValid() {
+                    return Number.isFinite(this.form.thinking_time) && this.form.thinking_time >= 5 && this.form.thinking_time <= 60;
+                },
+                get selectedJobDocument() {
+                    return this.jobDocuments.find((doc) => doc.id === this.form.job_document_id) ?? null;
+                },
+                get selectedCvDocument() {
+                    return this.cvDocuments.find((doc) => doc.id === this.form.cv_document_id) ?? null;
+                },
+                get displayModelLabel() {
+                    const match = this.models.find((model) => model.value === this.form.model);
+                    return match ? match.label : this.form.model;
+                },
+                previous() {
+                    if (this.step > 1) {
+                        this.step -= 1;
+                        this.error = '';
+                        this.successMessage = '';
+                    }
+                },
+                next() {
+                    if (this.step < this.steps.length && this.canMoveForward) {
+                        this.step += 1;
+                        this.error = '';
+                    }
+                },
+                async submit() {
+                    if (this.isSubmitting || !this.canSubmit) {
                         return;
                     }
 
-                    this.generations.unshift({
-                        ...data,
-                        thinking_time: data.thinking_time ?? this.form.thinking_time,
-                        job_document: this.selectedJobDocument,
-                        cv_document: this.selectedCvDocument,
-                    });
+                    this.isSubmitting = true;
+                    this.error = '';
+                    this.successMessage = '';
 
-                    this.successMessage = 'Generation queued successfully.';
-                    this.step = 1;
-                } catch (error) {
-                    this.error = 'A network error prevented queuing the generation.';
-                } finally {
-                    this.isSubmitting = false;
-                }
-            },
-            formatDate(value) {
-                if (!value) {
-                    return '';
-                }
-                const date = new Date(value);
-                return isNaN(date.getTime()) ? value : date.toLocaleDateString();
-            },
-            formatDateTime(value) {
-                if (!value) {
-                    return '';
-                }
-                const date = new Date(value);
-                return isNaN(date.getTime()) ? value : date.toLocaleString();
-            },
-            // Reset the wizard to its first step and guide the user directly to the tailoring workflow.
-            startNewGeneration() {
-                this.step = 1;
-                this.error = '';
-                this.successMessage = '';
+                    try {
+                        const response = await fetch('/generations', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                job_document_id: this.form.job_document_id,
+                                cv_document_id: this.form.cv_document_id,
+                                model: this.form.model,
+                                thinking_time: this.form.thinking_time,
+                            }),
+                        });
 
-                if (this.isWizardDisabled) {
-                    this.error = 'Upload at least one job description and CV to start tailoring.';
-                }
+                        const data = await response.json();
 
-                requestAnimationFrame(() => {
-                    if (this.$refs.wizardPanel) {
-                        this.$refs.wizardPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        if (!response.ok) {
+                            this.error = data?.error ?? 'Unable to queue the generation. Please try again.';
+                            return;
+                        }
+
+                        this.generations.unshift({
+                            ...data,
+                            thinking_time: data.thinking_time ?? this.form.thinking_time,
+                            job_document: this.selectedJobDocument,
+                            cv_document: this.selectedCvDocument,
+                        });
+
+                        this.successMessage = 'Generation queued successfully.';
+                        this.step = 1;
+                    } catch (error) {
+                        this.error = 'A network error prevented queuing the generation.';
+                    } finally {
+                        this.isSubmitting = false;
                     }
-                });
-            },
-        }));
+                },
+                formatDate(value) {
+                    if (!value) {
+                        return '';
+                    }
+                    const date = new Date(value);
+                    return isNaN(date.getTime()) ? value : date.toLocaleDateString();
+                },
+                formatDateTime(value) {
+                    if (!value) {
+                        return '';
+                    }
+                    const date = new Date(value);
+                    return isNaN(date.getTime()) ? value : date.toLocaleString();
+                },
+                // Reset the wizard to its first step, clear previous selections, and guide the user directly to the tailoring workflow.
+                startNewGeneration() {
+                    this.step = 1;
+                    this.error = '';
+                    this.successMessage = '';
+
+                    this.form.job_document_id = null;
+                    this.form.cv_document_id = null;
+                    this.form.model = (this.models?.[0]?.value) ?? '';
+                    this.form.thinking_time = this.defaultThinkingTime;
+
+                    if (this.isWizardDisabled) {
+                        this.error = 'Upload at least one job description and CV to start tailoring.';
+                    }
+
+                    this.$nextTick(() => {
+                        if (this.$refs.wizardPanel) {
+                            this.$refs.wizardPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                            if (typeof this.$refs.wizardPanel.focus === 'function') {
+                                this.$refs.wizardPanel.focus();
+                            }
+                        }
+                    });
+                },
+            };
+        });
     });
 </script>
 <?php $body = ob_get_clean(); ?>
