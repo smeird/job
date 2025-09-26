@@ -33,6 +33,7 @@ class Migrator
         $this->createPendingPasscodesTable();
         $this->createSessionsTable();
         $this->createDocumentsTable();
+        $this->createJobApplicationsTable();
         $this->createGenerationsTable();
         $this->createGenerationOutputsTable();
         $this->createApiUsageTable();
@@ -144,6 +145,56 @@ class Migrator
         SQL;
 
         $this->pdo->exec($sql);
+    }
+
+    /**
+     * Create the job applications table instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
+    private function createJobApplicationsTable(): void
+    {
+        $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+        if ($driver === 'mysql') {
+            $sql = <<<SQL
+            CREATE TABLE IF NOT EXISTS job_applications (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                user_id BIGINT UNSIGNED NOT NULL,
+                title VARCHAR(255) NOT NULL DEFAULT '',
+                source_url TEXT NULL,
+                description LONGTEXT NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'outstanding',
+                applied_at DATETIME NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                CONSTRAINT fk_job_applications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                INDEX idx_job_applications_user_status (user_id, status),
+                INDEX idx_job_applications_user_created (user_id, created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            SQL;
+
+            $this->pdo->exec($sql);
+
+            return;
+        }
+
+        $this->pdo->exec(
+            'CREATE TABLE IF NOT EXISTS job_applications (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                title TEXT NOT NULL DEFAULT '',
+                source_url TEXT NULL,
+                description TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT "outstanding",
+                applied_at TEXT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )'
+        );
+
+        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_job_applications_user_status ON job_applications (user_id, status)');
+        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_job_applications_user_created ON job_applications (user_id, created_at)');
     }
 
     /**

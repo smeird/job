@@ -6,6 +6,8 @@
 /** @var array<int, array<string, mixed>> $cvDocuments */
 /** @var array<int, array<string, mixed>> $generations */
 /** @var array<int, array<string, mixed>> $modelOptions */
+/** @var array<int, array<string, mixed>> $outstandingApplications */
+/** @var int $outstandingApplicationsCount */
 
 $fullWidth = true;
 
@@ -46,7 +48,7 @@ $wizardJson = htmlspecialchars(
         </form>
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-3">
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <a href="/documents" class="group flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-100">
             <span class="inline-flex items-center gap-2">
                 <span class="rounded-full bg-indigo-500/20 px-2 py-1 text-xs uppercase tracking-wide text-indigo-200">Upload</span>
@@ -56,6 +58,15 @@ $wizardJson = htmlspecialchars(
                 <path d="M5 12h14" stroke-linecap="round" stroke-linejoin="round"></path>
                 <path d="M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path>
             </svg>
+        </a>
+        <a href="/applications" class="group flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-100">
+            <span class="inline-flex items-center gap-2">
+                <span class="rounded-full bg-amber-500/20 px-2 py-1 text-xs uppercase tracking-wide text-amber-200">Track</span>
+                <span>Job tracker</span>
+            </span>
+            <span class="text-xs font-semibold uppercase tracking-wide text-amber-200">
+                <?= (int) $outstandingApplicationsCount ?> outstanding
+            </span>
         </a>
         <a href="/usage" class="group flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-100">
             <span class="inline-flex items-center gap-2">
@@ -78,6 +89,42 @@ $wizardJson = htmlspecialchars(
             </svg>
         </a>
     </div>
+
+    <section class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6 shadow-xl">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h3 class="text-lg font-semibold text-white">Next up</h3>
+                <p class="text-sm text-slate-400">A snapshot of the roles you still plan to apply for.</p>
+            </div>
+            <a href="/applications" class="inline-flex items-center gap-2 rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-300 transition hover:border-slate-500 hover:text-slate-100">
+                Open tracker
+            </a>
+        </div>
+        <div class="mt-4 space-y-4">
+            <?php if (empty($outstandingApplications)) : ?>
+                <p class="rounded-xl border border-slate-800 bg-slate-950/70 px-4 py-6 text-sm text-slate-400">
+                    You have no outstanding postings right now. Capture the next role you find to keep everything organised.
+                </p>
+            <?php else : ?>
+                <?php foreach ($outstandingApplications as $application) : ?>
+                    <article class="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-950/80 px-4 py-3 text-sm text-slate-200">
+                        <div class="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                            <p class="font-medium text-white"><?= htmlspecialchars($application['title'] ?? 'Untitled application', ENT_QUOTES) ?></p>
+                            <p class="text-xs text-slate-500">Added <?= htmlspecialchars($application['created_at'], ENT_QUOTES) ?></p>
+                        </div>
+                        <?php if (!empty($application['source_url'])) : ?>
+                            <a href="<?= htmlspecialchars($application['source_url'], ENT_QUOTES) ?>" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-xs text-indigo-300 hover:text-indigo-200">
+                                View listing
+                                <svg aria-hidden="true" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <path d="M7 17L17 7M7 7h10v10" stroke-linecap="round" stroke-linejoin="round"></path>
+                                </svg>
+                            </a>
+                        <?php endif; ?>
+                    </article>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </div>
+    </section>
 
     <div class="grid gap-6 lg:grid-cols-[320px,1fr]">
         <nav class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6">
