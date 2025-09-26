@@ -355,12 +355,24 @@ $wizardJson = htmlspecialchars(
 <script>
     document.addEventListener('alpine:init', () => {
         Alpine.data('generationWizard', (config) => {
-            const models = Array.isArray(config.models) ? config.models : [];
-            const jobDocuments = Array.isArray(config.jobDocuments) ? config.jobDocuments : [];
-            const cvDocuments = Array.isArray(config.cvDocuments) ? config.cvDocuments : [];
-            const generations = Array.isArray(config.generations) ? config.generations : [];
 
-            const defaultThinkingTime = Number.isFinite(config.defaultThinkingTime)
+            // Provide a resilient array check for browsers that lack Array.isArray.
+            const isArray = Array.isArray || function (value) {
+                return Object.prototype.toString.call(value) === '[object Array]';
+            };
+
+            const models = isArray(config.models) ? config.models : [];
+            const jobDocuments = isArray(config.jobDocuments) ? config.jobDocuments : [];
+            const cvDocuments = isArray(config.cvDocuments) ? config.cvDocuments : [];
+            const generations = isArray(config.generations) ? config.generations : [];
+
+            // Determine whether the provided value is a finite number before using it in calculations.
+            const isFiniteNumber = function (value) {
+                return typeof value === 'number' && isFinite(value);
+            };
+
+            const defaultThinkingTime = isFiniteNumber(config.defaultThinkingTime)
+
                 ? config.defaultThinkingTime
                 : 30;
 
@@ -409,22 +421,39 @@ $wizardJson = htmlspecialchars(
                     return this.selectedJobDocument && this.selectedCvDocument && this.thinkingTimeIsValid;
                 },
                 get thinkingTimeIsValid() {
-                    return Number.isFinite(this.form.thinking_time) && this.form.thinking_time >= 5 && this.form.thinking_time <= 60;
+                    return isFiniteNumber(this.form.thinking_time) && this.form.thinking_time >= 5 && this.form.thinking_time <= 60;
                 },
                 get selectedJobDocument() {
-                    const documents = Array.isArray(this.jobDocuments) ? this.jobDocuments : [];
-                    const match = documents.find((doc) => doc.id === this.form.job_document_id);
-                    return match === undefined ? null : match;
+
+                    const documents = isArray(this.jobDocuments) ? this.jobDocuments : [];
+                    for (let index = 0; index < documents.length; index += 1) {
+                        const documentItem = documents[index];
+                        if (documentItem && documentItem.id === this.form.job_document_id) {
+                            return documentItem;
+                        }
+                    }
+                    return null;
                 },
                 get selectedCvDocument() {
-                    const documents = Array.isArray(this.cvDocuments) ? this.cvDocuments : [];
-                    const match = documents.find((doc) => doc.id === this.form.cv_document_id);
-                    return match === undefined ? null : match;
+                    const documents = isArray(this.cvDocuments) ? this.cvDocuments : [];
+                    for (let index = 0; index < documents.length; index += 1) {
+                        const documentItem = documents[index];
+                        if (documentItem && documentItem.id === this.form.cv_document_id) {
+                            return documentItem;
+                        }
+                    }
+                    return null;
                 },
                 get displayModelLabel() {
-                    const availableModels = Array.isArray(this.models) ? this.models : [];
-                    const match = availableModels.find((model) => model.value === this.form.model);
-                    return match ? match.label : this.form.model;
+                    const availableModels = isArray(this.models) ? this.models : [];
+                    for (let index = 0; index < availableModels.length; index += 1) {
+                        const model = availableModels[index];
+                        if (model && model.value === this.form.model) {
+                            return model.label;
+                        }
+                    }
+                    return this.form.model;
+
                 },
                 previous() {
                     if (this.step > 1) {
@@ -472,7 +501,9 @@ $wizardJson = htmlspecialchars(
                             return;
                         }
 
-                        const list = Array.isArray(this.generations) ? this.generations : [];
+
+                        const list = isArray(this.generations) ? this.generations : [];
+
 
                         list.unshift({
                             ...data,
@@ -515,7 +546,9 @@ $wizardJson = htmlspecialchars(
 
                     this.form.job_document_id = null;
                     this.form.cv_document_id = null;
-                    this.form.model = (Array.isArray(this.models) && this.models.length > 0 && typeof this.models[0].value === 'string')
+
+                    this.form.model = (isArray(this.models) && this.models.length > 0 && typeof this.models[0].value === 'string')
+
                         ? this.models[0].value
                         : '';
                     this.form.thinking_time = this.defaultThinkingTime;
