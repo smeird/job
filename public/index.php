@@ -31,7 +31,6 @@ use Slim\Factory\AppFactory;
 use Slim\Middleware\ErrorMiddleware;
 use App\Generations\GenerationDownloadService;
 use App\Generations\GenerationRepository;
-use App\Generations\GenerationDownloadService;
 use App\Generations\GenerationTokenService;
 
 require_once __DIR__ . '/../autoload.php';
