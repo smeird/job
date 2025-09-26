@@ -123,7 +123,6 @@ final class OpenAIProvider
         $payload = [
             'model' => $this->modelPlan,
             'messages' => $messages,
-            'temperature' => 0.2,
             'max_tokens' => $this->maxTokens,
             'response_format' => ['type' => 'json_object'],
         ];
@@ -169,7 +168,6 @@ final class OpenAIProvider
         $payload = [
             'model' => $this->modelDraft,
             'messages' => $messages,
-            'temperature' => 0.6,
             'max_tokens' => $this->maxTokens,
         ];
 

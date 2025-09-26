@@ -60,7 +60,7 @@ final class GenerationController
         $jobDocumentId = $this->extractInt($payload['job_document_id'] ?? null);
         $cvDocumentId = $this->extractInt($payload['cv_document_id'] ?? null);
         $model = isset($payload['model']) ? trim((string) $payload['model']) : '';
-        $temperature = $this->extractFloat($payload['temperature'] ?? null);
+        $thinkingTime = $this->extractInt($payload['thinking_time'] ?? null);
 
         if ($jobDocumentId === null || $cvDocumentId === null) {
             throw new HttpBadRequestException($request, 'Both job and CV documents are required.');
@@ -70,8 +70,8 @@ final class GenerationController
             throw new HttpBadRequestException($request, 'Unknown model selection.');
         }
 
-        if ($temperature === null || $temperature < 0.0 || $temperature > 1.0) {
-            throw new HttpBadRequestException($request, 'Temperature must be between 0.0 and 1.0.');
+        if ($thinkingTime === null || $thinkingTime < 5 || $thinkingTime > 60) {
+            throw new HttpBadRequestException($request, 'Thinking time must be between 5 and 60 seconds.');
         }
 
         $userId = (int) $user['user_id'];
@@ -83,7 +83,7 @@ final class GenerationController
             return $this->json($response->withStatus(422), ['error' => 'Document selection is invalid.']);
         }
 
-        $generation = $this->generationRepository->create($userId, $jobDocument->id(), $cvDocument->id(), $model, $temperature);
+        $generation = $this->generationRepository->create($userId, $jobDocument->id(), $cvDocument->id(), $model, $thinkingTime);
 
         return $this->json($response->withStatus(201), $generation);
     }
@@ -145,29 +145,6 @@ final class GenerationController
 
         if (is_numeric($value) && (string) (int) $value === trim((string) $value)) {
             return (int) $value;
-        }
-
-        return null;
-    }
-
-    /**
-     * Handle the extract float workflow.
-     *
-     * This helper keeps the extract float logic centralised for clarity and reuse.
-     * @param mixed $value
-     */
-    private function extractFloat($value): ?float
-    {
-        if ($value === null) {
-            return null;
-        }
-
-        if (is_float($value) || is_int($value)) {
-            return (float) $value;
-        }
-
-        if (is_numeric($value)) {
-            return (float) $value;
         }
 
         return null;

@@ -23,8 +23,8 @@ final class Generation
     /** @var string */
     private $model;
 
-    /** @var float */
-    private $temperature;
+    /** @var int */
+    private $thinkingTime;
 
     /** @var string */
     private $status;
@@ -43,7 +43,7 @@ final class Generation
         int $jobDocumentId,
         int $cvDocumentId,
         string $model,
-        float $temperature,
+        int $thinkingTime,
         string $status,
         DateTimeImmutable $createdAt
     ) {
@@ -52,7 +52,7 @@ final class Generation
         $this->jobDocumentId = $jobDocumentId;
         $this->cvDocumentId = $cvDocumentId;
         $this->model = $model;
-        $this->temperature = $temperature;
+        $this->thinkingTime = $thinkingTime;
         $this->status = $status;
         $this->createdAt = $createdAt;
     }
@@ -108,13 +108,13 @@ final class Generation
     }
 
     /**
-     * Handle the temperature operation.
+     * Handle the thinking time operation.
      *
      * Documenting this helper clarifies its role within the wider workflow.
      */
-    public function temperature(): float
+    public function thinkingTime(): int
     {
-        return $this->temperature;
+        return $this->thinkingTime;
     }
 
     /**

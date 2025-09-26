@@ -236,11 +236,11 @@ $wizardJson = htmlspecialchars(
                     </div>
                     <div class="space-y-2">
                         <div class="flex items-center justify-between text-sm text-slate-200">
-                            <span>Creativity (temperature)</span>
-                            <span class="font-semibold text-indigo-200" x-text="form.temperature.toFixed(1)"></span>
+                            <span>Thinking time (seconds)</span>
+                            <span class="font-semibold text-indigo-200" x-text="form.thinking_time + 's'"></span>
                         </div>
-                        <input type="range" min="0" max="1" step="0.1" x-model.number="form.temperature" class="w-full accent-indigo-500">
-                        <p class="text-xs text-slate-400">Higher values encourage more varied phrasing. Keep between 0.0 and 1.0 for grounded drafts.</p>
+                        <input type="range" min="5" max="60" step="5" x-model.number="form.thinking_time" class="w-full accent-indigo-500">
+                        <p class="text-xs text-slate-400">Give GPT-5 a little more time for deeper reasoning. Thirty seconds is a balanced default.</p>
                     </div>
                 </div>
 
@@ -261,8 +261,8 @@ $wizardJson = htmlspecialchars(
                                 <dd class="font-medium text-right" x-text="displayModelLabel"></dd>
                             </div>
                             <div class="flex items-start justify-between gap-4">
-                                <dt class="text-slate-400">Temperature</dt>
-                                <dd class="font-medium text-right" x-text="form.temperature.toFixed(1)"></dd>
+                                <dt class="text-slate-400">Thinking time</dt>
+                                <dd class="font-medium text-right" x-text="form.thinking_time + 's'"></dd>
                             </div>
                         </dl>
                     </div>
@@ -321,7 +321,7 @@ $wizardJson = htmlspecialchars(
                         <th class="px-4 py-3">Job description</th>
                         <th class="px-4 py-3">CV</th>
                         <th class="px-4 py-3">Model</th>
-                        <th class="px-4 py-3">Temperature</th>
+                        <th class="px-4 py-3">Thinking time</th>
                         <th class="px-4 py-3">Status</th>
                     </tr>
                 </thead>
@@ -339,7 +339,7 @@ $wizardJson = htmlspecialchars(
                             <td class="px-4 py-4 font-medium text-slate-200" x-text="item.job_document.filename"></td>
                             <td class="px-4 py-4" x-text="item.cv_document.filename"></td>
                             <td class="px-4 py-4" x-text="item.model"></td>
-                            <td class="px-4 py-4" x-text="item.temperature.toFixed(1)"></td>
+                            <td class="px-4 py-4" x-text="item.thinking_time + 's'"></td>
                             <td class="px-4 py-4">
                                 <span class="inline-flex items-center rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold uppercase tracking-wide" :class="item.status === 'queued' ? 'text-amber-200 bg-amber-500/10 border border-amber-400/30' : 'text-emerald-200 bg-emerald-500/10 border border-emerald-400/30'" x-text="item.status"></span>
                             </td>
@@ -358,7 +358,7 @@ $wizardJson = htmlspecialchars(
             steps: [
                 { index: 1, title: 'Choose job description', description: 'Select the role you want to tailor for.', helper: 'Pick the job posting that best matches the next application.' },
                 { index: 2, title: 'Choose CV', description: 'Decide which base CV to tailor.', helper: 'Use the CV with the strongest baseline for this role.' },
-                { index: 3, title: 'Set parameters', description: 'Adjust the model and creativity.', helper: 'Balance quality and speed with the right model and temperature.' },
+                { index: 3, title: 'Set parameters', description: 'Adjust the model and thinking time.', helper: 'Choose the best model and allow enough thinking time for complex roles.' },
                 { index: 4, title: 'Confirm & queue', description: 'Review before submitting.', helper: 'Double-check your selections before queuing the request.' },
             ],
             jobDocuments: config.jobDocuments ?? [],
@@ -369,7 +369,7 @@ $wizardJson = htmlspecialchars(
                 job_document_id: null,
                 cv_document_id: null,
                 model: (config.models?.[0]?.value) ?? '',
-                temperature: 0.2,
+                thinking_time: 30,
             },
             isSubmitting: false,
             error: '',
@@ -385,15 +385,15 @@ $wizardJson = htmlspecialchars(
                     return this.form.cv_document_id !== null;
                 }
                 if (this.step === 3) {
-                    return this.form.model !== '' && this.temperatureIsValid;
+                    return this.form.model !== '' && this.thinkingTimeIsValid;
                 }
                 return true;
             },
             get canSubmit() {
-                return this.selectedJobDocument && this.selectedCvDocument && this.temperatureIsValid;
+                return this.selectedJobDocument && this.selectedCvDocument && this.thinkingTimeIsValid;
             },
-            get temperatureIsValid() {
-                return typeof this.form.temperature === 'number' && this.form.temperature >= 0 && this.form.temperature <= 1;
+            get thinkingTimeIsValid() {
+                return Number.isFinite(this.form.thinking_time) && this.form.thinking_time >= 5 && this.form.thinking_time <= 60;
             },
             get selectedJobDocument() {
                 return this.jobDocuments.find((doc) => doc.id === this.form.job_document_id) ?? null;
@@ -437,7 +437,7 @@ $wizardJson = htmlspecialchars(
                             job_document_id: this.form.job_document_id,
                             cv_document_id: this.form.cv_document_id,
                             model: this.form.model,
-                            temperature: this.form.temperature,
+                            thinking_time: this.form.thinking_time,
                         }),
                     });
 
@@ -450,6 +450,7 @@ $wizardJson = htmlspecialchars(
 
                     this.generations.unshift({
                         ...data,
+                        thinking_time: data.thinking_time ?? this.form.thinking_time,
                         job_document: this.selectedJobDocument,
                         cv_document: this.selectedCvDocument,
                     });

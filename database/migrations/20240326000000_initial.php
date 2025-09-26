@@ -56,7 +56,7 @@ return [
             job_document_id BIGINT UNSIGNED NOT NULL,
             cv_document_id BIGINT UNSIGNED NOT NULL,
             model VARCHAR(128) NOT NULL,
-            temperature DECIMAL(4,2) NOT NULL DEFAULT 0.20,
+            thinking_time TINYINT UNSIGNED NOT NULL DEFAULT 30,
             status VARCHAR(32) NOT NULL DEFAULT 'queued',
             progress_percent TINYINT UNSIGNED NOT NULL DEFAULT 0,
             cost_pence BIGINT UNSIGNED NOT NULL DEFAULT 0,
