@@ -15,11 +15,21 @@ class SessionMiddleware implements MiddlewareInterface
     /** @var AuthService */
     private $authService;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(AuthService $authService)
     {
         $this->authService = $authService;
     }
 
+    /**
+     * Handle the process operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $cookies = $request->getCookieParams();

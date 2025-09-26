@@ -28,6 +28,11 @@ final class InputValidationMiddleware implements MiddlewareInterface
     /** @var int */
     private $maxFieldLength;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         ResponseFactoryInterface $responseFactory,
         AuditLogger $auditLogger,
@@ -40,6 +45,11 @@ final class InputValidationMiddleware implements MiddlewareInterface
         $this->maxFieldLength = $maxFieldLength;
     }
 
+    /**
+     * Handle the process operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         if (!$this->requiresValidation($request->getMethod())) {
@@ -61,11 +71,21 @@ final class InputValidationMiddleware implements MiddlewareInterface
         return $handler->handle($request);
     }
 
+    /**
+     * Handle the requires validation operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function requiresValidation(string $method): bool
     {
         return in_array(strtoupper($method), ['POST', 'PUT', 'PATCH', 'DELETE'], true);
     }
 
+    /**
+     * Handle the parse content length operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function parseContentLength(ServerRequestInterface $request): ?int
     {
         $header = $request->getHeaderLine('Content-Length');
@@ -79,6 +99,11 @@ final class InputValidationMiddleware implements MiddlewareInterface
         return $value === false ? null : $value;
     }
 
+    /**
+     * Handle the contains oversized field operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function containsOversizedField(array $payload): bool
     {
         foreach ($payload as $value) {
@@ -98,6 +123,11 @@ final class InputValidationMiddleware implements MiddlewareInterface
         return false;
     }
 
+    /**
+     * Handle the reject operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function reject(ServerRequestInterface $request, int $status, string $message): ResponseInterface
     {
         $ip = $this->getClientIp($request);
@@ -115,6 +145,11 @@ final class InputValidationMiddleware implements MiddlewareInterface
         return $response->withHeader('Content-Type', 'text/plain; charset=utf-8');
     }
 
+    /**
+     * Retrieve the client ip.
+     *
+     * The helper centralises access to the client ip so callers stay tidy.
+     */
     private function getClientIp(ServerRequestInterface $request): ?string
     {
         $forwarded = $request->getHeaderLine('X-Forwarded-For');

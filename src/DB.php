@@ -10,6 +10,11 @@ use RuntimeException;
 
 class DB
 {
+    /**
+     * Retrieve the connection.
+     *
+     * The helper centralises access to the connection so callers stay tidy.
+     */
     public static function getConnection(): PDO
     {
         $config = self::resolveConfig();
@@ -29,6 +34,9 @@ class DB
     }
 
     /**
+     * Handle the resolve config workflow.
+     *
+     * This helper keeps the resolve config logic centralised for clarity and reuse.
      * @return array{dsn: string, username: string|null, password: string|null, options: array<int, mixed>}
      */
     private static function resolveConfig(): array
@@ -77,6 +85,11 @@ class DB
         ];
     }
 
+    /**
+     * Handle the env operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private static function env(string $key): ?string
     {
         $value = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);

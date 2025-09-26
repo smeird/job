@@ -55,6 +55,11 @@ class GenerationStreamPoller
     /** @var GenerationStreamSnapshot|null */
     private $primedSnapshot;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         GenerationStreamRepository $repository,
         int $generationId,
@@ -73,6 +78,11 @@ class GenerationStreamPoller
         $this->primedSnapshot = $initialSnapshot;
     }
 
+    /**
+     * Handle the next chunk operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function nextChunk(): ?string
     {
         if ($this->terminated) {
@@ -123,6 +133,11 @@ class GenerationStreamPoller
         }
     }
 
+    /**
+     * Build the payload representation.
+     *
+     * Centralised construction avoids duplicating structural knowledge elsewhere.
+     */
     private function buildPayload(GenerationStreamSnapshot $snapshot): string
     {
         $chunks = [];
@@ -199,6 +214,11 @@ class GenerationStreamPoller
         return implode('', $chunks);
     }
 
+    /**
+     * Handle the format event operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function formatEvent(string $event, array $data): string
     {
         $encoded = (string) json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -206,6 +226,11 @@ class GenerationStreamPoller
         return sprintf("event: %s\ndata: %s\n\n", $event, $encoded);
     }
 
+    /**
+     * Determine whether the terminal status condition holds.
+     *
+     * Wrapping this check simplifies decision making for the caller.
+     */
     private function isTerminalStatus(string $status): bool
     {
         return in_array(strtolower($status), self::TERMINAL_STATUSES, true);

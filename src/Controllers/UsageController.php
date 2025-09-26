@@ -18,12 +18,22 @@ class UsageController
     /** @var Renderer */
     private $renderer;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(UsageService $usageService, Renderer $renderer)
     {
         $this->usageService = $usageService;
         $this->renderer = $renderer;
     }
 
+    /**
+     * Display the usage analytics overview screen.
+     *
+     * Keeping listing concerns together ensures consistent rendering of overview screens.
+     */
     public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $user = $request->getAttribute('user');
@@ -37,6 +47,11 @@ class UsageController
         ]);
     }
 
+    /**
+     * Provide the JSON dataset consumed by the analytics dashboard.
+     *
+     * Returning the data through one route keeps serialisation and error handling consistent.
+     */
     public function data(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $user = $request->getAttribute('user');

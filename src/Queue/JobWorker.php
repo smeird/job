@@ -23,6 +23,9 @@ final class JobWorker
     private $maxAttempts;
 
     /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
      * @param array<string, JobHandlerInterface> $handlers
      */
     public function __construct(
@@ -35,6 +38,11 @@ final class JobWorker
         $this->maxAttempts = $maxAttempts;
     }
 
+    /**
+     * Handle the process operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function process(Job $job): void
     {
         $handler = $this->handlers[$job->type] ?? null;
@@ -64,6 +72,11 @@ final class JobWorker
         }
     }
 
+    /**
+     * Calculate the backoff seconds value.
+     *
+     * Keeping the formula together prevents duplication across services.
+     */
     private function calculateBackoffSeconds(int $attempt): int
     {
         $attempt = max(1, $attempt);

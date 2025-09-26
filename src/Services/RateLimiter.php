@@ -22,6 +22,11 @@ class RateLimiter
     /** @var DateInterval */
     private $interval;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         PDO $pdo,
         AuditLogger $auditLogger,
@@ -34,6 +39,11 @@ class RateLimiter
         $this->interval = $interval;
     }
 
+    /**
+     * Handle the too many attempts operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function tooManyAttempts(string $ipAddress, string $identifier, string $action): bool
     {
         $windowStart = (new DateTimeImmutable())->sub($this->interval)->format('Y-m-d H:i:s');
@@ -51,11 +61,21 @@ class RateLimiter
         return $count >= $this->limit;
     }
 
+    /**
+     * Handle the hit operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function hit(string $ipAddress, string $identifier, string $action, ?string $userAgent = null, array $details = []): void
     {
         $this->auditLogger->log($action, $details, null, $identifier, $ipAddress, $userAgent);
     }
 
+    /**
+     * Retrieve the interval seconds.
+     *
+     * The helper centralises access to the interval seconds so callers stay tidy.
+     */
     public function getIntervalSeconds(): int
     {
         $reference = new DateTimeImmutable('@0');

@@ -25,6 +25,11 @@ final class GenerationController
     /** @var DocumentRepository */
     private $documentRepository;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         GenerationRepository $generationRepository,
         DocumentRepository $documentRepository
@@ -33,6 +38,11 @@ final class GenerationController
         $this->documentRepository = $documentRepository;
     }
 
+    /**
+     * Handle the create operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function create(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $user = $request->getAttribute('user');
@@ -78,6 +88,11 @@ final class GenerationController
         return $this->json($response->withStatus(201), $generation);
     }
 
+    /**
+     * Handle the show operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function show(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
     {
         $user = $request->getAttribute('user');
@@ -102,6 +117,9 @@ final class GenerationController
     }
 
     /**
+     * Handle the available models workflow.
+     *
+     * This helper keeps the available models logic centralised for clarity and reuse.
      * @return array<int, array{value: string, label: string}>
      */
     public static function availableModels(): array
@@ -110,6 +128,9 @@ final class GenerationController
     }
 
     /**
+     * Handle the extract int workflow.
+     *
+     * This helper keeps the extract int logic centralised for clarity and reuse.
      * @param mixed $value
      */
     private function extractInt($value): ?int
@@ -130,6 +151,9 @@ final class GenerationController
     }
 
     /**
+     * Handle the extract float workflow.
+     *
+     * This helper keeps the extract float logic centralised for clarity and reuse.
      * @param mixed $value
      */
     private function extractFloat($value): ?float
@@ -149,6 +173,11 @@ final class GenerationController
         return null;
     }
 
+    /**
+     * Handle the json operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function json(ResponseInterface $response, array $payload): ResponseInterface
     {
         $response->getBody()->write((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));

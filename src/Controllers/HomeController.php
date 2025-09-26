@@ -21,6 +21,11 @@ class HomeController
     /** @var GenerationRepository */
     private $generationRepository;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         Renderer $renderer,
         DocumentRepository $documentRepository,
@@ -31,6 +36,11 @@ class HomeController
         $this->generationRepository = $generationRepository;
     }
 
+    /**
+     * Display the personalised dashboard or welcome screen for the user.
+     *
+     * Keeping listing concerns together ensures consistent rendering of overview screens.
+     */
     public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $user = $request->getAttribute('user');

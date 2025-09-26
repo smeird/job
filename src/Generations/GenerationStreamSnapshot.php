@@ -32,6 +32,11 @@ class GenerationStreamSnapshot
     /** @var DateTimeImmutable|null */
     public $latestOutputAt;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         int $id,
         string $status,

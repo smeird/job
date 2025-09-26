@@ -10,6 +10,7 @@ This repository must adhere to the following requirements:
 6. Use Tabulator for any interactive or data-driven tables.
 7. Use Highcharts for rendering graphs and chart visualizations.
 8. The site should present a modern aesthetic, featuring a welcoming landing page with a hero component that appears after the login screen.
+9. All new or modified code must include inline documentation comments that explain the purpose of every function or method.
 
 ## Change Log
 Record all subsequent changes to either the feature set or the look-and-feel requirements here.

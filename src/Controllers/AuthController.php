@@ -12,20 +12,33 @@ use DateTimeZone;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
+/**
+ * AuthController owns the full self-service authentication workflow, handling
+ * registration, login, session management, and recovery journeys. Rendering is
+ * delegated to the view layer so each action focuses on orchestration and
+ * validation.
+ */
 class AuthController
 {
-    /** @var AuthService */
+    /** @var AuthService Coordinates the domain logic related to authentication */
     private $authService;
 
-    /** @var Renderer */
+    /** @var Renderer Responsible for returning rendered HTML responses */
     private $renderer;
 
+    /**
+     * Inject the collaborating services required for authentication flows.
+     */
     public function __construct(AuthService $authService, Renderer $renderer)
     {
         $this->authService = $authService;
         $this->renderer = $renderer;
     }
 
+    /**
+     * Display the initial registration request form where a user can ask for a
+     * QR code that seeds their authenticator application.
+     */
     public function showRegister(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $email = $request->getQueryParams()['email'] ?? '';
@@ -46,6 +59,10 @@ class AuthController
         ]);
     }
 
+    /**
+     * Handle the submission of the registration form by initiating a new
+     * registration session and returning the QR code view when successful.
+     */
     public function register(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $data = $request->getParsedBody();
@@ -90,6 +107,10 @@ class AuthController
         ]);
     }
 
+    /**
+     * Present the verification screen used to complete registration once the
+     * QR code has been scanned.
+     */
     public function showRegisterVerify(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $email = $request->getQueryParams()['email'] ?? '';
@@ -108,6 +129,10 @@ class AuthController
         );
     }
 
+    /**
+     * Validate the registration verification code and establish a logged-in
+     * session when the code matches.
+     */
     public function registerVerify(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $data = $request->getParsedBody();
@@ -134,6 +159,10 @@ class AuthController
         }
     }
 
+    /**
+     * Render the login request form allowing an existing user to request a new
+     * QR code for signing in.
+     */
     public function showLogin(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $email = $request->getQueryParams()['email'] ?? '';
@@ -155,6 +184,10 @@ class AuthController
         ]);
     }
 
+    /**
+     * Start the login process by generating a QR code and associated TOTP code
+     * for the supplied email address.
+     */
     public function login(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $data = $request->getParsedBody();
@@ -199,6 +232,10 @@ class AuthController
         ]);
     }
 
+    /**
+     * Show the login verification form where the user submits their six-digit
+     * passcode after scanning the QR code.
+     */
     public function showLoginVerify(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $email = $request->getQueryParams()['email'] ?? '';
@@ -217,6 +254,10 @@ class AuthController
         );
     }
 
+    /**
+     * Check the login verification code and redirect to the home page when the
+     * credentials are valid.
+     */
     public function loginVerify(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $data = $request->getParsedBody();
@@ -243,6 +284,9 @@ class AuthController
         }
     }
 
+    /**
+     * Display the backup code generation prompt to authenticated users.
+     */
     public function showBackupCodes(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $user = $request->getAttribute('user');
@@ -258,6 +302,10 @@ class AuthController
         ]);
     }
 
+    /**
+     * Generate and reveal the set of one-time backup codes for the logged-in
+     * user to store securely.
+     */
     public function backupCodes(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $user = $request->getAttribute('user');
@@ -275,6 +323,10 @@ class AuthController
         ]);
     }
 
+    /**
+     * End the active session by revoking the server-side token and clearing the
+     * session cookie.
+     */
     public function logout(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $sessionToken = $request->getAttribute('sessionToken');
@@ -291,6 +343,10 @@ class AuthController
         return $this->expireSessionCookie($response)->withHeader('Location', '/')->withStatus(302);
     }
 
+    /**
+     * Render the common verification template used for both registration and
+     * login confirmation flows.
+     */
     private function renderVerify(
         ResponseInterface $response,
         string $title,
@@ -314,6 +370,10 @@ class AuthController
         ]);
     }
 
+    /**
+     * Render a page that displays the QR code and associated instructions for
+     * either registration or login.
+     */
     private function renderQr(
         ResponseInterface $response,
         string $title,
@@ -348,6 +408,10 @@ class AuthController
         ]);
     }
 
+    /**
+     * Redirect to the homepage while attaching a freshly minted session cookie
+     * that keeps the user authenticated.
+     */
     private function redirectWithSession(ResponseInterface $response, string $token, DateTimeInterface $expiresAt): ResponseInterface
     {
         $cookie = $this->createSessionCookie($token, $expiresAt);
@@ -358,6 +422,10 @@ class AuthController
             ->withStatus(302);
     }
 
+    /**
+     * Expire the session cookie immediately to log the user out on the
+     * browser.
+     */
     private function expireSessionCookie(ResponseInterface $response): ResponseInterface
     {
         $expires = gmdate('D, d M Y H:i:s T', time() - 3600);
@@ -366,6 +434,9 @@ class AuthController
         return $response->withHeader('Set-Cookie', $cookie);
     }
 
+    /**
+     * Build a Set-Cookie header value that stores the session token securely.
+     */
     private function createSessionCookie(string $token, DateTimeInterface $expiresAt): string
     {
         $expires = gmdate('D, d M Y H:i:s T', $expiresAt->getTimestamp());
@@ -373,11 +444,19 @@ class AuthController
         return sprintf('job_session=%s; Path=/; Domain=%s; Expires=%s; HttpOnly; Secure; SameSite=Lax', rawurlencode($token), $this->cookieDomain(), $expires);
     }
 
+    /**
+     * Resolve the cookie domain configuration, falling back to the production
+     * hostname when an override is not configured.
+     */
     private function cookieDomain(): string
     {
         return $_ENV['APP_COOKIE_DOMAIN'] ?? getenv('APP_COOKIE_DOMAIN') ?: 'job.smeird.com';
     }
 
+    /**
+     * Determine the caller's IP address, preferring reverse proxy headers when
+     * they are present.
+     */
     private function getClientIp(ServerRequestInterface $request): string
     {
         $serverParams = $request->getServerParams();

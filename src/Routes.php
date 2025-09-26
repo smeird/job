@@ -22,6 +22,11 @@ use RuntimeException;
 
 class Routes
 {
+    /**
+     * Handle the register operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public static function register(App $app): void
     {
         $container = $app->getContainer();

@@ -12,11 +12,21 @@ class DocumentPreviewer
     /** @var Parser */
     private $pdfParser;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(?Parser $parser = null)
     {
         $this->pdfParser = $parser ?? new Parser();
     }
 
+    /**
+     * Handle the render operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function render(Document $document): string
     {
         $content = $document->content();
@@ -34,6 +44,11 @@ class DocumentPreviewer
         }
     }
 
+    /**
+     * Render the docx output.
+     *
+     * Centralising rendering concerns keeps view composition consistent.
+     */
     private function renderDocx(string $content): string
     {
         if (!class_exists(ZipArchive::class)) {
@@ -82,6 +97,11 @@ class DocumentPreviewer
         return html_entity_decode($text, ENT_QUOTES | ENT_XML1, 'UTF-8');
     }
 
+    /**
+     * Render the pdf output.
+     *
+     * Centralising rendering concerns keeps view composition consistent.
+     */
     private function renderPdf(string $content): string
     {
         try {
@@ -93,6 +113,11 @@ class DocumentPreviewer
         }
     }
 
+    /**
+     * Render the text output.
+     *
+     * Centralising rendering concerns keeps view composition consistent.
+     */
     private function renderText(string $content): string
     {
         return $content;

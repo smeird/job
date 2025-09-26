@@ -12,11 +12,21 @@ final class GenerationRepository
     /** @var PDO */
     private $pdo;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
     }
 
+    /**
+     * Handle the create operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function create(int $userId, int $jobDocumentId, int $cvDocumentId, string $model, float $temperature): array
     {
         $now = (new DateTimeImmutable())->format('Y-m-d H:i:s');
@@ -42,6 +52,11 @@ final class GenerationRepository
         return $this->findForUser($userId, $id);
     }
 
+    /**
+     * Handle the find for user operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function findForUser(int $userId, int $generationId): ?array
     {
         $statement = $this->pdo->prepare(
@@ -66,6 +81,9 @@ final class GenerationRepository
     }
 
     /**
+     * Handle the list for user workflow.
+     *
+     * This helper keeps the list for user logic centralised for clarity and reuse.
      * @return array<int, array<string, mixed>>
      */
     public function listForUser(int $userId): array
@@ -93,6 +111,9 @@ final class GenerationRepository
     }
 
     /**
+     * Handle the normalise row workflow.
+     *
+     * This helper keeps the normalise row logic centralised for clarity and reuse.
      * @param array<string, mixed> $row
      * @return array<string, mixed>
      */

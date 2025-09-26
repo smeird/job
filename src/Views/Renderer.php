@@ -12,11 +12,21 @@ class Renderer
     /** @var string */
     private $basePath;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(string $basePath)
     {
         $this->basePath = $basePath;
     }
 
+    /**
+     * Handle the render operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function render(
         ResponseInterface $response,
         string $template,

@@ -19,6 +19,11 @@ class RetentionController
     /** @var RetentionPolicyService */
     private $retentionPolicyService;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         Renderer $renderer,
         RetentionPolicyService $retentionPolicyService
@@ -27,6 +32,11 @@ class RetentionController
         $this->retentionPolicyService = $retentionPolicyService;
     }
 
+    /**
+     * Handle the show operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function show(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $user = $request->getAttribute('user');
@@ -51,6 +61,11 @@ class RetentionController
         ]);
     }
 
+    /**
+     * Handle the update operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function update(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $user = $request->getAttribute('user');
@@ -104,6 +119,9 @@ class RetentionController
     }
 
     /**
+     * Handle the resource labels workflow.
+     *
+     * This helper keeps the resource labels logic centralised for clarity and reuse.
      * @return array<string, string>
      */
     private function resourceLabels(): array
@@ -117,6 +135,9 @@ class RetentionController
     }
 
     /**
+     * Handle the nav links workflow.
+     *
+     * This helper keeps the nav links logic centralised for clarity and reuse.
      * @return array<int, array{href: string, label: string, current: bool}>
      */
     private function navLinks(string $current): array

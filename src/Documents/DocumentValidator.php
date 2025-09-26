@@ -11,6 +11,9 @@ class DocumentValidator
     private const MAX_FILE_SIZE = 1048576; // 1 MiB
 
     /**
+     * Handle the validate workflow.
+     *
+     * This helper keeps the validate logic centralised for clarity and reuse.
      * @return array{mime: string, size: int}
      */
     public function validate(string $filename, string $content, ?string $temporaryPath): array
@@ -48,6 +51,11 @@ class DocumentValidator
         ];
     }
 
+    /**
+     * Validate the docx content.
+     *
+     * Central validation guarantees the same checks run across the application.
+     */
     private function validateDocx(string $content, ?string $temporaryPath): string
     {
         if (!class_exists(ZipArchive::class)) {
@@ -135,6 +143,11 @@ class DocumentValidator
         return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     }
 
+    /**
+     * Validate the pdf content.
+     *
+     * Central validation guarantees the same checks run across the application.
+     */
     private function validatePdf(string $content): string
     {
         if (!str_starts_with($content, "%PDF")) {
@@ -157,6 +170,11 @@ class DocumentValidator
         return 'application/pdf';
     }
 
+    /**
+     * Validate the text like content.
+     *
+     * Central validation guarantees the same checks run across the application.
+     */
     private function validateTextLike(string $content, string $expectedMime): string
     {
         if (preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $content)) {

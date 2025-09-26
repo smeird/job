@@ -22,6 +22,11 @@ class Extractor
     /** @var PDO */
     private $connection;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(PDO $connection, iterable $readers = [])
     {
         $this->connection = $connection;
@@ -68,6 +73,11 @@ class Extractor
         }
     }
 
+    /**
+     * Handle the detect mime type operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function detectMimeType(string $filePath): ?string
     {
         if (!is_file($filePath)) {
@@ -79,6 +89,11 @@ class Extractor
         return $mime === false ? null : $mime;
     }
 
+    /**
+     * Handle the normalise text operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function normaliseText(string $text): string
     {
         if ($text === '') {
@@ -92,6 +107,11 @@ class Extractor
         return trim((string) $text);
     }
 
+    /**
+     * Handle the register default readers operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function registerDefaultReaders(): void
     {
         $this->addReader(new DocxReader());
@@ -100,6 +120,9 @@ class Extractor
     }
 
     /**
+     * Handle the resolve reader workflow.
+     *
+     * This helper keeps the resolve reader logic centralised for clarity and reuse.
      * @throws ExtractionException
      */
     private function resolveReader(?string $mimeType, string $extension): ReaderInterface
@@ -113,12 +136,22 @@ class Extractor
         throw new ExtractionException(sprintf('No reader registered for %s.', $extension ?: 'the provided file'));
     }
 
+    /**
+     * Handle the store extracted text operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function storeExtractedText(int $documentId, string $text): void
     {
         $statement = $this->connection->prepare('UPDATE documents SET extracted_text = :text WHERE id = :id');
         $statement->execute([':text' => $text, ':id' => $documentId]);
     }
 
+    /**
+     * Handle the record failure operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function recordFailure(int $documentId, string $reason): void
     {
         $details = mb_substr($reason, 0, 2000);
@@ -141,9 +174,17 @@ class Extractor
 
 interface ReaderInterface
 {
+    /**
+     * Handle the supports operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function supports(?string $mimeType, string $extension): bool;
 
     /**
+     * Handle the extract workflow.
+     *
+     * This helper keeps the extract logic centralised for clarity and reuse.
      * @throws ExtractionException
      */
     public function extract(string $filePath): string;
@@ -151,12 +192,22 @@ interface ReaderInterface
 
 final class DocxReader implements ReaderInterface
 {
+    /**
+     * Handle the supports operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function supports(?string $mimeType, string $extension): bool
     {
         return $extension === 'docx'
             || $mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     }
 
+    /**
+     * Handle the extract operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function extract(string $filePath): string
     {
         if (!class_exists('PhpOffice\\PhpWord\\IOFactory')) {
@@ -174,6 +225,11 @@ final class DocxReader implements ReaderInterface
         }
     }
 
+    /**
+     * Convert the to html into the desired format.
+     *
+     * Having a dedicated converter isolates formatting concerns.
+     */
     private function convertToHtml(\PhpOffice\PhpWord\PhpWord $phpWord): string
     {
         $writer = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'HTML');
@@ -184,6 +240,11 @@ final class DocxReader implements ReaderInterface
         return (string) ob_get_clean();
     }
 
+    /**
+     * Convert the html to text into the desired format.
+     *
+     * Having a dedicated converter isolates formatting concerns.
+     */
     private function convertHtmlToText(string $html): string
     {
         $normalized = preg_replace('/<br\s*\/?\s*>/i', "\n", $html);
@@ -201,11 +262,21 @@ final class DocxReader implements ReaderInterface
 
 final class PdfReader implements ReaderInterface
 {
+    /**
+     * Handle the supports operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function supports(?string $mimeType, string $extension): bool
     {
         return $extension === 'pdf' || $mimeType === 'application/pdf';
     }
 
+    /**
+     * Handle the extract operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function extract(string $filePath): string
     {
         $parserException = null;
@@ -232,6 +303,11 @@ final class PdfReader implements ReaderInterface
         }
     }
 
+    /**
+     * Handle the extract with pdftotext operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function extractWithPdftotext(string $filePath): string
     {
         $command = sprintf('pdftotext -layout %s -', escapeshellarg($filePath));
@@ -275,6 +351,9 @@ final class TextReader implements ReaderInterface
     private $extensions;
 
     /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
      * @param string[] $extensions
      */
     public function __construct(array $extensions)
@@ -282,6 +361,11 @@ final class TextReader implements ReaderInterface
         $this->extensions = $extensions;
     }
 
+    /**
+     * Handle the supports operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function supports(?string $mimeType, string $extension): bool
     {
         $extension = strtolower($extension);
@@ -297,6 +381,11 @@ final class TextReader implements ReaderInterface
         return str_starts_with($mimeType, 'text/');
     }
 
+    /**
+     * Handle the extract operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function extract(string $filePath): string
     {
         $contents = file_get_contents($filePath);
@@ -316,6 +405,11 @@ final class TextReader implements ReaderInterface
         return trim((string) $normalised);
     }
 
+    /**
+     * Handle the detect encoding operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function detectEncoding(string $contents): string
     {
         $encoding = mb_detect_encoding($contents, ['UTF-8', 'UTF-16LE', 'UTF-16BE', 'ISO-8859-1', 'WINDOWS-1252'], true);

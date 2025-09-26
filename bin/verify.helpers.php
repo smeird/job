@@ -35,6 +35,9 @@ function verify_load_env(string $projectRoot): array
 }
 
 /**
+ * Handle the verify env workflow.
+ *
+ * This helper keeps the verify env logic centralised for clarity and reuse.
  * @param mixed $default
  * @return mixed
  */
@@ -43,6 +46,11 @@ function verify_env(array $config, string $key, $default = null)
     return array_key_exists($key, $config) ? $config[$key] : $default;
 }
 
+/**
+ * Handle the verify color operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_color(string $text, string $color): string
 {
     $map = [
@@ -60,6 +68,11 @@ function verify_color(string $text, string $color): string
     return $prefix . $text . $suffix;
 }
 
+/**
+ * Handle the verify status emoji operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_status_emoji(bool $pass, bool $critical = true): string
 {
     if ($pass) {
@@ -70,6 +83,9 @@ function verify_status_emoji(bool $pass, bool $critical = true): string
 }
 
 /**
+ * Handle the verify pretty json workflow.
+ *
+ * This helper keeps the verify pretty json logic centralised for clarity and reuse.
  * @param mixed $data
  */
 function verify_pretty_json($data): string
@@ -86,16 +102,31 @@ function verify_pretty_json($data): string
     return json_encode($data, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
 }
 
+/**
+ * Handle the verify now operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_now(): float
 {
     return microtime(true);
 }
 
+/**
+ * Handle the verify elapsed operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_elapsed(float $start): float
 {
     return microtime(true) - $start;
 }
 
+/**
+ * Handle the verify format duration operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_format_duration(float $seconds): string
 {
     if ($seconds < 1) {
@@ -105,6 +136,11 @@ function verify_format_duration(float $seconds): string
     return number_format($seconds, 2) . ' s';
 }
 
+/**
+ * Handle the verify client operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_client(string $baseUri, CookieJar $jar): Client
 {
     return new Client([
@@ -120,6 +156,11 @@ function verify_client(string $baseUri, CookieJar $jar): Client
     ]);
 }
 
+/**
+ * Handle the verify assert status operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_assert_status(ResponseInterface $response, int $expected, string $label = ''): void
 {
     if ($response->getStatusCode() !== $expected) {
@@ -129,6 +170,11 @@ function verify_assert_status(ResponseInterface $response, int $expected, string
     }
 }
 
+/**
+ * Handle the verify collect headers operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_collect_headers(ResponseInterface $response): array
 {
     $headers = [];
@@ -139,11 +185,21 @@ function verify_collect_headers(ResponseInterface $response): array
     return $headers;
 }
 
+/**
+ * Handle the verify header has operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_header_has(array $headers, string $name): bool
 {
     return array_key_exists(strtolower($name), $headers);
 }
 
+/**
+ * Handle the verify header value operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_header_value(array $headers, string $name): ?string
 {
     $lower = strtolower($name);
@@ -154,11 +210,21 @@ function verify_header_value(array $headers, string $name): ?string
     return $headers[$lower][0];
 }
 
+/**
+ * Handle the verify make cookie jar operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_make_cookie_jar(): CookieJar
 {
     return new CookieJar();
 }
 
+/**
+ * Handle the verify make fixture markdown operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_make_fixture_markdown(): array
 {
     $content = <<<MD
@@ -176,6 +242,11 @@ MD;
     ];
 }
 
+/**
+ * Handle the verify make fixture text operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_make_fixture_text(): array
 {
     $content = <<<TXT
@@ -190,6 +261,11 @@ TXT;
     ];
 }
 
+/**
+ * Handle the verify make fixture docx operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_make_fixture_docx(): array
 {
     $phpWord = new \PhpOffice\PhpWord\PhpWord();
@@ -215,6 +291,11 @@ function verify_make_fixture_docx(): array
     ];
 }
 
+/**
+ * Handle the verify make fixture pdf operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_make_fixture_pdf(): array
 {
     $dompdf = new \Dompdf\Dompdf();
@@ -230,6 +311,11 @@ function verify_make_fixture_pdf(): array
     ];
 }
 
+/**
+ * Handle the verify make fixture oversize operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_make_fixture_oversize(): array
 {
     $contents = random_bytes(1024) . str_repeat('A', 1024 * 1024 * 1 + 512 * 1024);
@@ -241,6 +327,11 @@ function verify_make_fixture_oversize(): array
     ];
 }
 
+/**
+ * Handle the verify table operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_table(array $rows): string
 {
     $nameWidth = max(array_map(fn ($row) => strlen($row['name']), $rows));
@@ -258,6 +349,11 @@ function verify_table(array $rows): string
     return implode(PHP_EOL, $output);
 }
 
+/**
+ * Handle the verify prompt passcode operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_prompt_passcode(string $email): string
 {
     fwrite(STDOUT, 'Enter passcode for ' . $email . ': ');
@@ -270,6 +366,11 @@ function verify_prompt_passcode(string $email): string
     return $code;
 }
 
+/**
+ * Handle the verify fetch test passcode operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_fetch_test_passcode(Client $client, string $email): ?string
 {
     try {
@@ -292,6 +393,11 @@ function verify_fetch_test_passcode(Client $client, string $email): ?string
     return $body['passcode'] ?? null;
 }
 
+/**
+ * Handle the verify fetch db passcode operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_fetch_db_passcode(array $config, string $email): ?string
 {
     $host = verify_env($config, 'DB_HOST');
@@ -320,6 +426,11 @@ function verify_fetch_db_passcode(array $config, string $email): ?string
     return $code ?: null;
 }
 
+/**
+ * Handle the verify sse stream operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_sse_stream(Client $client, string $path, int $timeoutSeconds): array
 {
     $events = [];
@@ -372,6 +483,11 @@ function verify_sse_stream(Client $client, string $path, int $timeoutSeconds): a
     return $events;
 }
 
+/**
+ * Handle the verify zip has entry operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_zip_has_entry(string $binary, string $entry): bool
 {
     $temp = tmpfile();
@@ -399,6 +515,11 @@ function verify_zip_has_entry(string $binary, string $entry): bool
     return $has;
 }
 
+/**
+ * Handle the verify append readme note operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function verify_append_readme_note(): void
 {
     echo PHP_EOL;

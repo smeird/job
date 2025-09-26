@@ -3,6 +3,11 @@
 declare(strict_types=1);
 
 if (!function_exists('str_contains')) {
+    /**
+     * Handle the str contains operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     function str_contains(string $haystack, string $needle): bool
     {
         if ($needle === '') {
@@ -14,6 +19,11 @@ if (!function_exists('str_contains')) {
 }
 
 if (!function_exists('str_starts_with')) {
+    /**
+     * Handle the str starts with operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     function str_starts_with(string $haystack, string $needle): bool
     {
         $needleLength = strlen($needle);
@@ -27,6 +37,11 @@ if (!function_exists('str_starts_with')) {
 }
 
 if (!function_exists('str_ends_with')) {
+    /**
+     * Handle the str ends with operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     function str_ends_with(string $haystack, string $needle): bool
     {
         $needleLength = strlen($needle);

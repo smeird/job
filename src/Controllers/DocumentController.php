@@ -25,6 +25,11 @@ final class DocumentController
     /** @var DocumentService */
     private $documentService;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         Renderer $renderer,
         DocumentRepository $documentRepository,
@@ -35,6 +40,11 @@ final class DocumentController
         $this->documentService = $documentService;
     }
 
+    /**
+     * Display the index page for managing stored documents.
+     *
+     * Keeping listing concerns together ensures consistent rendering of overview screens.
+     */
     public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $user = $request->getAttribute('user');
@@ -58,6 +68,11 @@ final class DocumentController
         ]);
     }
 
+    /**
+     * Handle the upload workflow for incoming files or payloads.
+     *
+     * A single upload routine guarantees validation and storage steps stay uniform.
+     */
     public function upload(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
         $user = $request->getAttribute('user');
@@ -118,6 +133,8 @@ final class DocumentController
     }
 
     /**
+     * Map the provided data set into the desired shape.
+     *
      * @param array<int, \App\Documents\Document> $documents
      * @return array<int, array{filename: string, created_at: string, size: string}>
      */
@@ -132,6 +149,11 @@ final class DocumentController
         }, $documents);
     }
 
+    /**
+     * Convert the raw byte count into a readable size string.
+     *
+     * The helper keeps size formatting consistent across the interface.
+     */
     private function formatBytes(int $bytes): string
     {
         if ($bytes < 1024) {
@@ -151,6 +173,9 @@ final class DocumentController
     }
 
     /**
+     * Handle the nav links workflow.
+     *
+     * This helper keeps the nav links logic centralised for clarity and reuse.
      * @return array<int, array{href: string, label: string, current: bool}>
      */
     private function navLinks(string $current): array

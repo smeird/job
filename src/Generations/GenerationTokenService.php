@@ -32,6 +32,11 @@ final class GenerationTokenService
     /** @var int */
     private $ttlSeconds;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(string $secret, int $ttlSeconds = 300)
     {
         if ($secret === '') {
@@ -46,11 +51,21 @@ final class GenerationTokenService
         $this->ttlSeconds = $ttlSeconds;
     }
 
+    /**
+     * Retrieve the ttl.
+     *
+     * The helper centralises access to the ttl so callers stay tidy.
+     */
     public function getTtl(): int
     {
         return $this->ttlSeconds;
     }
 
+    /**
+     * Create the token instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     public function createToken(int $userId, int $generationId, string $format, ?DateTimeImmutable $now = null): string
     {
         if ($now === null) {
@@ -73,6 +88,9 @@ final class GenerationTokenService
     }
 
     /**
+     * Validate the token content.
+     *
+     * Central validation guarantees the same checks run across the application.
      * @return array{user_id: int, generation_id: int, format: string, expires_at: int}|null
      */
     public function validateToken(string $token): ?array
@@ -117,11 +135,21 @@ final class GenerationTokenService
         ];
     }
 
+    /**
+     * Handle the encode operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function encode(string $value): string
     {
         return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
     }
 
+    /**
+     * Handle the decode operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function decode(string $value): ?string
     {
         $remainder = strlen($value) % 4;

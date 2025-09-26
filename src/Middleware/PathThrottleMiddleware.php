@@ -26,6 +26,11 @@ final class PathThrottleMiddleware implements MiddlewareInterface
     /** @var AuditLogger */
     private $auditLogger;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         RateLimiter $authLimiter,
         RateLimiter $uploadLimiter,
@@ -38,6 +43,11 @@ final class PathThrottleMiddleware implements MiddlewareInterface
         $this->auditLogger = $auditLogger;
     }
 
+    /**
+     * Handle the process operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $method = strtoupper($request->getMethod());
@@ -59,6 +69,11 @@ final class PathThrottleMiddleware implements MiddlewareInterface
         return $handler->handle($request);
     }
 
+    /**
+     * Handle the enforce operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function enforce(
         ServerRequestInterface $request,
         RequestHandlerInterface $handler,
@@ -92,16 +107,31 @@ final class PathThrottleMiddleware implements MiddlewareInterface
         return $handler->handle($request);
     }
 
+    /**
+     * Determine whether the auth path condition holds.
+     *
+     * Wrapping this check simplifies decision making for the caller.
+     */
     private function isAuthPath(string $path): bool
     {
         return $path === '/auth' || str_starts_with($path, '/auth/');
     }
 
+    /**
+     * Determine whether the document upload path condition holds.
+     *
+     * Wrapping this check simplifies decision making for the caller.
+     */
     private function isDocumentUploadPath(string $path): bool
     {
         return $path === '/documents/upload';
     }
 
+    /**
+     * Retrieve the client ip.
+     *
+     * The helper centralises access to the client ip so callers stay tidy.
+     */
     private function getClientIp(ServerRequestInterface $request): ?string
     {
         $forwarded = $request->getHeaderLine('X-Forwarded-For');

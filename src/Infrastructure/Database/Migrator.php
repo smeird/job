@@ -12,11 +12,21 @@ class Migrator
     /** @var PDO */
     private $pdo;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
     }
 
+    /**
+     * Handle the migrate operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function migrate(): void
     {
         $this->createUsersTable();
@@ -32,6 +42,11 @@ class Migrator
         $this->createJobsTable();
     }
 
+    /**
+     * Create the users table instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     private function createUsersTable(): void
     {
         $sql = <<<SQL
@@ -52,6 +67,11 @@ class Migrator
         $this->ensureUserColumnExists('totp_digits', 'ADD COLUMN totp_digits TINYINT UNSIGNED DEFAULT NULL AFTER totp_period_seconds');
     }
 
+    /**
+     * Create the pending passcodes table instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     private function createPendingPasscodesTable(): void
     {
         $sql = <<<SQL
@@ -76,6 +96,11 @@ class Migrator
         $this->ensurePendingPasscodeColumnExists('digits', 'ADD COLUMN digits TINYINT UNSIGNED NOT NULL DEFAULT 6 AFTER period_seconds');
     }
 
+    /**
+     * Create the sessions table instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     private function createSessionsTable(): void
     {
         $sql = <<<SQL
@@ -93,6 +118,11 @@ class Migrator
         $this->pdo->exec($sql);
     }
 
+    /**
+     * Create the documents table instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     private function createDocumentsTable(): void
     {
         $sql = <<<SQL
@@ -116,6 +146,11 @@ class Migrator
         $this->pdo->exec($sql);
     }
 
+    /**
+     * Create the generations table instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     private function createGenerationsTable(): void
     {
         $sql = <<<SQL
@@ -148,6 +183,11 @@ class Migrator
         $this->ensureGenerationsColumnExists('error_message', 'ADD COLUMN error_message TEXT NULL AFTER cost_pence');
     }
 
+    /**
+     * Create the generation outputs table instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     private function createGenerationOutputsTable(): void
     {
         $sql = <<<SQL
@@ -167,6 +207,11 @@ class Migrator
         $this->pdo->exec($sql);
     }
 
+    /**
+     * Create the api usage table instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     private function createApiUsageTable(): void
     {
         $sql = <<<SQL
@@ -187,6 +232,11 @@ class Migrator
         $this->pdo->exec($sql);
     }
 
+    /**
+     * Create the backup codes table instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     private function createBackupCodesTable(): void
     {
         $sql = <<<SQL
@@ -203,6 +253,11 @@ class Migrator
         $this->pdo->exec($sql);
     }
 
+    /**
+     * Create the audit logs table instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     private function createAuditLogsTable(): void
     {
         $sql = <<<SQL
@@ -226,6 +281,11 @@ class Migrator
         $this->ensureAuditEmailNullable();
     }
 
+    /**
+     * Create the retention settings table instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     private function createRetentionSettingsTable(): void
     {
         $sql = <<<SQL
@@ -241,6 +301,11 @@ class Migrator
         $this->pdo->exec($sql);
     }
 
+    /**
+     * Create the jobs table instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     private function createJobsTable(): void
     {
         $sql = <<<SQL
@@ -261,6 +326,11 @@ class Migrator
         $this->pdo->exec($sql);
     }
 
+    /**
+     * Handle the ensure audit column exists operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function ensureAuditColumnExists(string $table, string $column, string $alterStatement): void
     {
         try {
@@ -277,6 +347,11 @@ class Migrator
         }
     }
 
+    /**
+     * Handle the ensure pending passcode column exists operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function ensurePendingPasscodeColumnExists(string $column, string $alterStatement): void
     {
         try {
@@ -293,6 +368,11 @@ class Migrator
         }
     }
 
+    /**
+     * Handle the ensure generations column exists operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function ensureGenerationsColumnExists(string $column, string $alterStatement): void
     {
         try {
@@ -309,6 +389,11 @@ class Migrator
         }
     }
 
+    /**
+     * Handle the ensure audit email nullable operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function ensureAuditEmailNullable(): void
     {
         try {
@@ -323,6 +408,11 @@ class Migrator
         }
     }
 
+    /**
+     * Handle the ensure user column exists operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function ensureUserColumnExists(string $column, string $alterStatement): void
     {
         try {
