@@ -24,7 +24,7 @@ final class GenerationController
 
     public function __construct(
         GenerationRepository $generationRepository,
-        DocumentRepository $documentRepository,
+        DocumentRepository $documentRepository
     ) {
         $this->generationRepository = $generationRepository;
         $this->documentRepository = $documentRepository;
