@@ -57,7 +57,17 @@ $wizardJson = htmlspecialchars(
         </div>
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <a href="#tailor-wizard" class="group flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-100">
+            <span class="inline-flex items-center gap-2">
+                <span class="rounded-full bg-indigo-500/20 px-2 py-1 text-xs uppercase tracking-wide text-indigo-200">Tailor</span>
+                <span>Start tailoring</span>
+            </span>
+            <svg aria-hidden="true" class="h-4 w-4 transition group-hover:translate-x-1" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M5 12h14" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        </a>
         <a href="/documents" class="group flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-100">
             <span class="inline-flex items-center gap-2">
                 <span class="rounded-full bg-indigo-500/20 px-2 py-1 text-xs uppercase tracking-wide text-indigo-200">Upload</span>
@@ -151,6 +161,7 @@ $wizardJson = htmlspecialchars(
         </nav>
         <section
             x-ref="wizardPanel"
+            id="tailor-wizard"
             tabindex="-1"
             class="rounded-2xl border border-slate-800/80 bg-slate-900/70 shadow-xl"
         >
