@@ -29,6 +29,9 @@ class JobApplication
     /** @var DateTimeImmutable|null */
     private $appliedAt;
 
+    /** @var string|null */
+    private $reasonCode;
+
     /** @var DateTimeImmutable */
     private $createdAt;
 
@@ -48,6 +51,7 @@ class JobApplication
         string $description,
         string $status,
         ?DateTimeImmutable $appliedAt,
+        ?string $reasonCode,
         DateTimeImmutable $createdAt,
         DateTimeImmutable $updatedAt
     ) {
@@ -58,6 +62,7 @@ class JobApplication
         $this->description = $description;
         $this->status = $status;
         $this->appliedAt = $appliedAt;
+        $this->reasonCode = $reasonCode;
         $this->createdAt = $createdAt;
         $this->updatedAt = $updatedAt;
     }
@@ -123,6 +128,16 @@ class JobApplication
     }
 
     /**
+     * Handle the reason code operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
+    public function reasonCode(): ?string
+    {
+        return $this->reasonCode;
+    }
+
+    /**
      * Handle the applied at operation.
      *
      * Documenting this helper clarifies its role within the wider workflow.
@@ -157,8 +172,12 @@ class JobApplication
      *
      * This helper keeps the immutable update workflow neat and predictable.
      */
-    public function withStatus(string $status, ?DateTimeImmutable $appliedAt, DateTimeImmutable $updatedAt): self
-    {
+    public function withStatus(
+        string $status,
+        ?DateTimeImmutable $appliedAt,
+        ?string $reasonCode,
+        DateTimeImmutable $updatedAt
+    ): self {
         return new self(
             $this->id,
             $this->userId,
@@ -167,6 +186,7 @@ class JobApplication
             $this->description,
             $status,
             $appliedAt,
+            $reasonCode,
             $this->createdAt,
             $updatedAt
         );

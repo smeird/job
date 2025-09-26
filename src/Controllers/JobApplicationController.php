@@ -52,6 +52,7 @@ final class JobApplicationController
 
         $userId = (int) $user['user_id'];
         $statusMessage = $request->getQueryParams()['status'] ?? null;
+        $failureReasons = $this->service->failureReasons();
 
         return $this->renderer->render($response, 'applications', [
             'title' => 'Job tracker',
@@ -60,8 +61,10 @@ final class JobApplicationController
             'navLinks' => $this->navLinks('applications'),
             'outstanding' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'outstanding')),
             'applied' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'applied')),
+            'failed' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'failed')), 
             'errors' => [],
             'status' => $statusMessage,
+            'failureReasons' => $failureReasons,
             'form' => [
                 'title' => '',
                 'source_url' => '',
@@ -87,6 +90,8 @@ final class JobApplicationController
         $data = $request->getParsedBody();
         $formInput = is_array($data) ? $data : [];
 
+        $failureReasons = $this->service->failureReasons();
+
         $result = $this->service->createFromSubmission($userId, $formInput);
 
         if ($result['errors'] === []) {
@@ -102,8 +107,10 @@ final class JobApplicationController
             'navLinks' => $this->navLinks('applications'),
             'outstanding' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'outstanding')),
             'applied' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'applied')),
+            'failed' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'failed')),
             'errors' => $result['errors'],
             'status' => null,
+            'failureReasons' => $failureReasons,
             'form' => [
                 'title' => isset($formInput['title']) ? (string) $formInput['title'] : '',
                 'source_url' => isset($formInput['source_url']) ? (string) $formInput['source_url'] : '',
@@ -130,22 +137,38 @@ final class JobApplicationController
         $applicationId = isset($args['id']) ? (int) $args['id'] : 0;
         $data = $request->getParsedBody();
         $desiredStatus = 'applied';
+        $reasonCode = null;
 
-        if (is_array($data) && isset($data['status'])) {
-            $desiredStatus = (string) $data['status'];
+        if (is_array($data)) {
+            if (isset($data['status'])) {
+                $desiredStatus = (string) $data['status'];
+            }
+
+            if (isset($data['reason_code'])) {
+                $reasonCode = (string) $data['reason_code'];
+            }
         }
 
+        $failureReasons = $this->service->failureReasons();
+
         try {
-            $updated = $this->service->transitionStatus($userId, $applicationId, $desiredStatus);
+            $updated = $this->service->transitionStatus($userId, $applicationId, $desiredStatus, $reasonCode);
         } catch (RuntimeException $exception) {
             return $response
                 ->withHeader('Location', '/applications?status=' . rawurlencode($exception->getMessage()))
                 ->withStatus(302);
         }
 
-        $message = $updated->status() === 'applied'
-            ? 'Marked application as submitted.'
-            : 'Marked application as outstanding.';
+        if ($updated->status() === 'failed') {
+            $reasonLabel = $updated->reasonCode() !== null && isset($failureReasons[$updated->reasonCode()])
+                ? $failureReasons[$updated->reasonCode()]
+                : 'Unknown reason';
+            $message = 'Marked application as failed (' . $reasonLabel . ').';
+        } elseif ($updated->status() === 'applied') {
+            $message = 'Marked application as submitted.';
+        } else {
+            $message = 'Marked application as outstanding.';
+        }
 
         return $response
             ->withHeader('Location', '/applications?status=' . rawurlencode($message))
@@ -173,8 +196,10 @@ final class JobApplicationController
                 'title' => $application->title(),
                 'source_url' => $application->sourceUrl(),
                 'status' => $application->status(),
+                'reason_code' => $application->reasonCode(),
                 'applied_at' => $application->appliedAt() ? $application->appliedAt()->format('Y-m-d H:i') : null,
                 'created_at' => $application->createdAt()->format('Y-m-d H:i'),
+                'updated_at' => $application->updatedAt()->format('Y-m-d H:i'),
                 'description_preview' => $preview,
             ];
         }, $applications);
