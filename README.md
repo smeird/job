@@ -19,6 +19,57 @@ This repository contains the production code that powers the job.smeird.com work
 * Background work is dispatched into the `jobs` table and processed by the `bin/worker.php` daemon, which requires `pcntl` and graceful signal handling.【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:bin/worker.php†L1-L68】
 * OpenAI interactions read model configuration, tariff data, and max token limits from environment variables and persist usage rows for reporting.【F:src/AI/OpenAIProvider.php†L52-L117】【F:src/Services/UsageService.php†L20-L102】
 
+### Authentication & session lifecycle
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Browser
+    participant WebApp as Slim Web App
+    participant DB as Database
+
+    User->>Browser: Request QR login link
+    Browser->>WebApp: POST /auth/request-passcode
+    WebApp->>DB: Store pending passcode + rate limit entry
+    WebApp-->>Browser: 200 + QR payload
+    Browser-->>User: Display QR code
+    User->>Browser: Scan QR / enter code
+    Browser->>WebApp: POST /auth/verify
+    WebApp->>DB: Validate passcode + issue session + backup codes
+    WebApp-->>Browser: Set secure session cookie
+    Browser-->>User: Redirect to landing dashboard
+```
+
+This diagram highlights how the QR passcode flow issues authenticated sessions while keeping validation and rate-limiting logic inside the Slim-powered application.【F:public/index.php†L53-L167】【F:src/Services/AuthService.php†L39-L205】
+
+### Document generation pipeline
+
+```mermaid
+flowchart LR
+    subgraph Ingestion
+        A[Upload Document] --> B[DocumentValidator]
+        B -->|Valid| C[(documents table)]
+    end
+
+    subgraph Drafting
+        C --> D[Queue tailor_cv job]
+        D --> E[(jobs table)]
+        E --> F[worker.php daemon]
+        F --> G[OpenAIProvider]
+    end
+
+    subgraph Delivery
+        G --> H[(generation_outputs table)]
+        H --> I[Signed download token]
+        I --> J[GenerationDownloadController]
+        J --> K[Secure link to user]
+    end
+
+    K --> L[UsageService aggregates analytics]
+```
+
+The flowchart shows how validated uploads move through queued generation work, produce signed download artefacts, and feed analytics summarised for the dashboard.【F:src/Documents/DocumentValidator.php†L11-L154】【F:bin/worker.php†L1-L68】【F:src/AI/OpenAIProvider.php†L52-L117】【F:src/Controllers/GenerationDownloadController.php†L29-L137】【F:src/Services/UsageService.php†L20-L134】
+
 ## Requirements
 
 ### Server prerequisites
