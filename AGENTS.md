@@ -11,8 +11,9 @@ This repository must adhere to the following requirements:
 7. Use Highcharts for rendering graphs and chart visualizations.
 8. The site should present a modern aesthetic, featuring a welcoming landing page with a hero component that appears after the login screen.
 9. All new or modified code must include inline documentation comments that explain the purpose of every function or method.
+10. All PHP code must remain fully compatible with PHP 7.4, avoiding language features introduced in later versions and setting Composer's platform requirement accordingly.
 
 ## Change Log
 Record all subsequent changes to either the feature set or the look-and-feel requirements here.
 
-- _No changes recorded yet._
+- Added a technical requirement to maintain PHP 7.4 compatibility and configure Composer accordingly.
