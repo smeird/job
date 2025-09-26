@@ -63,7 +63,7 @@ class RetentionPolicyService
 
         try {
             $applyTo = json_decode((string) $row['apply_to'], true, 512, JSON_THROW_ON_ERROR);
-        } catch (JsonException) {
+        } catch (JsonException $exception) {
             $applyTo = [];
         }
 
