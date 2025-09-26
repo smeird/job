@@ -149,7 +149,6 @@ use App\Queue\Handler\TailorCvJobHandler;
 use App\Queue\Job;
 use App\Services\AuditLogger;
 use App\Services\AuthService;
-use App\Services\MailerInterface;
 use App\Services\RateLimiter;
 use App\Services\RetentionPolicyService;
 use DateInterval as GlobalDateInterval;
@@ -551,32 +550,8 @@ final class SmokeSchema
     }
 }
 
-final class SmokeMailer implements MailerInterface
-{
-    /** @var array<int, array{to: string, subject: string, body: string}> */
-    private array $messages = [];
-
-    public function send(string $to, string $subject, string $body): void
-    {
-        $this->messages[] = [
-            'to' => $to,
-            'subject' => $subject,
-            'body' => $body,
-        ];
-    }
-
-    /**
-     * @return array<int, array{to: string, subject: string, body: string}>
-     */
-    public function messages(): array
-    {
-        return $this->messages;
-    }
-}
-
 final class SmokeAuth
 {
-    private SmokeMailer $mailer;
     private AuthService $service;
 
     private GlobalPDO $pdo;
@@ -587,8 +562,7 @@ final class SmokeAuth
         $auditLogger = new AuditLogger($pdo);
         $requestLimiter = new RateLimiter($pdo, $auditLogger, 10, new GlobalDateInterval('PT15M'));
         $verifyLimiter = new RateLimiter($pdo, $auditLogger, 10, new GlobalDateInterval('PT15M'));
-        $this->mailer = new SmokeMailer();
-        $this->service = new AuthService($pdo, $this->mailer, $requestLimiter, $verifyLimiter, $auditLogger);
+        $this->service = new AuthService($pdo, $requestLimiter, $verifyLimiter, $auditLogger);
     }
 
     public function run(): array
@@ -597,12 +571,12 @@ final class SmokeAuth
         $ip = '127.0.0.1';
         $agent = 'smoke-suite';
 
-        $this->service->initiateRegistration($email, $ip, $agent);
-        $registrationCode = $this->extractLatestCode();
+        $registration = $this->service->initiateRegistration($email, $ip, $agent);
+        $registrationCode = $registration['code'];
         $session = $this->service->verifyRegistration($email, $registrationCode, $ip, $agent);
 
-        $this->service->initiateLogin($email, $ip, $agent);
-        $loginCode = $this->extractLatestCode();
+        $login = $this->service->initiateLogin($email, $ip, $agent);
+        $loginCode = $login['code'];
         $this->service->verifyLogin($email, $loginCode, $ip, $agent);
 
         $statement = $this->pdo->prepare('SELECT id FROM users WHERE email = :email LIMIT 1');
@@ -612,18 +586,6 @@ final class SmokeAuth
         $session['user_id'] = $userId;
 
         return $session;
-    }
-
-    private function extractLatestCode(): string
-    {
-        $messages = $this->mailer->messages();
-        $message = $messages[array_key_last($messages)];
-
-        if (!preg_match('/(\d{6})/', $message['body'], $matches)) {
-            throw new RuntimeException('No passcode could be extracted from smoke mailer output.');
-        }
-
-        return $matches[1];
     }
 }
 

@@ -7,6 +7,8 @@ namespace App\Controllers;
 use App\Services\AuthService;
 use App\Views\Renderer;
 use DateTimeInterface;
+use DateTimeImmutable;
+use DateTimeZone;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 
@@ -29,9 +31,9 @@ class AuthController
 
         return $this->renderer->render($response, 'auth/request', [
             'title' => 'Create your account',
-            'subtitle' => 'We will email you a 6-digit passcode to finish setup.',
+            'subtitle' => 'We will display a QR code with a 6-digit passcode to finish setup.',
             'actionUrl' => '/auth/register',
-            'buttonLabel' => 'Send registration code',
+            'buttonLabel' => 'Generate registration QR',
             'email' => $email,
             'error' => $error,
             'status' => $status,
@@ -49,9 +51,20 @@ class AuthController
         $userAgent = $request->getHeaderLine('User-Agent') ?: null;
 
         try {
-            $this->authService->initiateRegistration($email, $ip, $userAgent);
-            $status = 'We sent a 6-digit code to your email.';
-            $error = null;
+            $result = $this->authService->initiateRegistration($email, $ip, $userAgent);
+
+            return $this->renderQr(
+                $response,
+                'Scan to finish registration',
+                'Use your phone or authenticator app to scan the QR code, reveal your 6-digit passcode, and enter it below.',
+                '/auth/register/verify',
+                'Create account',
+                $email,
+                $result['code'],
+                $result['expires_at'],
+                '/auth/register?email=' . urlencode($email),
+                'Need a different QR code? Start over.'
+            );
         } catch (\Throwable $throwable) {
             $status = null;
             $error = $throwable->getMessage();
@@ -59,9 +72,9 @@ class AuthController
 
         return $this->renderer->render($response, 'auth/request', [
             'title' => 'Create your account',
-            'subtitle' => 'We will email you a 6-digit passcode to finish setup.',
+            'subtitle' => 'We will display a QR code with a 6-digit passcode to finish setup.',
             'actionUrl' => '/auth/register',
-            'buttonLabel' => 'Send registration code',
+            'buttonLabel' => 'Generate registration QR',
             'email' => $email,
             'error' => $error,
             'status' => $status,
@@ -78,7 +91,16 @@ class AuthController
         $error = $request->getQueryParams()['error'] ?? null;
         $status = $request->getQueryParams()['status'] ?? null;
 
-        return $this->renderVerify($response, 'Complete your registration', '/auth/register/verify', 'Create account', $email, $error, $status);
+        return $this->renderVerify(
+            $response,
+            'Complete your registration',
+            '/auth/register/verify',
+            'Create account',
+            $email,
+            $error,
+            $status,
+            '/auth/register?email=' . urlencode($email)
+        );
     }
 
     public function registerVerify(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
@@ -94,7 +116,16 @@ class AuthController
 
             return $this->redirectWithSession($response, $session['token'], $session['expires_at']);
         } catch (\Throwable $throwable) {
-            return $this->renderVerify($response, 'Complete your registration', '/auth/register/verify', 'Create account', $email, $throwable->getMessage());
+            return $this->renderVerify(
+                $response,
+                'Complete your registration',
+                '/auth/register/verify',
+                'Create account',
+                $email,
+                $throwable->getMessage(),
+                null,
+                '/auth/register?email=' . urlencode($email)
+            );
         }
     }
 
@@ -106,9 +137,9 @@ class AuthController
 
         return $this->renderer->render($response, 'auth/request', [
             'title' => 'Sign in',
-            'subtitle' => 'We will email a 6-digit passcode for quick sign in.',
+            'subtitle' => 'We will display a QR code with a 6-digit passcode for quick sign in.',
             'actionUrl' => '/auth/login',
-            'buttonLabel' => 'Send login code',
+            'buttonLabel' => 'Generate login QR',
             'email' => $email,
             'error' => $error,
             'status' => $status,
@@ -127,9 +158,20 @@ class AuthController
         $userAgent = $request->getHeaderLine('User-Agent') ?: null;
 
         try {
-            $this->authService->initiateLogin($email, $ip, $userAgent);
-            $status = 'We sent a 6-digit code to your email.';
-            $error = null;
+            $result = $this->authService->initiateLogin($email, $ip, $userAgent);
+
+            return $this->renderQr(
+                $response,
+                'Scan to sign in',
+                'Scan the QR code to reveal your 6-digit passcode, then enter it below to continue.',
+                '/auth/login/verify',
+                'Sign in',
+                $email,
+                $result['code'],
+                $result['expires_at'],
+                '/auth/login?email=' . urlencode($email),
+                'Need a new QR code? Request another one.'
+            );
         } catch (\Throwable $throwable) {
             $status = null;
             $error = $throwable->getMessage();
@@ -137,9 +179,9 @@ class AuthController
 
         return $this->renderer->render($response, 'auth/request', [
             'title' => 'Sign in',
-            'subtitle' => 'We will email a 6-digit passcode for quick sign in.',
+            'subtitle' => 'We will display a QR code with a 6-digit passcode for quick sign in.',
             'actionUrl' => '/auth/login',
-            'buttonLabel' => 'Send login code',
+            'buttonLabel' => 'Generate login QR',
             'email' => $email,
             'error' => $error,
             'status' => $status,
@@ -156,7 +198,16 @@ class AuthController
         $error = $request->getQueryParams()['error'] ?? null;
         $status = $request->getQueryParams()['status'] ?? null;
 
-        return $this->renderVerify($response, 'Verify and sign in', '/auth/login/verify', 'Sign in', $email, $error, $status);
+        return $this->renderVerify(
+            $response,
+            'Verify and sign in',
+            '/auth/login/verify',
+            'Sign in',
+            $email,
+            $error,
+            $status,
+            '/auth/login?email=' . urlencode($email)
+        );
     }
 
     public function loginVerify(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
@@ -172,7 +223,16 @@ class AuthController
 
             return $this->redirectWithSession($response, $session['token'], $session['expires_at']);
         } catch (\Throwable $throwable) {
-            return $this->renderVerify($response, 'Verify and sign in', '/auth/login/verify', 'Sign in', $email, $throwable->getMessage());
+            return $this->renderVerify(
+                $response,
+                'Verify and sign in',
+                '/auth/login/verify',
+                'Sign in',
+                $email,
+                $throwable->getMessage(),
+                null,
+                '/auth/login?email=' . urlencode($email)
+            );
         }
     }
 
@@ -224,16 +284,56 @@ class AuthController
         return $this->expireSessionCookie($response)->withHeader('Location', '/')->withStatus(302);
     }
 
-    private function renderVerify(ResponseInterface $response, string $title, string $actionUrl, string $buttonLabel, string $email, ?string $error = null, ?string $status = null): ResponseInterface
-    {
+    private function renderVerify(
+        ResponseInterface $response,
+        string $title,
+        string $actionUrl,
+        string $buttonLabel,
+        string $email,
+        ?string $error = null,
+        ?string $status = null,
+        ?string $resendUrl = null
+    ): ResponseInterface {
         return $this->renderer->render($response, 'auth/verify', [
             'title' => $title,
-            'subtitle' => 'Enter the 6-digit code from your email within 10 minutes.',
+            'subtitle' => 'Enter the 6-digit code you received after scanning your QR code within 10 minutes.',
             'actionUrl' => $actionUrl,
             'buttonLabel' => $buttonLabel,
             'email' => $email,
             'error' => $error,
             'status' => $status,
+            'resendUrl' => $resendUrl,
+            'resendLabel' => 'Request a new QR code',
+        ]);
+    }
+
+    private function renderQr(
+        ResponseInterface $response,
+        string $title,
+        string $subtitle,
+        string $actionUrl,
+        string $buttonLabel,
+        string $email,
+        string $code,
+        DateTimeInterface $expiresAt,
+        string $resendUrl,
+        string $resendLabel
+    ): ResponseInterface {
+        $expiresAtUtc = $expiresAt instanceof DateTimeImmutable
+            ? $expiresAt->setTimezone(new DateTimeZone('UTC'))
+            : (new DateTimeImmutable('@' . $expiresAt->getTimestamp()))->setTimezone(new DateTimeZone('UTC'));
+
+        return $this->renderer->render($response, 'auth/qr', [
+            'title' => $title,
+            'subtitle' => $subtitle,
+            'instructions' => $subtitle,
+            'actionUrl' => $actionUrl,
+            'buttonLabel' => $buttonLabel,
+            'email' => $email,
+            'code' => $code,
+            'expiresAt' => $expiresAtUtc,
+            'resendUrl' => $resendUrl,
+            'resendLabel' => $resendLabel,
         ]);
     }
 

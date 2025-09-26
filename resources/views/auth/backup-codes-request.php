@@ -5,7 +5,7 @@
 ?>
 <?php ob_start(); ?>
 <div class="space-y-4">
-    <p class="text-slate-300 text-sm">Generate new backup codes to access your account if email is unavailable.</p>
+    <p class="text-slate-300 text-sm">Generate new backup codes to access your account if you cannot scan a QR code.</p>
     <?php if (!empty($error)) : ?>
         <div class="rounded-md bg-red-900/40 border border-red-500 px-3 py-2 text-sm text-red-200">
             <?= htmlspecialchars($error, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
