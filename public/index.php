@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 use App\Bootstrap;
 use App\Controllers\AuthController;
+use App\Controllers\DocumentController;
+use App\Controllers\GenerationController;
 use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
+use App\Controllers\RetentionController;
 use App\Documents\DocumentRepository;
+use App\Documents\DocumentService;
+use App\Documents\DocumentValidator;
 use App\Infrastructure\Database\Connection;
 use App\Infrastructure\Database\Migrator;
 use App\Middleware\CsrfMiddleware;
@@ -24,8 +29,9 @@ use App\Views\Renderer;
 use DI\Container;
 use Slim\Factory\AppFactory;
 use Slim\Middleware\ErrorMiddleware;
-use App\Controllers\GenerationController;
+use App\Generations\GenerationDownloadService;
 use App\Generations\GenerationRepository;
+use App\Generations\GenerationTokenService;
 
 require_once __DIR__ . '/../autoload.php';
 
@@ -61,6 +67,22 @@ $container->set(Renderer::class, static function () use ($rootPath): Renderer {
 
 $container->set(DocumentRepository::class, static function (Container $c): DocumentRepository {
     return new DocumentRepository($c->get(\PDO::class));
+});
+
+$container->set(DocumentValidator::class, static function (): DocumentValidator {
+    return new DocumentValidator();
+});
+
+$container->set(DocumentService::class, static function (Container $c): DocumentService {
+    return new DocumentService($c->get(DocumentRepository::class), $c->get(DocumentValidator::class));
+});
+
+$container->set(DocumentController::class, static function (Container $c): DocumentController {
+    return new DocumentController(
+        $c->get(Renderer::class),
+        $c->get(DocumentRepository::class),
+        $c->get(DocumentService::class)
+    );
 });
 
 $container->set(GenerationRepository::class, static function (Container $c): GenerationRepository {
@@ -112,6 +134,17 @@ $container->set(GenerationController::class, static function (Container $c): Gen
     return new GenerationController(
         $c->get(GenerationRepository::class),
         $c->get(DocumentRepository::class)
+    );
+});
+
+$container->set(RetentionPolicyService::class, static function (Container $c): RetentionPolicyService {
+    return new RetentionPolicyService($c->get(\PDO::class));
+});
+
+$container->set(RetentionController::class, static function (Container $c): RetentionController {
+    return new RetentionController(
+        $c->get(Renderer::class),
+        $c->get(RetentionPolicyService::class)
     );
 });
 

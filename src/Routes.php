@@ -5,8 +5,11 @@ declare(strict_types=1);
 namespace App;
 
 use App\Controllers\AuthController;
+use App\Controllers\DocumentController;
 use App\Controllers\GenerationController;
+use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
+use App\Controllers\RetentionController;
 use App\Controllers\UsageController;
 use App\Prompts\PromptLibrary;
 use App\Validation\DraftValidator;
@@ -29,6 +32,14 @@ class Routes
 
         $app->get('/', function (Request $request, Response $response) use ($container) {
             return $container->get(HomeController::class)->index($request, $response);
+        });
+
+        $app->get('/documents', function (Request $request, Response $response) use ($container) {
+            return $container->get(DocumentController::class)->index($request, $response);
+        });
+
+        $app->post('/documents/upload', function (Request $request, Response $response) use ($container) {
+            return $container->get(DocumentController::class)->upload($request, $response);
         });
 
 
@@ -89,6 +100,10 @@ class Routes
             return $container->get(GenerationController::class)->show($request, $response, $args);
         });
 
+        $app->get('/generations/{id}/download', function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(GenerationDownloadController::class)->download($request, $response, $args);
+        });
+
         $app->get('/healthz', function (Request $request, Response $response): Response {
             $response->getBody()->write('ok');
 
@@ -146,6 +161,14 @@ class Routes
 
         $app->get('/usage', UsageController::class . ':index');
         $app->get('/usage/data', UsageController::class . ':data');
+
+        $app->get('/retention', function (Request $request, Response $response) use ($container) {
+            return $container->get(RetentionController::class)->show($request, $response);
+        });
+
+        $app->post('/retention', function (Request $request, Response $response) use ($container) {
+            return $container->get(RetentionController::class)->update($request, $response);
+        });
 
     }
 }

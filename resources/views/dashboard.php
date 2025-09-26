@@ -46,6 +46,39 @@ $wizardJson = htmlspecialchars(
         </form>
     </div>
 
+    <div class="grid gap-3 sm:grid-cols-3">
+        <a href="/documents" class="group flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-100">
+            <span class="inline-flex items-center gap-2">
+                <span class="rounded-full bg-indigo-500/20 px-2 py-1 text-xs uppercase tracking-wide text-indigo-200">Upload</span>
+                <span>Manage documents</span>
+            </span>
+            <svg aria-hidden="true" class="h-4 w-4 transition group-hover:translate-x-1" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M5 12h14" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        </a>
+        <a href="/usage" class="group flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-100">
+            <span class="inline-flex items-center gap-2">
+                <span class="rounded-full bg-emerald-500/20 px-2 py-1 text-xs uppercase tracking-wide text-emerald-200">Insights</span>
+                <span>Usage analytics</span>
+            </span>
+            <svg aria-hidden="true" class="h-4 w-4 transition group-hover:translate-x-1" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M5 12h14" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        </a>
+        <a href="/retention" class="group flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-100">
+            <span class="inline-flex items-center gap-2">
+                <span class="rounded-full bg-sky-500/20 px-2 py-1 text-xs uppercase tracking-wide text-sky-200">Policy</span>
+                <span>Retention settings</span>
+            </span>
+            <svg aria-hidden="true" class="h-4 w-4 transition group-hover:translate-x-1" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path d="M5 12h14" stroke-linecap="round" stroke-linejoin="round"></path>
+                <path d="M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+        </a>
+    </div>
+
     <div class="grid gap-6 lg:grid-cols-[320px,1fr]">
         <nav class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6">
             <ol class="space-y-4">
