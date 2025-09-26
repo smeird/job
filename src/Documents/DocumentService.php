@@ -18,7 +18,7 @@ class DocumentService
 
     public function __construct(
         DocumentRepository $repository,
-        DocumentValidator $validator,
+        DocumentValidator $validator
     ) {
         $this->repository = $repository;
         $this->validator = $validator;
