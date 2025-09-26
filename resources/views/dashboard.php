@@ -37,13 +37,22 @@ $wizardJson = htmlspecialchars(
                 Adjust generation parameters and confirm before sending it to the AI queue.
             </p>
         </div>
-        <form method="post" action="/auth/logout" class="md:self-end">
-            <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
-            <button type="submit" class="inline-flex items-center justify-center rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800">
-                Sign out
+        <div class="flex flex-col gap-3 md:items-end">
+            <button
+                type="button"
+                class="inline-flex items-center justify-center rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
+                @click="startNewGeneration()"
+            >
+                Start a tailored CV
             </button>
+            <form method="post" action="/auth/logout" class="md:self-end">
+                <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
+                <button type="submit" class="inline-flex items-center justify-center rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800">
+                    Sign out
+                </button>
 
-        </form>
+            </form>
+        </div>
     </div>
 
     <div class="grid gap-3 sm:grid-cols-3">
@@ -93,7 +102,10 @@ $wizardJson = htmlspecialchars(
                 </template>
             </ol>
         </nav>
-        <section class="rounded-2xl border border-slate-800/80 bg-slate-900/70 shadow-xl">
+        <section
+            x-ref="wizardPanel"
+            class="rounded-2xl border border-slate-800/80 bg-slate-900/70 shadow-xl"
+        >
             <div class="border-b border-slate-800/60 px-6 py-4">
                 <h3 class="text-lg font-semibold text-white" x-text="steps[step - 1]?.title"></h3>
                 <p class="text-sm text-slate-400" x-text="steps[step - 1]?.helper"></p>
@@ -416,6 +428,22 @@ $wizardJson = htmlspecialchars(
                 }
                 const date = new Date(value);
                 return isNaN(date.getTime()) ? value : date.toLocaleString();
+            },
+            // Reset the wizard to its first step and guide the user directly to the tailoring workflow.
+            startNewGeneration() {
+                this.step = 1;
+                this.error = '';
+                this.successMessage = '';
+
+                if (this.isWizardDisabled) {
+                    this.error = 'Upload at least one job description and CV to start tailoring.';
+                }
+
+                requestAnimationFrame(() => {
+                    if (this.$refs.wizardPanel) {
+                        this.$refs.wizardPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                });
             },
         }));
     });
