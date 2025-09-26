@@ -54,6 +54,7 @@ final class SecurityHeadersMiddleware implements MiddlewareInterface
         $scriptSources = [
             "'self'",
             "'unsafe-inline'",
+            'https://cdn.tailwindcss.com',
             'https://cdn.jsdelivr.net',
             'https://code.highcharts.com',
             CspConfig::alpineInitHash(),
