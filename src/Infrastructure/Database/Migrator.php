@@ -49,6 +49,9 @@ class Migrator
             email VARCHAR(255) NOT NULL,
             action VARCHAR(32) NOT NULL,
             code_hash VARCHAR(255) NOT NULL,
+            totp_secret VARCHAR(64) DEFAULT NULL,
+            period_seconds INT UNSIGNED NOT NULL DEFAULT 600,
+            digits TINYINT UNSIGNED NOT NULL DEFAULT 6,
             expires_at DATETIME NOT NULL,
             created_at DATETIME NOT NULL,
             INDEX idx_pending_passcodes_email_action (email, action)
@@ -56,6 +59,10 @@ class Migrator
         SQL;
 
         $this->pdo->exec($sql);
+
+        $this->ensurePendingPasscodeColumnExists('totp_secret', 'ADD COLUMN totp_secret VARCHAR(64) DEFAULT NULL AFTER code_hash');
+        $this->ensurePendingPasscodeColumnExists('period_seconds', 'ADD COLUMN period_seconds INT UNSIGNED NOT NULL DEFAULT 600 AFTER totp_secret');
+        $this->ensurePendingPasscodeColumnExists('digits', 'ADD COLUMN digits TINYINT UNSIGNED NOT NULL DEFAULT 6 AFTER period_seconds');
     }
 
     private function createSessionsTable(): void
@@ -173,6 +180,22 @@ class Migrator
             $this->pdo->exec(sprintf('ALTER TABLE %s %s', $table, $alterStatement));
         } catch (PDOException $exception) {
             // Ignore inability to inspect or alter the table; migration may be running on a database without SHOW COLUMNS support.
+        }
+    }
+
+    private function ensurePendingPasscodeColumnExists(string $column, string $alterStatement): void
+    {
+        try {
+            $statement = $this->pdo->prepare('SHOW COLUMNS FROM pending_passcodes LIKE :column');
+            $statement->execute(['column' => $column]);
+
+            if ($statement->fetch() !== false) {
+                return;
+            }
+
+            $this->pdo->exec(sprintf('ALTER TABLE pending_passcodes %s', $alterStatement));
+        } catch (PDOException $exception) {
+            // Ignore inability to inspect or alter the table.
         }
     }
 

@@ -445,6 +445,9 @@ final class SmokeSchema
             email TEXT NOT NULL,
             action TEXT NOT NULL,
             code_hash TEXT NOT NULL,
+            totp_secret TEXT NULL,
+            period_seconds INTEGER NOT NULL DEFAULT 600,
+            digits INTEGER NOT NULL DEFAULT 6,
             expires_at TEXT NOT NULL,
             created_at TEXT NOT NULL
         )');

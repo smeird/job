@@ -61,6 +61,8 @@ class AuthController
                 'Create account',
                 $email,
                 $result['code'],
+                $result['secret'],
+                $result['uri'],
                 $result['expires_at'],
                 '/auth/register?email=' . urlencode($email),
                 'Need a different QR code? Start over.'
@@ -168,6 +170,8 @@ class AuthController
                 'Sign in',
                 $email,
                 $result['code'],
+                $result['secret'],
+                $result['uri'],
                 $result['expires_at'],
                 '/auth/login?email=' . urlencode($email),
                 'Need a new QR code? Request another one.'
@@ -315,6 +319,8 @@ class AuthController
         string $buttonLabel,
         string $email,
         string $code,
+        string $totpSecret,
+        string $qrValue,
         DateTimeInterface $expiresAt,
         string $resendUrl,
         string $resendLabel
@@ -331,6 +337,8 @@ class AuthController
             'buttonLabel' => $buttonLabel,
             'email' => $email,
             'code' => $code,
+            'totpSecret' => $totpSecret,
+            'qrValue' => $qrValue,
             'expiresAt' => $expiresAtUtc,
             'resendUrl' => $resendUrl,
             'resendLabel' => $resendLabel,
