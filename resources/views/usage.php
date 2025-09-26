@@ -6,6 +6,7 @@ $subtitle = 'Spend and token insight';
 $navLinks = [
     ['href' => '/', 'label' => 'Dashboard', 'current' => false],
     ['href' => '/documents', 'label' => 'Documents', 'current' => false],
+    ['href' => '/applications', 'label' => 'Applications', 'current' => false],
     ['href' => '/usage', 'label' => 'Usage', 'current' => true],
     ['href' => '/retention', 'label' => 'Retention', 'current' => false],
 ];

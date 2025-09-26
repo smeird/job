@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 use App\Bootstrap;
 use App\Controllers\AuthController;
+use App\Applications\JobApplicationRepository;
+use App\Applications\JobApplicationService;
 use App\Controllers\DocumentController;
+use App\Controllers\JobApplicationController;
 use App\Controllers\GenerationController;
 use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
@@ -85,6 +88,22 @@ $container->set(DocumentController::class, static function (Container $c): Docum
     );
 });
 
+$container->set(JobApplicationRepository::class, static function (Container $c): JobApplicationRepository {
+    return new JobApplicationRepository($c->get(\PDO::class));
+});
+
+$container->set(JobApplicationService::class, static function (Container $c): JobApplicationService {
+    return new JobApplicationService($c->get(JobApplicationRepository::class));
+});
+
+$container->set(JobApplicationController::class, static function (Container $c): JobApplicationController {
+    return new JobApplicationController(
+        $c->get(Renderer::class),
+        $c->get(JobApplicationRepository::class),
+        $c->get(JobApplicationService::class)
+    );
+});
+
 $container->set(GenerationRepository::class, static function (Container $c): GenerationRepository {
     return new GenerationRepository($c->get(\PDO::class));
 });
@@ -126,7 +145,8 @@ $container->set(HomeController::class, static function (Container $c): HomeContr
     return new HomeController(
         $c->get(Renderer::class),
         $c->get(DocumentRepository::class),
-        $c->get(GenerationRepository::class)
+        $c->get(GenerationRepository::class),
+        $c->get(JobApplicationRepository::class)
     );
 });
 

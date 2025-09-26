@@ -9,6 +9,7 @@ use App\Controllers\DocumentController;
 use App\Controllers\GenerationController;
 use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
+use App\Controllers\JobApplicationController;
 use App\Controllers\RetentionController;
 use App\Controllers\UsageController;
 use App\Prompts\PromptLibrary;
@@ -45,6 +46,18 @@ class Routes
 
         $app->post('/documents/upload', function (Request $request, Response $response) use ($container) {
             return $container->get(DocumentController::class)->upload($request, $response);
+        });
+
+        $app->get('/applications', function (Request $request, Response $response) use ($container) {
+            return $container->get(JobApplicationController::class)->index($request, $response);
+        });
+
+        $app->post('/applications', function (Request $request, Response $response) use ($container) {
+            return $container->get(JobApplicationController::class)->store($request, $response);
+        });
+
+        $app->post('/applications/{id}/status', function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(JobApplicationController::class)->updateStatus($request, $response, $args);
         });
 
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Applications\JobApplicationRepository;
 use App\Documents\DocumentRepository;
 use App\Generations\GenerationRepository;
 use App\Views\Renderer;
@@ -18,6 +19,9 @@ class HomeController
     /** @var DocumentRepository */
     private $documentRepository;
 
+    /** @var JobApplicationRepository */
+    private $jobApplicationRepository;
+
     /** @var GenerationRepository */
     private $generationRepository;
 
@@ -29,11 +33,13 @@ class HomeController
     public function __construct(
         Renderer $renderer,
         DocumentRepository $documentRepository,
-        GenerationRepository $generationRepository
+        GenerationRepository $generationRepository,
+        JobApplicationRepository $jobApplicationRepository
     ) {
         $this->renderer = $renderer;
         $this->documentRepository = $documentRepository;
         $this->generationRepository = $generationRepository;
+        $this->jobApplicationRepository = $jobApplicationRepository;
     }
 
     /**
@@ -47,6 +53,20 @@ class HomeController
 
         if ($user !== null) {
             $userId = (int) $user['user_id'];
+
+            $outstandingApplications = array_map(
+                static function ($application) {
+                    return [
+                        'id' => $application->id(),
+                        'title' => $application->title(),
+                        'source_url' => $application->sourceUrl(),
+                        'created_at' => $application->createdAt()->format('Y-m-d H:i'),
+                    ];
+                },
+                $this->jobApplicationRepository->listForUserAndStatus($userId, 'outstanding', 3)
+            );
+
+            $outstandingCount = $this->jobApplicationRepository->countForUserAndStatus($userId, 'outstanding');
 
             return $this->renderer->render($response, 'dashboard', [
                 'title' => 'Dashboard',
@@ -74,6 +94,8 @@ class HomeController
                 ),
                 'generations' => $this->generationRepository->listForUser($userId),
                 'modelOptions' => GenerationController::availableModels(),
+                'outstandingApplications' => $outstandingApplications,
+                'outstandingApplicationsCount' => $outstandingCount,
             ]);
         }
 

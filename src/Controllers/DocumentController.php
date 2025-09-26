@@ -183,6 +183,7 @@ final class DocumentController
         $links = [
             'dashboard' => ['href' => '/', 'label' => 'Dashboard'],
             'documents' => ['href' => '/documents', 'label' => 'Documents'],
+            'applications' => ['href' => '/applications', 'label' => 'Applications'],
             'usage' => ['href' => '/usage', 'label' => 'Usage'],
             'retention' => ['href' => '/retention', 'label' => 'Retention'],
         ];
