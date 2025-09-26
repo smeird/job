@@ -86,7 +86,7 @@ class AuthService
         $this->logAttempt($this->verifyLimiter, $ip, $email, self::REGISTER_VERIFY_ACTION, $userAgent, ['stage' => 'verify']);
 
         try {
-            $this->assertPasscodeValid($email, 'register', $code);
+            $passcode = $this->assertPasscodeValid($email, 'register', $code);
         } catch (\RuntimeException $exception) {
             $this->auditLogger->log('auth.register.verify_failed', ['reason' => $exception->getMessage()], null, $email, $ip, $userAgent);
 
@@ -94,6 +94,15 @@ class AuthService
         }
 
         $userId = $this->findOrCreateUser($email);
+
+        if (!empty($passcode['totp_secret'])) {
+            $this->storeUserTotpConfiguration(
+                $userId,
+                (string) $passcode['totp_secret'],
+                $passcode['period_seconds'],
+                $passcode['digits']
+            );
+        }
 
         $session = $this->createSession($userId);
 
@@ -113,12 +122,24 @@ class AuthService
         $this->validateEmail($email);
         $this->applyRateLimiting($this->requestLimiter, $ip, $email, self::LOGIN_REQUEST_ACTION, $userAgent);
 
-        if (!$this->userExists($email)) {
+        $user = $this->getUserWithTotpByEmail($email);
+
+        if ($user === null) {
             $this->auditLogger->log('auth.login.denied', ['reason' => 'account_missing'], null, $email, $ip, $userAgent);
             throw new \RuntimeException('No account was found with that email. Please register first.');
         }
 
-        $challenge = $this->createTotpChallenge($email);
+        $storedSecret = $user['totp_secret'] ?? null;
+        $storedPeriod = $user['totp_period_seconds'] ?? null;
+        $storedDigits = $user['totp_digits'] ?? null;
+
+        if ($storedSecret === null || $storedSecret === '') {
+            $challenge = $this->createTotpChallenge($email);
+            $this->storeUserTotpConfiguration($user['id'], $challenge['secret'], $challenge['period'], $challenge['digits']);
+        } else {
+            $challenge = $this->createTotpChallenge($email, $storedSecret, $storedPeriod, $storedDigits);
+        }
+
         $expiresAt = (new DateTimeImmutable())->add(new DateInterval('PT10M'));
 
         $this->storePasscode($email, 'login', $challenge, $expiresAt);
@@ -294,14 +315,52 @@ class AuthService
         return $id === false ? null : (int) $id;
     }
 
+    private function getUserWithTotpByEmail(string $email): ?array
+    {
+        $statement = $this->pdo->prepare('SELECT id, totp_secret, totp_period_seconds, totp_digits FROM users WHERE email = :email LIMIT 1');
+        $statement->execute(['email' => $email]);
+        $row = $statement->fetch();
+
+        if ($row === false) {
+            return null;
+        }
+
+        return [
+            'id' => (int) $row['id'],
+            'totp_secret' => isset($row['totp_secret']) ? ($row['totp_secret'] === null ? null : (string) $row['totp_secret']) : null,
+            'totp_period_seconds' => isset($row['totp_period_seconds']) && $row['totp_period_seconds'] !== null ? (int) $row['totp_period_seconds'] : null,
+            'totp_digits' => isset($row['totp_digits']) && $row['totp_digits'] !== null ? (int) $row['totp_digits'] : null,
+        ];
+    }
+
+    private function storeUserTotpConfiguration(int $userId, string $secret, ?int $period, ?int $digits): void
+    {
+        $secret = strtoupper(trim($secret));
+
+        if ($secret === '') {
+            return;
+        }
+
+        $statement = $this->pdo->prepare('UPDATE users SET totp_secret = :totp_secret, totp_period_seconds = :period, totp_digits = :digits, updated_at = :updated_at WHERE id = :id');
+        $statement->execute([
+            'totp_secret' => $secret,
+            'period' => $period ?? self::OTP_PERIOD_SECONDS,
+            'digits' => $digits ?? self::OTP_DIGITS,
+            'updated_at' => (new DateTimeImmutable())->format('Y-m-d H:i:s'),
+            'id' => $userId,
+        ]);
+    }
+
     /**
      * @return array{code: string, secret: string, uri: string, period: int, digits: int}
      */
-    private function createTotpChallenge(string $email): array
+    private function createTotpChallenge(string $email, ?string $existingSecret = null, ?int $existingPeriod = null, ?int $existingDigits = null): array
     {
-        $secret = Base32::encodeUpper(random_bytes(20));
-        $period = self::OTP_PERIOD_SECONDS;
-        $digits = self::OTP_DIGITS;
+        $secret = $existingSecret !== null && $existingSecret !== ''
+            ? strtoupper($existingSecret)
+            : Base32::encodeUpper(random_bytes(20));
+        $period = $existingPeriod ?? self::OTP_PERIOD_SECONDS;
+        $digits = $existingDigits ?? self::OTP_DIGITS;
         $code = $this->calculateTotp($secret, $period, $digits, self::OTP_ALGORITHM, time());
         $uri = $this->buildTotpUri($secret, $email, $period, $digits);
 
@@ -337,7 +396,7 @@ class AuthService
         ]);
     }
 
-    private function assertPasscodeValid(string $email, string $action, string $code): void
+    private function assertPasscodeValid(string $email, string $action, string $code): array
     {
         $code = $this->normalizeCode($code);
 
@@ -358,12 +417,14 @@ class AuthService
         }
 
         $isValid = false;
+        $period = isset($row['period_seconds']) ? (int) $row['period_seconds'] : self::OTP_PERIOD_SECONDS;
+        $digits = isset($row['digits']) ? (int) $row['digits'] : self::OTP_DIGITS;
+        $secret = null;
 
         if (isset($row['totp_secret']) && is_string($row['totp_secret']) && $row['totp_secret'] !== '') {
-            $period = isset($row['period_seconds']) ? (int) $row['period_seconds'] : self::OTP_PERIOD_SECONDS;
-            $digits = isset($row['digits']) ? (int) $row['digits'] : self::OTP_DIGITS;
+            $secret = (string) $row['totp_secret'];
 
-            if ($this->verifyTotpCode($row['totp_secret'], $code, $period, $digits)) {
+            if ($this->verifyTotpCode($secret, $code, $period, $digits)) {
                 $isValid = true;
             }
         }
@@ -378,6 +439,12 @@ class AuthService
 
         $delete = $this->pdo->prepare('DELETE FROM pending_passcodes WHERE id = :id');
         $delete->execute(['id' => $row['id']]);
+
+        return [
+            'totp_secret' => $secret,
+            'period_seconds' => $period,
+            'digits' => $digits,
+        ];
     }
 
     private function normalizeCode(string $code): string
