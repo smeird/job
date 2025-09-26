@@ -12,6 +12,9 @@ final class GenerationRepository
     /** @var PDO */
     private $pdo;
 
+    /** @var bool */
+    private $hasThinkingTimeColumn;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -20,6 +23,7 @@ final class GenerationRepository
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
+        $this->hasThinkingTimeColumn = $this->detectThinkingTimeColumn();
     }
 
     /**
@@ -31,21 +35,38 @@ final class GenerationRepository
     {
         $now = (new DateTimeImmutable())->format('Y-m-d H:i:s');
 
-        $statement = $this->pdo->prepare(
-            'INSERT INTO generations (user_id, job_document_id, cv_document_id, model, thinking_time, status, created_at, updated_at)
-             VALUES (:user_id, :job_document_id, :cv_document_id, :model, :thinking_time, :status, :created_at, :updated_at)'
-        );
+        if ($this->hasThinkingTimeColumn) {
+            $statement = $this->pdo->prepare(
+                'INSERT INTO generations (user_id, job_document_id, cv_document_id, model, thinking_time, status, created_at, updated_at)
+                 VALUES (:user_id, :job_document_id, :cv_document_id, :model, :thinking_time, :status, :created_at, :updated_at)'
+            );
 
-        $statement->execute([
-            ':user_id' => $userId,
-            ':job_document_id' => $jobDocumentId,
-            ':cv_document_id' => $cvDocumentId,
-            ':model' => $model,
-            ':thinking_time' => $thinkingTime,
-            ':status' => 'queued',
-            ':created_at' => $now,
-            ':updated_at' => $now,
-        ]);
+            $statement->execute([
+                ':user_id' => $userId,
+                ':job_document_id' => $jobDocumentId,
+                ':cv_document_id' => $cvDocumentId,
+                ':model' => $model,
+                ':thinking_time' => $thinkingTime,
+                ':status' => 'queued',
+                ':created_at' => $now,
+                ':updated_at' => $now,
+            ]);
+        } else {
+            $statement = $this->pdo->prepare(
+                'INSERT INTO generations (user_id, job_document_id, cv_document_id, model, status, created_at, updated_at)
+                 VALUES (:user_id, :job_document_id, :cv_document_id, :model, :status, :created_at, :updated_at)'
+            );
+
+            $statement->execute([
+                ':user_id' => $userId,
+                ':job_document_id' => $jobDocumentId,
+                ':cv_document_id' => $cvDocumentId,
+                ':model' => $model,
+                ':status' => 'queued',
+                ':created_at' => $now,
+                ':updated_at' => $now,
+            ]);
+        }
 
         $id = (int) $this->pdo->lastInsertId();
 
@@ -60,7 +81,7 @@ final class GenerationRepository
     public function findForUser(int $userId, int $generationId): ?array
     {
         $statement = $this->pdo->prepare(
-            'SELECT g.id, g.model, g.thinking_time, g.status, g.created_at,
+            'SELECT g.id, g.model, ' . $this->thinkingTimeSelectExpression() . ', g.status, g.created_at,
                     jd.id AS job_document_id, jd.filename AS job_filename,
                     cv.id AS cv_document_id, cv.filename AS cv_filename
              FROM generations g
@@ -89,7 +110,7 @@ final class GenerationRepository
     public function listForUser(int $userId): array
     {
         $statement = $this->pdo->prepare(
-            'SELECT g.id, g.model, g.thinking_time, g.status, g.created_at,
+            'SELECT g.id, g.model, ' . $this->thinkingTimeSelectExpression() . ', g.status, g.created_at,
                     jd.id AS job_document_id, jd.filename AS job_filename,
                     cv.id AS cv_document_id, cv.filename AS cv_filename
              FROM generations g
@@ -122,7 +143,7 @@ final class GenerationRepository
         return [
             'id' => (int) $row['id'],
             'model' => (string) $row['model'],
-            'thinking_time' => (int) $row['thinking_time'],
+            'thinking_time' => isset($row['thinking_time']) ? (int) $row['thinking_time'] : 30,
             'status' => (string) $row['status'],
             'created_at' => (string) $row['created_at'],
             'job_document' => [
@@ -134,5 +155,54 @@ final class GenerationRepository
                 'filename' => (string) $row['cv_filename'],
             ],
         ];
+    }
+
+
+    /**
+     * Determine whether the generations table provides the thinking_time column.
+     *
+     * Having this knowledge lets the repository remain compatible with older deployments.
+     */
+    private function detectThinkingTimeColumn(): bool
+    {
+        $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+        if ($driver === 'mysql') {
+            $statement = $this->pdo->query("SHOW COLUMNS FROM generations LIKE 'thinking_time'");
+
+            return $statement !== false && $statement->fetch() !== false;
+        }
+
+        if ($driver === 'sqlite') {
+            $statement = $this->pdo->query('PRAGMA table_info(generations)');
+
+            if ($statement === false) {
+                return false;
+            }
+
+            while ($column = $statement->fetch()) {
+                if (($column['name'] ?? '') === 'thinking_time') {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Provide the SQL expression used to fetch the thinking time column.
+     *
+     * Centralising the logic here keeps the query construction tidy.
+     */
+    private function thinkingTimeSelectExpression(): string
+    {
+        if ($this->hasThinkingTimeColumn) {
+            return 'COALESCE(g.thinking_time, 30) AS thinking_time';
+        }
+
+        return '30 AS thinking_time';
     }
 }
