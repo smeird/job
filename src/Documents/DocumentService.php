@@ -10,8 +10,11 @@ use RuntimeException;
 
 class DocumentService
 {
-    private DocumentRepository $repository;
-    private DocumentValidator $validator;
+    /** @var DocumentRepository */
+    private $repository;
+
+    /** @var DocumentValidator */
+    private $validator;
 
     public function __construct(
         DocumentRepository $repository,

@@ -12,9 +12,14 @@ use Psr\Http\Message\ServerRequestInterface;
 
 class HomeController
 {
-    private Renderer $renderer;
-    private DocumentRepository $documentRepository;
-    private GenerationRepository $generationRepository;
+    /** @var Renderer */
+    private $renderer;
+
+    /** @var DocumentRepository */
+    private $documentRepository;
+
+    /** @var GenerationRepository */
+    private $generationRepository;
 
     public function __construct(
         Renderer $renderer,
@@ -38,19 +43,23 @@ class HomeController
                 'subtitle' => 'Keep growing your career with confidence.',
                 'email' => $user['email'],
                 'jobDocuments' => array_map(
-                    static fn($document) => [
-                        'id' => $document->id(),
-                        'filename' => $document->filename(),
-                        'created_at' => $document->createdAt()->format('Y-m-d H:i'),
-                    ],
+                    static function ($document) {
+                        return [
+                            'id' => $document->id(),
+                            'filename' => $document->filename(),
+                            'created_at' => $document->createdAt()->format('Y-m-d H:i'),
+                        ];
+                    },
                     $this->documentRepository->listForUserAndType($userId, 'job_description')
                 ),
                 'cvDocuments' => array_map(
-                    static fn($document) => [
-                        'id' => $document->id(),
-                        'filename' => $document->filename(),
-                        'created_at' => $document->createdAt()->format('Y-m-d H:i'),
-                    ],
+                    static function ($document) {
+                        return [
+                            'id' => $document->id(),
+                            'filename' => $document->filename(),
+                            'created_at' => $document->createdAt()->format('Y-m-d H:i'),
+                        ];
+                    },
                     $this->documentRepository->listForUserAndType($userId, 'cv')
                 ),
                 'generations' => $this->generationRepository->listForUser($userId),

@@ -8,12 +8,23 @@ use RuntimeException;
 
 class SmtpMailer implements MailerInterface
 {
-    private string $host;
-    private int $port;
-    private string $from;
-    private ?string $username;
-    private ?string $password;
-    private bool $useTls;
+    /** @var string */
+    private $host;
+
+    /** @var int */
+    private $port;
+
+    /** @var string */
+    private $from;
+
+    /** @var string|null */
+    private $username;
+
+    /** @var string|null */
+    private $password;
+
+    /** @var bool */
+    private $useTls;
 
     public function __construct(string $host, int $port, string $from, ?string $username = null, ?string $password = null, bool $useTls = false)
     {

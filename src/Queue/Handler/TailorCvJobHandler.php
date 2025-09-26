@@ -30,8 +30,11 @@ use function trim;
 
 final class TailorCvJobHandler implements JobHandlerInterface
 {
-    private CommonMarkConverter $markdownConverter;
-    private PDO $pdo;
+    /** @var CommonMarkConverter */
+    private $markdownConverter;
+
+    /** @var PDO */
+    private $pdo;
 
     public function __construct(PDO $pdo)
     {
@@ -183,12 +186,16 @@ final class TailorCvJobHandler implements JobHandlerInterface
 
         if (is_array($competencies)) {
             $cleaned = array_map(
-                static fn($value): string => trim((string) $value),
+                static function ($value): string {
+                    return trim((string) $value);
+                },
                 $competencies
             );
             $cleaned = array_values(array_filter(
                 $cleaned,
-                static fn(string $value): bool => $value !== ''
+                static function (string $value): bool {
+                    return $value !== '';
+                }
             ));
             $competencyList = implode(', ', $cleaned);
         } else {

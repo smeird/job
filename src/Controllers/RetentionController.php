@@ -13,8 +13,11 @@ use RuntimeException;
 
 class RetentionController
 {
-    private Renderer $renderer;
-    private RetentionPolicyService $retentionPolicyService;
+    /** @var Renderer */
+    private $renderer;
+
+    /** @var RetentionPolicyService */
+    private $retentionPolicyService;
 
     public function __construct(
         Renderer $renderer,

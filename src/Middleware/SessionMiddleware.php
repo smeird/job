@@ -12,7 +12,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 class SessionMiddleware implements MiddlewareInterface
 {
-    private AuthService $authService;
+    /** @var AuthService */
+    private $authService;
 
     public function __construct(AuthService $authService)
     {

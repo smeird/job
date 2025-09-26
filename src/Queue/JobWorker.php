@@ -11,17 +11,16 @@ final class JobWorker
     private const BASE_BACKOFF_SECONDS = 5;
     private const MAX_BACKOFF_SECONDS = 300;
 
-    /**
-     * @param array<string, JobHandlerInterface> $handlers
-     */
-    private JobRepository $repository;
+    /** @var JobRepository */
+    private $repository;
 
     /**
      * @var array<string, JobHandlerInterface>
      */
-    private array $handlers;
+    private $handlers;
 
-    private int $maxAttempts;
+    /** @var int */
+    private $maxAttempts;
 
     /**
      * @param array<string, JobHandlerInterface> $handlers

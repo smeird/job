@@ -25,7 +25,8 @@ namespace Dotenv {
 namespace Ramsey\Uuid {
     final class Uuid
     {
-        private string $value;
+        /** @var string */
+        private $value;
 
         private function __construct(string $value)
         {
@@ -47,7 +48,8 @@ namespace Ramsey\Uuid {
 namespace League\CommonMark {
     final class RenderedContent
     {
-        private string $content;
+        /** @var string */
+        private $content;
 
         public function __construct(string $content)
         {
@@ -326,10 +328,17 @@ final class SmokeStream implements StreamInterface
 
 final class SmokeUploadedFile implements UploadedFileInterface
 {
-    private SmokeStream $stream;
-    private ?string $clientFilename;
-    private ?string $clientMediaType;
-    private int $error;
+    /** @var SmokeStream */
+    private $stream;
+
+    /** @var string|null */
+    private $clientFilename;
+
+    /** @var string|null */
+    private $clientMediaType;
+
+    /** @var int */
+    private $error;
 
     public function __construct(SmokeStream $stream, ?string $clientFilename, ?string $clientMediaType, int $error = UPLOAD_ERR_OK)
     {
@@ -386,8 +395,11 @@ final class SmokeUploadedFile implements UploadedFileInterface
 
 final class SmokeEnvironment
 {
-    private string $databasePath;
-    private string $rootPath;
+    /** @var string */
+    private $databasePath;
+
+    /** @var string */
+    private $rootPath;
 
     public function __construct(string $rootPath)
     {
@@ -418,7 +430,8 @@ final class SmokeEnvironment
 
 final class SmokeSchema
 {
-    private GlobalPDO $pdo;
+    /** @var GlobalPDO */
+    private $pdo;
 
     public function __construct(GlobalPDO $pdo)
     {
@@ -555,9 +568,11 @@ final class SmokeSchema
 
 final class SmokeAuth
 {
-    private AuthService $service;
+    /** @var AuthService */
+    private $service;
 
-    private GlobalPDO $pdo;
+    /** @var GlobalPDO */
+    private $pdo;
 
     public function __construct(GlobalPDO $pdo)
     {
@@ -594,7 +609,8 @@ final class SmokeAuth
 
 final class SmokeDocuments
 {
-    private GlobalPDO $pdo;
+    /** @var GlobalPDO */
+    private $pdo;
 
     public function __construct(GlobalPDO $pdo)
     {
@@ -636,9 +652,11 @@ final class SmokeDocuments
 
 final class SmokeFakeOpenAIProvider
 {
-    private GlobalPDO $pdo;
+    /** @var GlobalPDO */
+    private $pdo;
 
-    private int $userId;
+    /** @var int */
+    private $userId;
 
     public function __construct(int $userId, ?object $client = null, ?GlobalPDO $pdo = null)
     {
@@ -696,7 +714,8 @@ MARKDOWN;
 
 final class SmokeGeneration
 {
-    private GlobalPDO $pdo;
+    /** @var GlobalPDO */
+    private $pdo;
 
     public function __construct(GlobalPDO $pdo)
     {
@@ -819,7 +838,8 @@ final class SmokeGeneration
 
 final class SmokePurge
 {
-    private GlobalPDO $pdo;
+    /** @var GlobalPDO */
+    private $pdo;
 
     public function __construct(GlobalPDO $pdo)
     {

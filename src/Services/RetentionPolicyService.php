@@ -14,7 +14,8 @@ class RetentionPolicyService
 {
     private const TABLE_NAME = 'retention_settings';
 
-    private PDO $pdo;
+    /** @var PDO */
+    private $pdo;
 
     /**
      * @var array<int, string>

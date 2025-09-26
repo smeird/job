@@ -14,8 +14,11 @@ use Psr\Http\Message\ServerRequestInterface;
 
 class AuthController
 {
-    private AuthService $authService;
-    private Renderer $renderer;
+    /** @var AuthService */
+    private $authService;
+
+    /** @var Renderer */
+    private $renderer;
 
     public function __construct(AuthService $authService, Renderer $renderer)
     {

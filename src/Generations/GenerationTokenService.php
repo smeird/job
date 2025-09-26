@@ -26,8 +26,11 @@ use function trim;
 
 final class GenerationTokenService
 {
-    private string $secret;
-    private int $ttlSeconds;
+    /** @var string */
+    private $secret;
+
+    /** @var int */
+    private $ttlSeconds;
 
     public function __construct(string $secret, int $ttlSeconds = 300)
     {
@@ -50,7 +53,9 @@ final class GenerationTokenService
 
     public function createToken(int $userId, int $generationId, string $format, ?DateTimeImmutable $now = null): string
     {
-        $now ??= new DateTimeImmutable();
+        if ($now === null) {
+            $now = new DateTimeImmutable();
+        }
         $expiresAt = $now->add(new DateInterval(sprintf('PT%dS', $this->ttlSeconds)))->getTimestamp();
 
         $normalizedFormat = strtolower(trim($format));

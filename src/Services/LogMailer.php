@@ -6,7 +6,8 @@ namespace App\Services;
 
 class LogMailer implements MailerInterface
 {
-    private string $logPath;
+    /** @var string */
+    private $logPath;
 
     public function __construct(string $logPath)
     {

@@ -8,15 +8,32 @@ use DateTimeImmutable;
 
 class Document
 {
-    private ?int $id;
-    private int $userId;
-    private string $documentType;
-    private string $filename;
-    private string $mimeType;
-    private int $sizeBytes;
-    private string $sha256;
-    private string $content;
-    private DateTimeImmutable $createdAt;
+    /** @var int|null */
+    private $id;
+
+    /** @var int */
+    private $userId;
+
+    /** @var string */
+    private $documentType;
+
+    /** @var string */
+    private $filename;
+
+    /** @var string */
+    private $mimeType;
+
+    /** @var int */
+    private $sizeBytes;
+
+    /** @var string */
+    private $sha256;
+
+    /** @var string */
+    private $content;
+
+    /** @var DateTimeImmutable */
+    private $createdAt;
 
     public function __construct(
         ?int $id,
@@ -27,7 +44,7 @@ class Document
         int $sizeBytes,
         string $sha256,
         string $content,
-        DateTimeImmutable $createdAt,
+        DateTimeImmutable $createdAt
     ) {
         $this->id = $id;
         $this->userId = $userId;
@@ -56,7 +73,7 @@ class Document
             $this->sizeBytes,
             $this->sha256,
             $this->content,
-            $this->createdAt,
+            $this->createdAt
         );
     }
 

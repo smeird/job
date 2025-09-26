@@ -19,8 +19,11 @@ final class GenerationController
         ['value' => 'claude-3-5-sonnet', 'label' => 'Claude 3.5 Sonnet · Balanced reasoning'],
     ];
 
-    private GenerationRepository $generationRepository;
-    private DocumentRepository $documentRepository;
+    /** @var GenerationRepository */
+    private $generationRepository;
+
+    /** @var DocumentRepository */
+    private $documentRepository;
 
     public function __construct(
         GenerationRepository $generationRepository,

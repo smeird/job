@@ -18,7 +18,8 @@ final class GenerationDownloadService
     private const FORMAT_DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     private const FORMAT_PDF_MIME = 'application/pdf';
 
-    private PDO $pdo;
+    /** @var PDO */
+    private $pdo;
 
     public function __construct(PDO $pdo)
     {

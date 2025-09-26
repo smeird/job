@@ -12,7 +12,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 final class SecurityHeadersMiddleware implements MiddlewareInterface
 {
-    private string $appUrl;
+    /** @var string */
+    private $appUrl;
 
     public function __construct(string $appUrl)
     {

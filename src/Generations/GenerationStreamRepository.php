@@ -10,7 +10,8 @@ use PDO;
 
 class GenerationStreamRepository
 {
-    private PDO $connection;
+    /** @var PDO */
+    private $connection;
 
     public function __construct(?PDO $connection = null)
     {

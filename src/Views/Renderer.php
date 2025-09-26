@@ -9,7 +9,8 @@ use RuntimeException;
 
 class Renderer
 {
-    private string $basePath;
+    /** @var string */
+    private $basePath;
 
     public function __construct(string $basePath)
     {

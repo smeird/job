@@ -9,7 +9,8 @@ use ZipArchive;
 
 class DocumentPreviewer
 {
-    private Parser $pdfParser;
+    /** @var Parser */
+    private $pdfParser;
 
     public function __construct(?Parser $parser = null)
     {
