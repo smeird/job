@@ -17,7 +17,7 @@ class AuthService
     private const LOGIN_REQUEST_ACTION = 'login.request';
     private const LOGIN_VERIFY_ACTION = 'login.verify';
 
-    private const OTP_PERIOD_SECONDS = 600;
+    private const OTP_PERIOD_SECONDS = 30;
     private const OTP_DIGITS = 6;
     private const OTP_ALGORITHM = 'sha1';
     private const OTP_ISSUER = 'job.smeird.com';
@@ -332,6 +332,8 @@ class AuthService
 
     private function assertPasscodeValid(string $email, string $action, string $code): void
     {
+        $code = $this->normalizeCode($code);
+
         $this->pdo->prepare('DELETE FROM pending_passcodes WHERE expires_at < :now')->execute([
             'now' => (new DateTimeImmutable())->format('Y-m-d H:i:s'),
         ]);
@@ -369,6 +371,17 @@ class AuthService
 
         $delete = $this->pdo->prepare('DELETE FROM pending_passcodes WHERE id = :id');
         $delete->execute(['id' => $row['id']]);
+    }
+
+    private function normalizeCode(string $code): string
+    {
+        $normalized = preg_replace('/\D+/', '', $code);
+
+        if ($normalized === null) {
+            return '';
+        }
+
+        return $normalized;
     }
 
     private function verifyTotpCode(string $secret, string $code, int $period, int $digits): bool
