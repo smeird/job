@@ -35,8 +35,8 @@ class JobApplicationRepository
         $createdAt = $now->format('Y-m-d H:i:s');
 
         $statement = $this->pdo->prepare(
-            'INSERT INTO job_applications (user_id, title, source_url, description, status, applied_at, reason_code, created_at, updated_at)'
-             VALUES (:user_id, :title, :source_url, :description, :status, :applied_at, :reason_code, :created_at, :updated_at)'
+            'INSERT INTO job_applications (user_id, title, source_url, description, status, applied_at, reason_code, created_at, updated_at) '
+            . 'VALUES (:user_id, :title, :source_url, :description, :status, :applied_at, :reason_code, :created_at, :updated_at)'
         );
 
         $statement->bindValue(':user_id', $userId, PDO::PARAM_INT);
