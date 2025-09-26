@@ -17,7 +17,7 @@ class AuthService
     private const LOGIN_REQUEST_ACTION = 'login.request';
     private const LOGIN_VERIFY_ACTION = 'login.verify';
 
-    private const OTP_PERIOD_SECONDS = 600;
+    private const OTP_PERIOD_SECONDS = 30;
     private const OTP_DIGITS = 6;
     private const OTP_ALGORITHM = 'sha1';
     private const OTP_ISSUER = 'job.smeird.com';
