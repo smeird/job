@@ -179,22 +179,33 @@ class Migrator
             return;
         }
 
-        $this->pdo->exec(
-            'CREATE TABLE IF NOT EXISTS job_applications (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                title TEXT NOT NULL DEFAULT '',
-                source_url TEXT NULL,
-                description TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT "outstanding",
-                applied_at TEXT NULL,
-                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )'
+        $sql = <<<'SQL'
+        CREATE TABLE IF NOT EXISTS job_applications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            title TEXT NOT NULL DEFAULT '',
+            source_url TEXT NULL,
+            description TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'outstanding',
+            applied_at TEXT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
+        SQL;
 
-        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_job_applications_user_status ON job_applications (user_id, status)');
-        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_job_applications_user_created ON job_applications (user_id, created_at)');
+        $this->pdo->exec($sql);
+
+        $indexStatusSql = <<<'SQL'
+        CREATE INDEX IF NOT EXISTS idx_job_applications_user_status
+            ON job_applications (user_id, status);
+        SQL;
+        $this->pdo->exec($indexStatusSql);
+
+        $indexCreatedSql = <<<'SQL'
+        CREATE INDEX IF NOT EXISTS idx_job_applications_user_created
+            ON job_applications (user_id, created_at);
+        SQL;
+        $this->pdo->exec($indexCreatedSql);
     }
 
     /**
