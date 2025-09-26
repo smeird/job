@@ -160,7 +160,7 @@ class Migrator
             job_document_id BIGINT UNSIGNED NOT NULL,
             cv_document_id BIGINT UNSIGNED NOT NULL,
             model VARCHAR(128) NOT NULL,
-            temperature DECIMAL(4,2) NOT NULL DEFAULT 0.20,
+            thinking_time TINYINT UNSIGNED NOT NULL DEFAULT 30,
             status VARCHAR(32) NOT NULL DEFAULT 'queued',
             progress_percent TINYINT UNSIGNED NOT NULL DEFAULT 0,
             cost_pence BIGINT UNSIGNED NOT NULL DEFAULT 0,
@@ -177,7 +177,8 @@ class Migrator
         $this->pdo->exec($sql);
         $this->ensureGenerationsColumnExists('job_document_id', 'ADD COLUMN job_document_id BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER user_id');
         $this->ensureGenerationsColumnExists('cv_document_id', 'ADD COLUMN cv_document_id BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER job_document_id');
-        $this->ensureGenerationsColumnExists('temperature', 'ADD COLUMN temperature DECIMAL(4,2) NOT NULL DEFAULT 0.20 AFTER model');
+        $this->ensureGenerationsColumnExists('thinking_time', 'ADD COLUMN thinking_time TINYINT UNSIGNED NOT NULL DEFAULT 30 AFTER model');
+        $this->dropGenerationsColumnIfExists('temperature');
         $this->ensureGenerationsColumnExists('progress_percent', 'ADD COLUMN progress_percent TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER status');
         $this->ensureGenerationsColumnExists('cost_pence', 'ADD COLUMN cost_pence BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER progress_percent');
         $this->ensureGenerationsColumnExists('error_message', 'ADD COLUMN error_message TEXT NULL AFTER cost_pence');
@@ -384,6 +385,27 @@ class Migrator
             }
 
             $this->pdo->exec(sprintf('ALTER TABLE generations %s', $alterStatement));
+        } catch (PDOException $exception) {
+            // Ignore inability to inspect or alter the table.
+        }
+    }
+
+    /**
+     * Handle the drop generations column if exists operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
+    private function dropGenerationsColumnIfExists(string $column): void
+    {
+        try {
+            $statement = $this->pdo->prepare('SHOW COLUMNS FROM generations LIKE :column');
+            $statement->execute(['column' => $column]);
+
+            if ($statement->fetch() === false) {
+                return;
+            }
+
+            $this->pdo->exec(sprintf('ALTER TABLE generations DROP COLUMN %s', $column));
         } catch (PDOException $exception) {
             // Ignore inability to inspect or alter the table.
         }

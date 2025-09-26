@@ -27,13 +27,13 @@ final class GenerationRepository
      *
      * Documenting this helper clarifies its role within the wider workflow.
      */
-    public function create(int $userId, int $jobDocumentId, int $cvDocumentId, string $model, float $temperature): array
+    public function create(int $userId, int $jobDocumentId, int $cvDocumentId, string $model, int $thinkingTime): array
     {
         $now = (new DateTimeImmutable())->format('Y-m-d H:i:s');
 
         $statement = $this->pdo->prepare(
-            'INSERT INTO generations (user_id, job_document_id, cv_document_id, model, temperature, status, created_at, updated_at)
-             VALUES (:user_id, :job_document_id, :cv_document_id, :model, :temperature, :status, :created_at, :updated_at)'
+            'INSERT INTO generations (user_id, job_document_id, cv_document_id, model, thinking_time, status, created_at, updated_at)
+             VALUES (:user_id, :job_document_id, :cv_document_id, :model, :thinking_time, :status, :created_at, :updated_at)'
         );
 
         $statement->execute([
@@ -41,7 +41,7 @@ final class GenerationRepository
             ':job_document_id' => $jobDocumentId,
             ':cv_document_id' => $cvDocumentId,
             ':model' => $model,
-            ':temperature' => $temperature,
+            ':thinking_time' => $thinkingTime,
             ':status' => 'queued',
             ':created_at' => $now,
             ':updated_at' => $now,
@@ -60,7 +60,7 @@ final class GenerationRepository
     public function findForUser(int $userId, int $generationId): ?array
     {
         $statement = $this->pdo->prepare(
-            'SELECT g.id, g.model, g.temperature, g.status, g.created_at,
+            'SELECT g.id, g.model, g.thinking_time, g.status, g.created_at,
                     jd.id AS job_document_id, jd.filename AS job_filename,
                     cv.id AS cv_document_id, cv.filename AS cv_filename
              FROM generations g
@@ -89,7 +89,7 @@ final class GenerationRepository
     public function listForUser(int $userId): array
     {
         $statement = $this->pdo->prepare(
-            'SELECT g.id, g.model, g.temperature, g.status, g.created_at,
+            'SELECT g.id, g.model, g.thinking_time, g.status, g.created_at,
                     jd.id AS job_document_id, jd.filename AS job_filename,
                     cv.id AS cv_document_id, cv.filename AS cv_filename
              FROM generations g
@@ -122,7 +122,7 @@ final class GenerationRepository
         return [
             'id' => (int) $row['id'],
             'model' => (string) $row['model'],
-            'temperature' => (float) $row['temperature'],
+            'thinking_time' => (int) $row['thinking_time'],
             'status' => (string) $row['status'],
             'created_at' => (string) $row['created_at'],
             'job_document' => [
