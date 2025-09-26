@@ -46,12 +46,16 @@ class HomeController
      * Display the personalised dashboard or welcome screen for the user.
      *
      * Keeping listing concerns together ensures consistent rendering of overview screens.
+     * A query parameter allows authenticated users to revisit the public landing preview.
      */
     public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
+        $query = $request->getQueryParams();
+        $shouldShowLanding = isset($query['view']) && $query['view'] === 'landing';
+
         $user = $request->getAttribute('user');
 
-        if ($user !== null) {
+        if ($user !== null && !$shouldShowLanding) {
             $userId = (int) $user['user_id'];
 
             $outstandingApplications = array_map(
@@ -101,6 +105,7 @@ class HomeController
 
         return $this->renderer->render($response, 'home', [
             'title' => 'job.smeird.com',
+            'isAuthenticated' => $user !== null,
         ]);
     }
 }

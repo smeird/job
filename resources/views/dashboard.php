@@ -23,6 +23,13 @@ $wizardJson = htmlspecialchars(
     ENT_QUOTES,
     'UTF-8'
 );
+
+$navLinks = [
+    [
+        'href' => '/?view=landing#wizard-preview',
+        'label' => 'Landing preview',
+    ],
+];
 ?>
 <?php ob_start(); ?>
 
@@ -152,6 +159,7 @@ $wizardJson = htmlspecialchars(
         <section
             x-ref="wizardPanel"
             tabindex="-1"
+            id="generation-wizard"
             class="rounded-2xl border border-slate-800/80 bg-slate-900/70 shadow-xl"
         >
             <div class="border-b border-slate-800/60 px-6 py-4">
