@@ -355,6 +355,7 @@ $wizardJson = htmlspecialchars(
 <script>
     document.addEventListener('alpine:init', () => {
         Alpine.data('generationWizard', (config) => {
+
             // Provide a resilient array check for browsers that lack Array.isArray.
             const isArray = Array.isArray || function (value) {
                 return Object.prototype.toString.call(value) === '[object Array]';
@@ -371,6 +372,7 @@ $wizardJson = htmlspecialchars(
             };
 
             const defaultThinkingTime = isFiniteNumber(config.defaultThinkingTime)
+
                 ? config.defaultThinkingTime
                 : 30;
 
@@ -422,6 +424,7 @@ $wizardJson = htmlspecialchars(
                     return isFiniteNumber(this.form.thinking_time) && this.form.thinking_time >= 5 && this.form.thinking_time <= 60;
                 },
                 get selectedJobDocument() {
+
                     const documents = isArray(this.jobDocuments) ? this.jobDocuments : [];
                     for (let index = 0; index < documents.length; index += 1) {
                         const documentItem = documents[index];
@@ -450,6 +453,7 @@ $wizardJson = htmlspecialchars(
                         }
                     }
                     return this.form.model;
+
                 },
                 previous() {
                     if (this.step > 1) {
@@ -497,7 +501,9 @@ $wizardJson = htmlspecialchars(
                             return;
                         }
 
+
                         const list = isArray(this.generations) ? this.generations : [];
+
 
                         list.unshift({
                             ...data,
@@ -540,7 +546,9 @@ $wizardJson = htmlspecialchars(
 
                     this.form.job_document_id = null;
                     this.form.cv_document_id = null;
+
                     this.form.model = (isArray(this.models) && this.models.length > 0 && typeof this.models[0].value === 'string')
+
                         ? this.models[0].value
                         : '';
                     this.form.thinking_time = this.defaultThinkingTime;
