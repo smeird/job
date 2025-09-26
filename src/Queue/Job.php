@@ -9,12 +9,23 @@ use RuntimeException;
 
 final class Job
 {
-    public int $id;
-    public string $type;
-    private array $payload;
-    private int $attempts;
-    public string $status;
-    public DateTimeImmutable $runAfter;
+    /** @var int */
+    public $id;
+
+    /** @var string */
+    public $type;
+
+    /** @var array */
+    private $payload;
+
+    /** @var int */
+    private $attempts;
+
+    /** @var string */
+    public $status;
+
+    /** @var DateTimeImmutable */
+    public $runAfter;
 
     public function __construct(
         int $id,

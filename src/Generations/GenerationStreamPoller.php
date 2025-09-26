@@ -10,21 +10,50 @@ class GenerationStreamPoller
 {
     private const TERMINAL_STATUSES = ['completed', 'succeeded', 'success', 'failed', 'cancelled', 'canceled'];
 
-    private GenerationStreamRepository $repository;
-    private int $generationId;
-    private int $pollIntervalSeconds;
-    private int $heartbeatIntervalSeconds;
-    private int $timeoutSeconds;
-    private ?string $lastStatus = null;
-    private ?int $lastProgress = null;
-    private ?int $lastTokens = null;
-    private ?int $lastCost = null;
-    private ?string $lastError = null;
-    private bool $initialised = false;
-    private bool $terminated = false;
-    private float $lastHeartbeat;
-    private float $startedAt;
-    private ?GenerationStreamSnapshot $primedSnapshot;
+    /** @var GenerationStreamRepository */
+    private $repository;
+
+    /** @var int */
+    private $generationId;
+
+    /** @var int */
+    private $pollIntervalSeconds;
+
+    /** @var int */
+    private $heartbeatIntervalSeconds;
+
+    /** @var int */
+    private $timeoutSeconds;
+
+    /** @var string|null */
+    private $lastStatus = null;
+
+    /** @var int|null */
+    private $lastProgress = null;
+
+    /** @var int|null */
+    private $lastTokens = null;
+
+    /** @var int|null */
+    private $lastCost = null;
+
+    /** @var string|null */
+    private $lastError = null;
+
+    /** @var bool */
+    private $initialised = false;
+
+    /** @var bool */
+    private $terminated = false;
+
+    /** @var float */
+    private $lastHeartbeat;
+
+    /** @var float */
+    private $startedAt;
+
+    /** @var GenerationStreamSnapshot|null */
+    private $primedSnapshot;
 
     public function __construct(
         GenerationStreamRepository $repository,
@@ -32,7 +61,7 @@ class GenerationStreamPoller
         int $pollIntervalSeconds = 1,
         int $heartbeatIntervalSeconds = 15,
         int $timeoutSeconds = 300,
-        ?GenerationStreamSnapshot $initialSnapshot = null,
+        ?GenerationStreamSnapshot $initialSnapshot = null
     ) {
         $this->repository = $repository;
         $this->generationId = $generationId;
@@ -90,7 +119,7 @@ class GenerationStreamPoller
                 return $this->formatEvent('error', ['message' => 'Stream timeout.']);
             }
 
-            usleep($this->pollIntervalSeconds * 1_000_000);
+            usleep($this->pollIntervalSeconds * 1000000);
         }
     }
 

@@ -22,10 +22,17 @@ class AuthService
     private const OTP_ALGORITHM = 'sha1';
     private const OTP_ISSUER = 'job.smeird.com';
 
-    private PDO $pdo;
-    private RateLimiter $requestLimiter;
-    private RateLimiter $verifyLimiter;
-    private AuditLogger $auditLogger;
+    /** @var PDO */
+    private $pdo;
+
+    /** @var RateLimiter */
+    private $requestLimiter;
+
+    /** @var RateLimiter */
+    private $verifyLimiter;
+
+    /** @var AuditLogger */
+    private $auditLogger;
 
     public function __construct(
         PDO $pdo,

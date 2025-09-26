@@ -19,7 +19,8 @@ use Throwable;
 
 class Converter
 {
-    private ConverterInterface $markdownConverter;
+    /** @var ConverterInterface */
+    private $markdownConverter;
 
     public function __construct(?ConverterInterface $markdownConverter = null)
     {

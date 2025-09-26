@@ -16,8 +16,11 @@ use Throwable;
 class Extractor
 {
     /** @var ReaderInterface[] */
-    private array $readers = [];
-    private PDO $connection;
+    /** @var array */
+    private $readers = [];
+
+    /** @var PDO */
+    private $connection;
 
     public function __construct(PDO $connection, iterable $readers = [])
     {
@@ -268,7 +271,8 @@ final class PdfReader implements ReaderInterface
 final class TextReader implements ReaderInterface
 {
     /** @var string[] */
-    private array $extensions;
+    /** @var array */
+    private $extensions;
 
     /**
      * @param string[] $extensions

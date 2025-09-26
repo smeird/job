@@ -33,21 +33,36 @@ final class OpenAIProvider
     private const ENDPOINT_CHAT_COMPLETIONS = '/chat/completions';
     private const MAX_ATTEMPTS = 5;
     private const INITIAL_BACKOFF_MS = 200;
-    private const MAX_BACKOFF_MS = 4_000;
+    private const MAX_BACKOFF_MS = 4000;
 
-    private ClientInterface $client;
-    private PDO $pdo;
-    private string $apiKey;
-    private string $baseUrl;
-    private string $modelPlan;
-    private string $modelDraft;
-    private int $maxTokens;
-    private int $userId;
+    /** @var ClientInterface */
+    private $client;
+
+    /** @var PDO */
+    private $pdo;
+
+    /** @var string */
+    private $apiKey;
+
+    /** @var string */
+    private $baseUrl;
+
+    /** @var string */
+    private $modelPlan;
+
+    /** @var string */
+    private $modelDraft;
+
+    /** @var int */
+    private $maxTokens;
+
+    /** @var int */
+    private $userId;
 
     /**
      * @var array<string, array{prompt: float, completion: float}>
      */
-    private array $tariffs;
+    private $tariffs;
 
     public function __construct(
         int $userId,

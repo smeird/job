@@ -8,7 +8,8 @@ use RuntimeException;
 
 class DocumentValidationException extends RuntimeException
 {
-    private int $statusCode;
+    /** @var int */
+    private $statusCode;
 
     public function __construct(string $message, int $statusCode = 400)
     {

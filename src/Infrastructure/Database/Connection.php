@@ -10,7 +10,8 @@ use RuntimeException;
 
 class Connection
 {
-    private PDO $pdo;
+    /** @var PDO */
+    private $pdo;
 
     public function __construct()
     {

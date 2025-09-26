@@ -8,14 +8,29 @@ use DateTimeImmutable;
 
 class GenerationStreamSnapshot
 {
-    public int $id;
-    public string $status;
-    public int $progressPercent;
-    public int $costPence;
-    public int $totalTokens;
-    public ?string $errorMessage;
-    public DateTimeImmutable $updatedAt;
-    public ?DateTimeImmutable $latestOutputAt;
+    /** @var int */
+    public $id;
+
+    /** @var string */
+    public $status;
+
+    /** @var int */
+    public $progressPercent;
+
+    /** @var int */
+    public $costPence;
+
+    /** @var int */
+    public $totalTokens;
+
+    /** @var string|null */
+    public $errorMessage;
+
+    /** @var DateTimeImmutable */
+    public $updatedAt;
+
+    /** @var DateTimeImmutable|null */
+    public $latestOutputAt;
 
     public function __construct(
         int $id,
@@ -25,7 +40,7 @@ class GenerationStreamSnapshot
         int $totalTokens,
         ?string $errorMessage,
         DateTimeImmutable $updatedAt,
-        ?DateTimeImmutable $latestOutputAt,
+        ?DateTimeImmutable $latestOutputAt
     ) {
         $this->id = $id;
         $this->status = $status;

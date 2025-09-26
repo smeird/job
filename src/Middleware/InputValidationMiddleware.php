@@ -16,10 +16,17 @@ final class InputValidationMiddleware implements MiddlewareInterface
     private const DEFAULT_MAX_BODY_BYTES = 1048576; // 1 MiB
     private const DEFAULT_MAX_FIELD_LENGTH = 10000;
 
-    private ResponseFactoryInterface $responseFactory;
-    private AuditLogger $auditLogger;
-    private int $maxBodyBytes;
-    private int $maxFieldLength;
+    /** @var ResponseFactoryInterface */
+    private $responseFactory;
+
+    /** @var AuditLogger */
+    private $auditLogger;
+
+    /** @var int */
+    private $maxBodyBytes;
+
+    /** @var int */
+    private $maxFieldLength;
 
     public function __construct(
         ResponseFactoryInterface $responseFactory,

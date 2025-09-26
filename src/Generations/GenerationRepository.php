@@ -9,7 +9,8 @@ use PDO;
 
 final class GenerationRepository
 {
-    private PDO $pdo;
+    /** @var PDO */
+    private $pdo;
 
     public function __construct(PDO $pdo)
     {

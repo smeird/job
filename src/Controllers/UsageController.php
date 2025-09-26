@@ -12,8 +12,11 @@ use Psr\Http\Message\ServerRequestInterface;
 
 class UsageController
 {
-    private UsageService $usageService;
-    private Renderer $renderer;
+    /** @var UsageService */
+    private $usageService;
+
+    /** @var Renderer */
+    private $renderer;
 
     public function __construct(UsageService $usageService, Renderer $renderer)
     {

@@ -30,8 +30,11 @@ final class GenerationDownloadController
 {
     private const SUPPORTED_FORMATS = ['md', 'docx', 'pdf'];
 
-    private GenerationDownloadService $downloadService;
-    private GenerationTokenService $tokenService;
+    /** @var GenerationDownloadService */
+    private $downloadService;
+
+    /** @var GenerationTokenService */
+    private $tokenService;
 
     public function __construct(
         GenerationDownloadService $downloadService,

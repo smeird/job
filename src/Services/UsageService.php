@@ -10,7 +10,8 @@ use PDO;
 
 class UsageService
 {
-    private PDO $pdo;
+    /** @var PDO */
+    private $pdo;
 
     public function __construct(PDO $pdo)
     {

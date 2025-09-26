@@ -34,9 +34,13 @@ function verify_load_env(string $projectRoot): array
     ];
 }
 
-function verify_env(array $config, string $key, mixed $default = null): mixed
+/**
+ * @param mixed $default
+ * @return mixed
+ */
+function verify_env(array $config, string $key, $default = null)
 {
-    return $config[$key] ?? $default;
+    return array_key_exists($key, $config) ? $config[$key] : $default;
 }
 
 function verify_color(string $text, string $color): string
@@ -65,7 +69,10 @@ function verify_status_emoji(bool $pass, bool $critical = true): string
     return $critical ? '❌' : '⚠️';
 }
 
-function verify_pretty_json(mixed $data): string
+/**
+ * @param mixed $data
+ */
+function verify_pretty_json($data): string
 {
     if (is_string($data)) {
         $decoded = json_decode($data, true);

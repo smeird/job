@@ -10,10 +10,17 @@ use PDO;
 
 class RateLimiter
 {
-    private PDO $pdo;
-    private AuditLogger $auditLogger;
-    private int $limit;
-    private DateInterval $interval;
+    /** @var PDO */
+    private $pdo;
+
+    /** @var AuditLogger */
+    private $auditLogger;
+
+    /** @var int */
+    private $limit;
+
+    /** @var DateInterval */
+    private $interval;
 
     public function __construct(
         PDO $pdo,
