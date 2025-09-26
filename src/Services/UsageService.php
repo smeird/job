@@ -194,7 +194,7 @@ class UsageService
 
         try {
             return new DateTimeImmutable($value);
-        } catch (\Exception) {
+        } catch (\Exception $exception) {
             return null;
         }
     }
