@@ -6,6 +6,7 @@
 /** @var array<string, string> $resourceLabels */
 /** @var array<int, string> $errors */
 /** @var string|null $status */
+/** @var string|null $csrfToken */
 ?>
 <?php ob_start(); ?>
 <div class="space-y-6">
@@ -31,6 +32,7 @@
     <?php endif; ?>
 
     <form method="post" action="/retention" class="space-y-5">
+        <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
         <div class="space-y-2">
             <label for="purge_after_days" class="block text-sm font-medium">Purge records after (days)</label>
             <input
