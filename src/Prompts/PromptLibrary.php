@@ -33,11 +33,21 @@ Output:
 - Preserve factual accuracy and clearly flag any gaps.
 TAILOR;
 
+    /**
+     * Handle the system prompt operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public static function systemPrompt(): string
     {
         return self::SYSTEM_PROMPT;
     }
 
+    /**
+     * Handle the tailor prompt operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public static function tailorPrompt(): string
     {
         return self::TAILOR_PROMPT;

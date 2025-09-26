@@ -13,11 +13,21 @@ class AuditLogger
     /** @var PDO */
     private $pdo;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
     }
 
+    /**
+     * Handle the log operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function log(
         string $action,
         array $details = [],

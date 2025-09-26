@@ -13,6 +13,11 @@ use Slim\Exception\HttpNotFoundException;
 
 class GenerationStreamController
 {
+    /**
+     * Handle the invoke operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function __invoke(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
     {
         $id = $args['id'] ?? null;

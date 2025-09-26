@@ -13,11 +13,21 @@ class UsageService
     /** @var PDO */
     private $pdo;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
     }
 
+    /**
+     * Retrieve the usage for user.
+     *
+     * The helper centralises access to the usage for user so callers stay tidy.
+     */
     public function getUsageForUser(int $userId): array
     {
         [$perRun, $totals] = $this->fetchPerRun($userId);
@@ -31,6 +41,9 @@ class UsageService
     }
 
     /**
+     * Fetch the per run from its provider.
+     *
+     * Centralised fetching makes upstream integrations easier to evolve.
      * @return array{0: array<int, array<string, int|string|null>>, 1: array{current_month: array<string, int>, lifetime: array<string, int>}}
      */
     private function fetchPerRun(int $userId): array
@@ -104,6 +117,9 @@ class UsageService
     }
 
     /**
+     * Fetch the monthly summary from its provider.
+     *
+     * Centralised fetching makes upstream integrations easier to evolve.
      * @return array<int, array{month: string, total_tokens: int, cost_pence: int}>
      */
     private function fetchMonthlySummary(int $userId): array
@@ -144,6 +160,11 @@ class UsageService
         return $summary;
     }
 
+    /**
+     * Handle the decode metadata operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function decodeMetadata(?string $json): array
     {
         if ($json === null || trim($json) === '') {
@@ -160,6 +181,9 @@ class UsageService
     }
 
     /**
+     * Handle the normalise date workflow.
+     *
+     * This helper keeps the normalise date logic centralised for clarity and reuse.
      * @param mixed $value
      */
     private function normaliseDate($value): ?DateTimeImmutable

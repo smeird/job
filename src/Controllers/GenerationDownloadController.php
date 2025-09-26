@@ -36,6 +36,11 @@ final class GenerationDownloadController
     /** @var GenerationTokenService */
     private $tokenService;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         GenerationDownloadService $downloadService,
         GenerationTokenService $tokenService
@@ -45,6 +50,9 @@ final class GenerationDownloadController
     }
 
     /**
+     * Orchestrate a download response for the generated artifact.
+     *
+     * Centralising download logic ensures headers and streaming behaviour remain consistent.
      * @param array<string, string> $args
      */
     public function download(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
@@ -119,11 +127,21 @@ final class GenerationDownloadController
         return $response;
     }
 
+    /**
+     * Handle the sanitize filename operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function sanitizeFilename(string $filename): string
     {
         return str_replace(['"', '\\', "\r", "\n"], '', $filename);
     }
 
+    /**
+     * Handle the error operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function error(ResponseInterface $response, int $status, string $message): ResponseInterface
     {
         $payload = ['error' => $message];

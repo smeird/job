@@ -15,11 +15,21 @@ final class SecurityHeadersMiddleware implements MiddlewareInterface
     /** @var string */
     private $appUrl;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(string $appUrl)
     {
         $this->appUrl = $appUrl;
     }
 
+    /**
+     * Handle the process operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $response = $handler->handle($request);
@@ -42,6 +52,11 @@ final class SecurityHeadersMiddleware implements MiddlewareInterface
         return $response;
     }
 
+    /**
+     * Build the content security policy representation.
+     *
+     * Centralised construction avoids duplicating structural knowledge elsewhere.
+     */
     private function buildContentSecurityPolicy(): string
     {
         $formActionOrigin = trim($this->appUrl);

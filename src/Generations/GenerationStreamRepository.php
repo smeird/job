@@ -13,11 +13,21 @@ class GenerationStreamRepository
     /** @var PDO */
     private $connection;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(?PDO $connection = null)
     {
         $this->connection = $connection ?? DB::getConnection();
     }
 
+    /**
+     * Fetch the snapshot from its provider.
+     *
+     * Centralised fetching makes upstream integrations easier to evolve.
+     */
     public function fetchSnapshot(int $generationId): ?GenerationStreamSnapshot
     {
         $statement = $this->connection->prepare(

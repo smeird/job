@@ -16,6 +16,11 @@ class DocumentService
     /** @var DocumentValidator */
     private $validator;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         DocumentRepository $repository,
         DocumentValidator $validator
@@ -24,6 +29,11 @@ class DocumentService
         $this->validator = $validator;
     }
 
+    /**
+     * Handle the store uploaded document operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function storeUploadedDocument(UploadedFileInterface $uploadedFile, int $userId, string $documentType): Document
     {
         $error = $uploadedFile->getError();
@@ -87,6 +97,11 @@ class DocumentService
         }
     }
 
+    /**
+     * Handle the find operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function find(int $id): ?Document
     {
         return $this->repository->find($id);

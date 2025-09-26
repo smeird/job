@@ -32,6 +32,11 @@ final class Generation
     /** @var DateTimeImmutable */
     private $createdAt;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         int $id,
         int $userId,
@@ -52,41 +57,81 @@ final class Generation
         $this->createdAt = $createdAt;
     }
 
+    /**
+     * Handle the id operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function id(): int
     {
         return $this->id;
     }
 
+    /**
+     * Handle the user id operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function userId(): int
     {
         return $this->userId;
     }
 
+    /**
+     * Handle the job document id operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function jobDocumentId(): int
     {
         return $this->jobDocumentId;
     }
 
+    /**
+     * Handle the cv document id operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function cvDocumentId(): int
     {
         return $this->cvDocumentId;
     }
 
+    /**
+     * Handle the model operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function model(): string
     {
         return $this->model;
     }
 
+    /**
+     * Handle the temperature operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function temperature(): float
     {
         return $this->temperature;
     }
 
+    /**
+     * Handle the status operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function status(): string
     {
         return $this->status;
     }
 
+    /**
+     * Create the d at instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     public function createdAt(): DateTimeImmutable
     {
         return $this->createdAt;

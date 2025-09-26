@@ -13,6 +13,11 @@ class Connection
     /** @var PDO */
     private $pdo;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct()
     {
         $dsn = $this->envValue('DB_DSN', true);
@@ -39,11 +44,21 @@ class Connection
         }
     }
 
+    /**
+     * Retrieve the pdo.
+     *
+     * The helper centralises access to the pdo so callers stay tidy.
+     */
     public function getPdo(): PDO
     {
         return $this->pdo;
     }
 
+    /**
+     * Handle the env from operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function envFrom(array $keys, ?string $default = null, bool $allowEmpty = false): ?string
     {
         foreach ($keys as $key) {
@@ -57,6 +72,11 @@ class Connection
         return $default;
     }
 
+    /**
+     * Handle the env value operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function envValue(string $key, bool $allowEmpty = false): ?string
     {
         $value = $this->readRawEnv($key);
@@ -85,6 +105,9 @@ class Connection
     }
 
     /**
+     * Handle the read raw env workflow.
+     *
+     * This helper keeps the read raw env logic centralised for clarity and reuse.
      * @return string|false|null
      */
     private function readRawEnv(string $key)
@@ -102,6 +125,11 @@ class Connection
         return $value === false ? null : $value;
     }
 
+    /**
+     * Handle the read env from file operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function readEnvFromFile(string $key, bool $allowEmpty): ?string
     {
         $fileKey = $key . '_FILE';

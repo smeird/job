@@ -11,6 +11,11 @@ class Database
 {
     private static ?PDO $connection = null;
 
+    /**
+     * Handle the connection operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public static function connection(): PDO
     {
         if (self::$connection instanceof PDO) {

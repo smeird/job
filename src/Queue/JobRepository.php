@@ -21,11 +21,21 @@ final class JobRepository
     /** @var PDO */
     private $pdo;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
     }
 
+    /**
+     * Handle the reserve next pending operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function reserveNextPending(): ?Job
     {
         try {
@@ -84,6 +94,11 @@ final class JobRepository
         return $job;
     }
 
+    /**
+     * Handle the mark completed operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function markCompleted(Job $job): void
     {
         $this->updateJob($job->id, [
@@ -95,6 +110,11 @@ final class JobRepository
         $job->status = 'completed';
     }
 
+    /**
+     * Handle the mark failed operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function markFailed(Job $job, string $error): void
     {
         $this->updateJob($job->id, [
@@ -105,6 +125,11 @@ final class JobRepository
         $job->status = 'failed';
     }
 
+    /**
+     * Handle the schedule retry operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function scheduleRetry(Job $job, int $delaySeconds, string $error): void
     {
         $runAfter = (new DateTimeImmutable('now'))->add(new DateInterval('PT' . max(1, $delaySeconds) . 'S'));
@@ -120,6 +145,9 @@ final class JobRepository
     }
 
     /**
+     * Handle the update job workflow.
+     *
+     * This helper keeps the update job logic centralised for clarity and reuse.
      * @param array{status?: string, error?: ?string, run_after?: DateTimeImmutable} $data
      */
     private function updateJob(int $id, array $data): void
@@ -159,6 +187,9 @@ final class JobRepository
     }
 
     /**
+     * Handle the decode payload workflow.
+     *
+     * This helper keeps the decode payload logic centralised for clarity and reuse.
      * @return array<string, mixed>
      */
     private function decodePayload(string $payload): array
@@ -177,6 +208,11 @@ final class JobRepository
         return $decoded;
     }
 
+    /**
+     * Handle the truncate error operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function truncateError(string $error): string
     {
         return mb_substr($error, 0, self::MAX_ERROR_LENGTH);

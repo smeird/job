@@ -36,6 +36,11 @@ final class TailorCvJobHandler implements JobHandlerInterface
     /** @var PDO */
     private $pdo;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -45,6 +50,11 @@ final class TailorCvJobHandler implements JobHandlerInterface
         ]);
     }
 
+    /**
+     * Handle the queued job execution workflow.
+     *
+     * Centralising job handling logic makes worker behaviour predictable and easy to audit.
+     */
     public function handle(Job $job): void
     {
         $payload = $job->payload();
@@ -66,6 +76,11 @@ final class TailorCvJobHandler implements JobHandlerInterface
         $this->updateGenerationStatus($generationId, 'completed');
     }
 
+    /**
+     * Handle the on failure operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function onFailure(Job $job, string $error, bool $willRetry): void
     {
         $payload = $job->payload();
@@ -84,6 +99,11 @@ final class TailorCvJobHandler implements JobHandlerInterface
         $this->updateGenerationStatus($generationId, 'failed', $error);
     }
 
+    /**
+     * Handle the generate plan operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function generatePlan(OpenAIProvider $provider, string $jobDescription, string $cvMarkdown): string
     {
         try {
@@ -93,6 +113,11 @@ final class TailorCvJobHandler implements JobHandlerInterface
         }
     }
 
+    /**
+     * Handle the generate draft operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function generateDraft(OpenAIProvider $provider, string $plan, string $constraints): string
     {
         try {
@@ -102,6 +127,11 @@ final class TailorCvJobHandler implements JobHandlerInterface
         }
     }
 
+    /**
+     * Convert the draft into the desired format.
+     *
+     * Having a dedicated converter isolates formatting concerns.
+     */
     private function convertDraft(string $draft): array
     {
         try {
@@ -126,6 +156,11 @@ final class TailorCvJobHandler implements JobHandlerInterface
         ];
     }
 
+    /**
+     * Handle the persist outputs operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function persistOutputs(int $generationId, string $plan, string $draft, string $html, string $plainText): void
     {
         try {
@@ -177,6 +212,11 @@ final class TailorCvJobHandler implements JobHandlerInterface
         }
     }
 
+    /**
+     * Build the constraints representation.
+     *
+     * Centralised construction avoids duplicating structural knowledge elsewhere.
+     */
     private function buildConstraints(array $payload, string $cvMarkdown): string
     {
         $template = PromptLibrary::tailorPrompt();
@@ -213,6 +253,11 @@ final class TailorCvJobHandler implements JobHandlerInterface
         ]);
     }
 
+    /**
+     * Handle the update generation status operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function updateGenerationStatus(int $generationId, string $status, ?string $error = null): void
     {
         try {
@@ -234,6 +279,11 @@ final class TailorCvJobHandler implements JobHandlerInterface
         }
     }
 
+    /**
+     * Handle the record failure operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function recordFailure(int $generationId, string $error): void
     {
         try {
@@ -255,6 +305,11 @@ final class TailorCvJobHandler implements JobHandlerInterface
         }
     }
 
+    /**
+     * Handle the extract int operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function extractInt(array $payload, string $key): int
     {
         if (!isset($payload[$key])) {
@@ -270,6 +325,11 @@ final class TailorCvJobHandler implements JobHandlerInterface
         return $value;
     }
 
+    /**
+     * Handle the extract string operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function extractString(array $payload, string $key): string
     {
         if (!isset($payload[$key])) {
@@ -285,6 +345,11 @@ final class TailorCvJobHandler implements JobHandlerInterface
         return $value;
     }
 
+    /**
+     * Handle the optional string operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function optionalString(array $payload, string $key): string
     {
         if (!isset($payload[$key])) {

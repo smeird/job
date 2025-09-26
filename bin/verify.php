@@ -33,6 +33,11 @@ $state = [
     'usage' => [],
 ];
 
+/**
+ * Handle the run check operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function run_check(string $name, callable $callback, bool $critical = true): array
 {
     try {
@@ -43,6 +48,11 @@ function run_check(string $name, callable $callback, bool $critical = true): arr
     }
 }
 
+/**
+ * Handle the record check operation.
+ *
+ * Documenting this helper clarifies its role within the wider workflow.
+ */
 function record_check(array &$checks, string $name, callable $callback, bool $critical = true): void
 {
     [$passed, $notesOrMessage, $critFlag] = array_replace([null, null, $critical], run_check($name, $callback, $critical));

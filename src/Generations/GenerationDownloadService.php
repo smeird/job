@@ -21,12 +21,20 @@ final class GenerationDownloadService
     /** @var PDO */
     private $pdo;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
     }
 
     /**
+     * Handle the fetch workflow.
+     *
+     * This helper keeps the fetch logic centralised for clarity and reuse.
      * @return array{filename: string, mime_type: string, content: string}
      */
     public function fetch(int $generationId, int $userId, string $format): array
@@ -54,6 +62,9 @@ final class GenerationDownloadService
     }
 
     /**
+     * Fetch the markdown from its provider.
+     *
+     * Centralised fetching makes upstream integrations easier to evolve.
      * @return array{filename: string, mime_type: string, content: string}
      */
     private function fetchMarkdown(int $generationId): array
@@ -85,6 +96,9 @@ final class GenerationDownloadService
     }
 
     /**
+     * Fetch the binary from its provider.
+     *
+     * Centralised fetching makes upstream integrations easier to evolve.
      * @return array{filename: string, mime_type: string, content: string}
      */
     private function fetchBinary(int $generationId, string $extension, string $expectedMime): array
@@ -123,6 +137,9 @@ final class GenerationDownloadService
     }
 
     /**
+     * Handle the find generation workflow.
+     *
+     * This helper keeps the find generation logic centralised for clarity and reuse.
      * @return array{id: int, user_id: int}|null
      */
     private function findGeneration(int $generationId): ?array

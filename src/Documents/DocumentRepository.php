@@ -12,12 +12,22 @@ class DocumentRepository
     /** @var PDO */
     private $pdo;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
         $this->ensureSchema();
     }
 
+    /**
+     * Handle the save operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function save(Document $document): Document
     {
         $statement = $this->pdo->prepare(
@@ -43,6 +53,11 @@ class DocumentRepository
         return $document->withId($id);
     }
 
+    /**
+     * Handle the find operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function find(int $id): ?Document
     {
         $statement = $this->pdo->prepare('SELECT * FROM documents WHERE id = :id LIMIT 1');
@@ -58,6 +73,11 @@ class DocumentRepository
         return $this->hydrate($row);
     }
 
+    /**
+     * Handle the find for user operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function findForUser(int $userId, int $documentId): ?Document
     {
         $statement = $this->pdo->prepare('SELECT * FROM documents WHERE id = :id AND user_id = :user_id LIMIT 1');
@@ -74,6 +94,11 @@ class DocumentRepository
         return $this->hydrate($row);
     }
 
+    /**
+     * Handle the find for user by type operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function findForUserByType(int $userId, int $documentId, string $documentType): ?Document
     {
         $statement = $this->pdo->prepare('SELECT * FROM documents WHERE id = :id AND user_id = :user_id AND document_type = :document_type LIMIT 1');
@@ -92,6 +117,9 @@ class DocumentRepository
     }
 
     /**
+     * Handle the list for user and type workflow.
+     *
+     * This helper keeps the list for user and type logic centralised for clarity and reuse.
      * @return Document[]
      */
     public function listForUserAndType(int $userId, string $documentType): array
@@ -110,6 +138,11 @@ class DocumentRepository
         return $documents;
     }
 
+    /**
+     * Handle the ensure schema operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function ensureSchema(): void
     {
         $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
@@ -153,6 +186,9 @@ class DocumentRepository
     }
 
     /**
+     * Handle the hydrate workflow.
+     *
+     * This helper keeps the hydrate logic centralised for clarity and reuse.
      * @param array<string, mixed> $row
      */
     private function hydrate(array $row): Document

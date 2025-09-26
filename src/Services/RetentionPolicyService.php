@@ -27,6 +27,11 @@ class RetentionPolicyService
         'audit_logs',
     ];
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -34,6 +39,9 @@ class RetentionPolicyService
     }
 
     /**
+     * Retrieve the policy.
+     *
+     * The helper centralises access to the policy so callers stay tidy.
      * @return array{purge_after_days: int, apply_to: array<int, string>}
      */
     public function getPolicy(): array
@@ -76,6 +84,9 @@ class RetentionPolicyService
     }
 
     /**
+     * Handle the update policy workflow.
+     *
+     * This helper keeps the update policy logic centralised for clarity and reuse.
      * @param array<int, string> $applyTo
      */
     public function updatePolicy(int $purgeAfterDays, array $applyTo): void
@@ -140,6 +151,9 @@ class RetentionPolicyService
     }
 
     /**
+     * Retrieve the allowed resources.
+     *
+     * The helper centralises access to the allowed resources so callers stay tidy.
      * @return array<int, string>
      */
     public function getAllowedResources(): array
@@ -147,6 +161,11 @@ class RetentionPolicyService
         return self::ALLOWED_RESOURCES;
     }
 
+    /**
+     * Handle the ensure table operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function ensureTable(): void
     {
         $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);

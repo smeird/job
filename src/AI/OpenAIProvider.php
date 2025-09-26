@@ -64,6 +64,11 @@ final class OpenAIProvider
      */
     private $tariffs;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         int $userId,
         ?ClientInterface $client = null,
@@ -91,6 +96,9 @@ final class OpenAIProvider
 
     /**
      * Generate a structured plan in JSON format.
+     *
+     * The helper wraps the necessary OpenAI request so consumers always receive
+     * a fully decoded and normalised JSON payload.
      */
     public function plan(string $jobText, string $cvText, ?callable $streamHandler = null): string
     {
@@ -134,6 +142,9 @@ final class OpenAIProvider
 
     /**
      * Generate a Markdown draft tailored to the supplied plan and constraints.
+     *
+     * This guides the language model to produce presentation-ready prose in a
+     * consistent format for display to end users.
      */
     public function draft(string $plan, string $constraints, ?callable $streamHandler = null): string
     {
@@ -168,6 +179,9 @@ final class OpenAIProvider
     }
 
     /**
+     * Execute the chat completion call and capture both the content and usage
+     * metadata for billing and auditing purposes.
+     *
      * @param array<string, mixed> $payload
      * @return array{content: string, usage: array<string, int>, response: array<string, mixed>}
      */
@@ -240,6 +254,9 @@ final class OpenAIProvider
     }
 
     /**
+     * Parse a non-streaming response body into a uniform structure that exposes
+     * the message content and usage counters.
+     *
      * @return array{content: string, usage: array<string, int>, response: array<string, mixed>}
      */
     private function parseJsonResponse(ResponseInterface $response): array
@@ -263,6 +280,9 @@ final class OpenAIProvider
     }
 
     /**
+     * Consume a streaming response while invoking the provided handler for each
+     * partial content chunk emitted by the API.
+     *
      * @return array{content: string, usage: array<string, int>, response: array<string, mixed>}
      */
     private function consumeStream(ResponseInterface $response, callable $handler): array
@@ -333,6 +353,8 @@ final class OpenAIProvider
     }
 
     /**
+     * Normalise the token usage section from OpenAI into a predictable schema.
+     *
      * @param array<string, mixed> $usage
      * @return array{prompt_tokens: int, completion_tokens: int, total_tokens: int}
      */
@@ -350,6 +372,9 @@ final class OpenAIProvider
     }
 
     /**
+     * Persist usage metrics for later reporting alongside per-request metadata
+     * that captures the model, endpoint, and cost information.
+     *
      * @param array<string, int> $usage
      * @param array<string, mixed> $metadata
      */
@@ -384,6 +409,11 @@ final class OpenAIProvider
         }
     }
 
+    /**
+     * Calculate the cost value.
+     *
+     * Keeping the formula together prevents duplication across services.
+     */
     private function calculateCost(string $model, int $promptTokens, int $completionTokens): int
     {
         $key = strtolower($model);
@@ -400,6 +430,9 @@ final class OpenAIProvider
     }
 
     /**
+     * Parse a JSON tariff definition into an internal lookup table keyed by
+     * model identifier.
+     *
      * @return array<string, array{prompt: float, completion: float}>
      */
     private function parseTariffs(?string $json): array
@@ -450,6 +483,9 @@ final class OpenAIProvider
     }
 
     /**
+     * Extract the tariff value from a nested data structure, falling back to a
+     * supplied default when a preferred key is missing.
+     *
      * @param array<string, mixed> $tariff
      * @param string[] $keys
      */
@@ -464,6 +500,11 @@ final class OpenAIProvider
         return $fallback ?? 0.0;
     }
 
+    /**
+     * Handle the resolve max tokens operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function resolveMaxTokens(): int
     {
         $maxTokens = $this->env('OPENAI_MAX_TOKENS');
@@ -475,6 +516,11 @@ final class OpenAIProvider
         return max(1, (int) $maxTokens);
     }
 
+    /**
+     * Evaluate whether the retry should occur.
+     *
+     * Providing a single decision point keeps policy logic together.
+     */
     private function shouldRetry(?int $statusCode): bool
     {
         if ($statusCode === null) {
@@ -488,6 +534,11 @@ final class OpenAIProvider
         return $statusCode >= 500 && $statusCode < 600;
     }
 
+    /**
+     * Handle the wait with jitter operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function waitWithJitter(int $milliseconds): void
     {
         $jitter = random_int(0, (int) ($milliseconds * 0.2));
@@ -495,6 +546,11 @@ final class OpenAIProvider
         usleep($total * 1000);
     }
 
+    /**
+     * Handle the require env operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function requireEnv(string $key): string
     {
         $value = $this->env($key);
@@ -506,6 +562,11 @@ final class OpenAIProvider
         return $value;
     }
 
+    /**
+     * Handle the env operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function env(string $key): ?string
     {
         $value = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);

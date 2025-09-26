@@ -21,6 +21,11 @@ final class CsrfMiddleware implements MiddlewareInterface
     /** @var AuditLogger */
     private $auditLogger;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         ResponseFactoryInterface $responseFactory,
         AuditLogger $auditLogger
@@ -29,6 +34,11 @@ final class CsrfMiddleware implements MiddlewareInterface
         $this->auditLogger = $auditLogger;
     }
 
+    /**
+     * Handle the process operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $token = $this->ensureToken();
@@ -58,6 +68,11 @@ final class CsrfMiddleware implements MiddlewareInterface
         return $handler->handle($request);
     }
 
+    /**
+     * Handle the ensure token operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function ensureToken(): string
     {
         $token = $_SESSION[self::TOKEN_SESSION_KEY] ?? null;
@@ -70,11 +85,21 @@ final class CsrfMiddleware implements MiddlewareInterface
         return $token;
     }
 
+    /**
+     * Handle the requires validation operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function requiresValidation(string $method): bool
     {
         return in_array(strtoupper($method), ['POST', 'PUT', 'PATCH', 'DELETE'], true);
     }
 
+    /**
+     * Handle the extract token operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function extractToken(ServerRequestInterface $request): ?string
     {
         $parsed = $request->getParsedBody();
@@ -88,6 +113,11 @@ final class CsrfMiddleware implements MiddlewareInterface
         return $header !== '' ? $header : null;
     }
 
+    /**
+     * Retrieve the client ip.
+     *
+     * The helper centralises access to the client ip so callers stay tidy.
+     */
     private function getClientIp(ServerRequestInterface $request): ?string
     {
         $forwarded = $request->getHeaderLine('X-Forwarded-For');

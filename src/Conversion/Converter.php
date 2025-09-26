@@ -22,12 +22,20 @@ class Converter
     /** @var ConverterInterface */
     private $markdownConverter;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(?ConverterInterface $markdownConverter = null)
     {
         $this->markdownConverter = $markdownConverter ?? new CommonMarkConverter();
     }
 
     /**
+     * Convert the and store into the desired format.
+     *
+     * Having a dedicated converter isolates formatting concerns.
      * @return array<string, array{ id: int, filename: string, format: string, mime_type: string, sha256: string, size_bytes: int }>
      */
     public function convertAndStore(int $generationId, string $markdown): array
@@ -82,6 +90,11 @@ class Converter
         return $outputs;
     }
 
+    /**
+     * Handle the normalize markdown operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function normalizeMarkdown(string $markdown): string
     {
         $normalized = str_replace(["\r\n", "\r"], "\n", $markdown);
@@ -89,6 +102,11 @@ class Converter
         return $normalized;
     }
 
+    /**
+     * Convert the markdown to docx into the desired format.
+     *
+     * Having a dedicated converter isolates formatting concerns.
+     */
     private function convertMarkdownToDocx(string $markdown): string
     {
         $phpWord = new PhpWord();
@@ -173,6 +191,11 @@ class Converter
         return $contents;
     }
 
+    /**
+     * Convert the markdown to pdf into the desired format.
+     *
+     * Having a dedicated converter isolates formatting concerns.
+     */
     private function convertMarkdownToPdf(string $markdown): string
     {
         $converted = $this->markdownConverter->convert($markdown);
@@ -190,6 +213,9 @@ class Converter
     }
 
     /**
+     * Handle the store binary workflow.
+     *
+     * This helper keeps the store binary logic centralised for clarity and reuse.
      * @return array{id: int, filename: string, format: string, mime_type: string, sha256: string, size_bytes: int}
      */
     private function storeBinary(
@@ -232,6 +258,11 @@ class Converter
         ];
     }
 
+    /**
+     * Create the temp file instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     private function createTempFile(string $extension): string
     {
         $basePath = tempnam(sys_get_temp_dir(), 'conv_');

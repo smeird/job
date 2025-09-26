@@ -26,6 +26,11 @@ class SmtpMailer implements MailerInterface
     /** @var bool */
     private $useTls;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(string $host, int $port, string $from, ?string $username = null, ?string $password = null, bool $useTls = false)
     {
         $this->host = $host;
@@ -36,6 +41,11 @@ class SmtpMailer implements MailerInterface
         $this->useTls = $useTls;
     }
 
+    /**
+     * Handle the send operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function send(string $to, string $subject, string $body): void
     {
         $socket = @stream_socket_client(sprintf('tcp://%s:%d', $this->host, $this->port), $errno, $errstr, 10, STREAM_CLIENT_CONNECT);
@@ -92,12 +102,22 @@ class SmtpMailer implements MailerInterface
         fclose($socket);
     }
 
+    /**
+     * Handle the command operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function command($socket, string $command, int $expectedCode): void
     {
         fwrite($socket, $command . "\r\n");
         $this->expect($socket, $expectedCode);
     }
 
+    /**
+     * Handle the expect operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function expect($socket, int $expectedCode): void
     {
         $response = '';

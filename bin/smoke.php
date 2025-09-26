@@ -6,15 +6,30 @@ declare(strict_types=1);
 namespace Dotenv {
     final class Dotenv
     {
+        /**
+         * Construct the object with its required dependencies.
+         *
+         * This ensures collaborating services are available for subsequent method calls.
+         */
         private function __construct()
         {
         }
 
+        /**
+         * Create the immutable instance.
+         *
+         * This method standardises construction so other code can rely on it.
+         */
         public static function createImmutable(string $path): self
         {
             return new self();
         }
 
+        /**
+         * Handle the safe load operation.
+         *
+         * Documenting this helper clarifies its role within the wider workflow.
+         */
         public function safeLoad(): void
         {
             // No-op for smoke testing; environment variables are optional.
@@ -28,16 +43,31 @@ namespace Ramsey\Uuid {
         /** @var string */
         private $value;
 
+        /**
+         * Construct the object with its required dependencies.
+         *
+         * This ensures collaborating services are available for subsequent method calls.
+         */
         private function __construct(string $value)
         {
             $this->value = $value;
         }
 
+        /**
+         * Handle the uuid4 operation.
+         *
+         * Documenting this helper clarifies its role within the wider workflow.
+         */
         public static function uuid4(): self
         {
             return new self(bin2hex(random_bytes(16)));
         }
 
+        /**
+         * Handle the to string operation.
+         *
+         * Documenting this helper clarifies its role within the wider workflow.
+         */
         public function toString(): string
         {
             return $this->value;
@@ -51,11 +81,21 @@ namespace League\CommonMark {
         /** @var string */
         private $content;
 
+        /**
+         * Construct the object with its required dependencies.
+         *
+         * This ensures collaborating services are available for subsequent method calls.
+         */
         public function __construct(string $content)
         {
             $this->content = $content;
         }
 
+        /**
+         * Retrieve the content.
+         *
+         * The helper centralises access to the content so callers stay tidy.
+         */
         public function getContent(): string
         {
             return $this->content;
@@ -64,10 +104,20 @@ namespace League\CommonMark {
 
     final class CommonMarkConverter
     {
+        /**
+         * Construct the object with its required dependencies.
+         *
+         * This ensures collaborating services are available for subsequent method calls.
+         */
         public function __construct(array $config = [])
         {
         }
 
+        /**
+         * Handle the convert operation.
+         *
+         * Documenting this helper clarifies its role within the wider workflow.
+         */
         public function convert(string $markdown): RenderedContent
         {
             $escaped = htmlspecialchars($markdown, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -80,6 +130,11 @@ namespace League\CommonMark {
             return new RenderedContent($html);
         }
 
+        /**
+         * Convert the to html into the desired format.
+         *
+         * Having a dedicated converter isolates formatting concerns.
+         */
         public function convertToHtml(string $markdown): RenderedContent
         {
             return $this->convert($markdown);
@@ -90,51 +145,152 @@ namespace League\CommonMark {
 namespace Psr\Http\Message {
     interface StreamInterface
     {
+        /**
+         * Handle the to string operation.
+         *
+         * Documenting this helper clarifies its role within the wider workflow.
+         */
         public function __toString(): string;
 
+        /**
+         * Handle the close operation.
+         *
+         * Documenting this helper clarifies its role within the wider workflow.
+         */
         public function close(): void;
 
         /** @return resource|null */
+         * Handle the detach workflow.
+         *
+         * This helper keeps the detach logic centralised for clarity and reuse.
         public function detach();
 
+        /**
+         * Retrieve the size.
+         *
+         * The helper centralises access to the size so callers stay tidy.
+         */
         public function getSize(): ?int;
 
+        /**
+         * Handle the tell operation.
+         *
+         * Documenting this helper clarifies its role within the wider workflow.
+         */
         public function tell(): int;
 
+        /**
+         * Handle the eof operation.
+         *
+         * Documenting this helper clarifies its role within the wider workflow.
+         */
         public function eof(): bool;
 
+        /**
+         * Determine whether the seekable condition holds.
+         *
+         * Wrapping this check simplifies decision making for the caller.
+         */
         public function isSeekable(): bool;
 
+        /**
+         * Handle the seek operation.
+         *
+         * Documenting this helper clarifies its role within the wider workflow.
+         */
         public function seek(int $offset, int $whence = SEEK_SET): void;
 
+        /**
+         * Handle the rewind operation.
+         *
+         * Documenting this helper clarifies its role within the wider workflow.
+         */
         public function rewind(): void;
 
+        /**
+         * Determine whether the writable condition holds.
+         *
+         * Wrapping this check simplifies decision making for the caller.
+         */
         public function isWritable(): bool;
 
+        /**
+         * Handle the write operation.
+         *
+         * Documenting this helper clarifies its role within the wider workflow.
+         */
         public function write(string $string): int;
 
+        /**
+         * Determine whether the readable condition holds.
+         *
+         * Wrapping this check simplifies decision making for the caller.
+         */
         public function isReadable(): bool;
 
+        /**
+         * Handle the read operation.
+         *
+         * Documenting this helper clarifies its role within the wider workflow.
+         */
         public function read(int $length): string;
 
+        /**
+         * Retrieve the contents.
+         *
+         * The helper centralises access to the contents so callers stay tidy.
+         */
         public function getContents(): string;
 
         /** @return array<string, mixed>|mixed|null */
+         * Retrieve the metadata.
+         *
+         * The helper centralises access to the metadata so callers stay tidy.
         public function getMetadata(?string $key = null);
     }
 
     interface UploadedFileInterface
     {
+        /**
+         * Retrieve the stream.
+         *
+         * The helper centralises access to the stream so callers stay tidy.
+         */
         public function getStream(): StreamInterface;
 
+        /**
+         * Handle the move to operation.
+         *
+         * Documenting this helper clarifies its role within the wider workflow.
+         */
         public function moveTo(string $targetPath): void;
 
+        /**
+         * Retrieve the size.
+         *
+         * The helper centralises access to the size so callers stay tidy.
+         */
         public function getSize(): ?int;
 
+        /**
+         * Retrieve the error.
+         *
+         * The helper centralises access to the error so callers stay tidy.
+         */
         public function getError(): int;
 
+        /**
+         * Retrieve the client filename.
+         *
+         * The helper centralises access to the client filename so callers stay tidy.
+         */
         public function getClientFilename(): ?string;
 
+        /**
+         * Retrieve the client media type.
+         *
+         * The helper centralises access to the client media type so callers stay tidy.
+         */
         public function getClientMediaType(): ?string;
     }
 }
@@ -182,6 +338,11 @@ final class SmokeStream implements StreamInterface
     /** @var resource */
     private $resource;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct($resource)
     {
         if (!is_resource($resource)) {
@@ -191,6 +352,11 @@ final class SmokeStream implements StreamInterface
         $this->resource = $resource;
     }
 
+    /**
+     * Handle the to string operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function __toString(): string
     {
         try {
@@ -206,6 +372,11 @@ final class SmokeStream implements StreamInterface
         }
     }
 
+    /**
+     * Handle the close operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function close(): void
     {
         if (is_resource($this->resource)) {
@@ -213,6 +384,11 @@ final class SmokeStream implements StreamInterface
         }
     }
 
+    /**
+     * Handle the detach operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function detach()
     {
         $resource = $this->resource;
@@ -221,6 +397,11 @@ final class SmokeStream implements StreamInterface
         return $resource;
     }
 
+    /**
+     * Retrieve the size.
+     *
+     * The helper centralises access to the size so callers stay tidy.
+     */
     public function getSize(): ?int
     {
         $stats = $this->getMetadata();
@@ -228,6 +409,11 @@ final class SmokeStream implements StreamInterface
         return isset($stats['uri']) && is_file($stats['uri']) ? filesize($stats['uri']) ?: null : null;
     }
 
+    /**
+     * Handle the tell operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function tell(): int
     {
         $position = ftell($this->resource);
@@ -239,11 +425,21 @@ final class SmokeStream implements StreamInterface
         return $position;
     }
 
+    /**
+     * Handle the eof operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function eof(): bool
     {
         return feof($this->resource);
     }
 
+    /**
+     * Determine whether the seekable condition holds.
+     *
+     * Wrapping this check simplifies decision making for the caller.
+     */
     public function isSeekable(): bool
     {
         $meta = $this->getMetadata();
@@ -251,6 +447,11 @@ final class SmokeStream implements StreamInterface
         return (bool) ($meta['seekable'] ?? false);
     }
 
+    /**
+     * Handle the seek operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function seek(int $offset, int $whence = SEEK_SET): void
     {
         if (fseek($this->resource, $offset, $whence) !== 0) {
@@ -258,11 +459,21 @@ final class SmokeStream implements StreamInterface
         }
     }
 
+    /**
+     * Handle the rewind operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function rewind(): void
     {
         $this->seek(0);
     }
 
+    /**
+     * Determine whether the writable condition holds.
+     *
+     * Wrapping this check simplifies decision making for the caller.
+     */
     public function isWritable(): bool
     {
         $mode = $this->getMetadata('mode');
@@ -270,6 +481,11 @@ final class SmokeStream implements StreamInterface
         return $mode !== null && strpbrk($mode, 'waxc+') !== false;
     }
 
+    /**
+     * Handle the write operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function write(string $string): int
     {
         if (!$this->isWritable()) {
@@ -285,6 +501,11 @@ final class SmokeStream implements StreamInterface
         return $written;
     }
 
+    /**
+     * Determine whether the readable condition holds.
+     *
+     * Wrapping this check simplifies decision making for the caller.
+     */
     public function isReadable(): bool
     {
         $mode = $this->getMetadata('mode');
@@ -292,6 +513,11 @@ final class SmokeStream implements StreamInterface
         return $mode !== null && strpbrk($mode, 'r+') !== false;
     }
 
+    /**
+     * Handle the read operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function read(int $length): string
     {
         $data = fread($this->resource, $length);
@@ -303,6 +529,11 @@ final class SmokeStream implements StreamInterface
         return $data;
     }
 
+    /**
+     * Retrieve the contents.
+     *
+     * The helper centralises access to the contents so callers stay tidy.
+     */
     public function getContents(): string
     {
         $data = stream_get_contents($this->resource);
@@ -314,6 +545,11 @@ final class SmokeStream implements StreamInterface
         return $data;
     }
 
+    /**
+     * Retrieve the metadata.
+     *
+     * The helper centralises access to the metadata so callers stay tidy.
+     */
     public function getMetadata(?string $key = null)
     {
         $meta = stream_get_meta_data($this->resource);
@@ -340,6 +576,11 @@ final class SmokeUploadedFile implements UploadedFileInterface
     /** @var int */
     private $error;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(SmokeStream $stream, ?string $clientFilename, ?string $clientMediaType, int $error = UPLOAD_ERR_OK)
     {
         $this->stream = $stream;
@@ -348,6 +589,11 @@ final class SmokeUploadedFile implements UploadedFileInterface
         $this->error = $error;
     }
 
+    /**
+     * Handle the from string operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public static function fromString(string $filename, string $mime, string $contents): self
     {
         $resource = fopen('php://temp', 'r+');
@@ -362,31 +608,61 @@ final class SmokeUploadedFile implements UploadedFileInterface
         return new self(new SmokeStream($resource), $filename, $mime);
     }
 
+    /**
+     * Retrieve the stream.
+     *
+     * The helper centralises access to the stream so callers stay tidy.
+     */
     public function getStream(): StreamInterface
     {
         return $this->stream;
     }
 
+    /**
+     * Handle the move to operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function moveTo(string $targetPath): void
     {
         file_put_contents($targetPath, (string) $this->stream);
     }
 
+    /**
+     * Retrieve the size.
+     *
+     * The helper centralises access to the size so callers stay tidy.
+     */
     public function getSize(): ?int
     {
         return $this->stream->getSize();
     }
 
+    /**
+     * Retrieve the error.
+     *
+     * The helper centralises access to the error so callers stay tidy.
+     */
     public function getError(): int
     {
         return $this->error;
     }
 
+    /**
+     * Retrieve the client filename.
+     *
+     * The helper centralises access to the client filename so callers stay tidy.
+     */
     public function getClientFilename(): ?string
     {
         return $this->clientFilename;
     }
 
+    /**
+     * Retrieve the client media type.
+     *
+     * The helper centralises access to the client media type so callers stay tidy.
+     */
     public function getClientMediaType(): ?string
     {
         return $this->clientMediaType;
@@ -401,12 +677,22 @@ final class SmokeEnvironment
     /** @var string */
     private $rootPath;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(string $rootPath)
     {
         $this->rootPath = $rootPath;
         $this->databasePath = $this->rootPath . '/database/smoke.sqlite';
     }
 
+    /**
+     * Handle the bootstrap operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function bootstrap(): void
     {
         if (file_exists($this->databasePath)) {
@@ -422,6 +708,11 @@ final class SmokeEnvironment
         }
     }
 
+    /**
+     * Handle the path operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function path(): string
     {
         return $this->databasePath;
@@ -433,11 +724,21 @@ final class SmokeSchema
     /** @var GlobalPDO */
     private $pdo;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(GlobalPDO $pdo)
     {
         $this->pdo = $pdo;
     }
 
+    /**
+     * Handle the migrate operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function migrate(): void
     {
         $this->pdo->setAttribute(GlobalPDO::ATTR_ERRMODE, GlobalPDO::ERRMODE_EXCEPTION);
@@ -577,6 +878,11 @@ final class SmokeAuth
     /** @var GlobalPDO */
     private $pdo;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(GlobalPDO $pdo)
     {
         $this->pdo = $pdo;
@@ -586,6 +892,11 @@ final class SmokeAuth
         $this->service = new AuthService($pdo, $requestLimiter, $verifyLimiter, $auditLogger);
     }
 
+    /**
+     * Handle the run operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function run(): array
     {
         $email = 'smoke@example.com';
@@ -615,12 +926,20 @@ final class SmokeDocuments
     /** @var GlobalPDO */
     private $pdo;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(GlobalPDO $pdo)
     {
         $this->pdo = $pdo;
     }
 
     /**
+     * Handle the primary workflow for this component.
+     *
+     * Grouping the core workflow here keeps the surrounding code expressive and simple.
      * @return array{document_id: int, extracted: string}
      */
     public function run(int $userId): array
@@ -661,12 +980,22 @@ final class SmokeFakeOpenAIProvider
     /** @var int */
     private $userId;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(int $userId, ?object $client = null, ?GlobalPDO $pdo = null)
     {
         $this->userId = $userId;
         $this->pdo = $pdo ?? DB::getConnection();
     }
 
+    /**
+     * Handle the plan operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function plan(string $jobText, string $cvText, ?callable $streamHandler = null): string
     {
         $plan = [
@@ -684,6 +1013,11 @@ final class SmokeFakeOpenAIProvider
         return json_encode($plan, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 
+    /**
+     * Handle the draft operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function draft(string $plan, string $constraints, ?callable $streamHandler = null): string
     {
         $this->recordUsage('draft');
@@ -700,6 +1034,11 @@ final class SmokeFakeOpenAIProvider
 MARKDOWN;
     }
 
+    /**
+     * Handle the record usage operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function recordUsage(string $operation): void
     {
         $statement = $this->pdo->prepare('INSERT INTO api_usage (user_id, provider, endpoint, tokens_used, cost_pence, metadata, created_at) VALUES (:user_id, :provider, :endpoint, :tokens_used, :cost_pence, :metadata, :created_at)');
@@ -720,12 +1059,20 @@ final class SmokeGeneration
     /** @var GlobalPDO */
     private $pdo;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(GlobalPDO $pdo)
     {
         $this->pdo = $pdo;
     }
 
     /**
+     * Handle the primary workflow for this component.
+     *
+     * Grouping the core workflow here keeps the surrounding code expressive and simple.
      * @param array{document_id: int, extracted: string} $document
      * @return array{generation_id: int, downloads: array<string, int>}
      */
@@ -844,11 +1191,21 @@ final class SmokePurge
     /** @var GlobalPDO */
     private $pdo;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(GlobalPDO $pdo)
     {
         $this->pdo = $pdo;
     }
 
+    /**
+     * Handle the seed operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function seed(): void
     {
         $old = (new GlobalDateTimeImmutable('-10 days'))->format('Y-m-d H:i:s');
@@ -862,6 +1219,11 @@ final class SmokePurge
         $service->updatePolicy(7, ['documents', 'generation_outputs', 'api_usage', 'audit_logs']);
     }
 
+    /**
+     * Handle the run operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function run(): void
     {
         $service = new RetentionPolicyService($this->pdo);

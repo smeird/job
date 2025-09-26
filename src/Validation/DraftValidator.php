@@ -25,6 +25,9 @@ final class DraftValidator
     ];
 
     /**
+     * Handle the ensure no unknown organisations workflow.
+     *
+     * This helper keeps the ensure no unknown organisations logic centralised for clarity and reuse.
      * @throws InvalidArgumentException when the draft contains organisations not present in the source CV.
      */
     public function ensureNoUnknownOrganisations(string $sourceCv, string $draftMarkdown): void
@@ -40,6 +43,9 @@ final class DraftValidator
     }
 
     /**
+     * Handle the extract organisations workflow.
+     *
+     * This helper keeps the extract organisations logic centralised for clarity and reuse.
      * @return list<string>
      */
     private function extractOrganisations(string $text): array
@@ -79,6 +85,9 @@ final class DraftValidator
     }
 
     /**
+     * Evaluate whether the skip should occur.
+     *
+     * Providing a single decision point keeps policy logic together.
      * @param list<string> $words
      */
     private function shouldSkip(array $words): bool

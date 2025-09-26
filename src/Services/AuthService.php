@@ -34,6 +34,11 @@ class AuthService
     /** @var AuditLogger */
     private $auditLogger;
 
+    /**
+     * Construct the object with its required dependencies.
+     *
+     * This ensures collaborating services are available for subsequent method calls.
+     */
     public function __construct(
         PDO $pdo,
         RateLimiter $requestLimiter,
@@ -47,6 +52,9 @@ class AuthService
     }
 
     /**
+     * Handle the initiate registration workflow.
+     *
+     * This helper keeps the initiate registration logic centralised for clarity and reuse.
      * @return array{code: string, secret: string, uri: string, expires_at: DateTimeImmutable}
      */
     public function initiateRegistration(string $email, string $ip, ?string $userAgent = null): array
@@ -76,6 +84,11 @@ class AuthService
         ];
     }
 
+    /**
+     * Handle the verify registration operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function verifyRegistration(string $email, string $code, string $ip, ?string $userAgent = null): array
     {
         $email = strtolower(trim($email));
@@ -114,6 +127,9 @@ class AuthService
     }
 
     /**
+     * Handle the initiate login workflow.
+     *
+     * This helper keeps the initiate login logic centralised for clarity and reuse.
      * @return array{code: string, secret: string, uri: string, expires_at: DateTimeImmutable}
      */
     public function initiateLogin(string $email, string $ip, ?string $userAgent = null): array
@@ -155,6 +171,11 @@ class AuthService
         ];
     }
 
+    /**
+     * Handle the verify login operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function verifyLogin(string $email, string $code, string $ip, ?string $userAgent = null): array
     {
         $email = strtolower(trim($email));
@@ -188,6 +209,11 @@ class AuthService
         return $session;
     }
 
+    /**
+     * Handle the generate backup codes operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function generateBackupCodes(int $userId, ?string $ip = null, ?string $userAgent = null): array
     {
         $this->pdo->prepare('DELETE FROM backup_codes WHERE user_id = :user_id')->execute(['user_id' => $userId]);
@@ -212,6 +238,11 @@ class AuthService
         return $codes;
     }
 
+    /**
+     * Handle the authenticate with session operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function authenticateWithSession(?string $token): ?array
     {
         if ($token === null || $token === '') {
@@ -235,6 +266,11 @@ class AuthService
         return $session;
     }
 
+    /**
+     * Handle the touch session operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function touchSession(string $token): void
     {
         $hash = hash('sha256', $token, true);
@@ -246,6 +282,11 @@ class AuthService
         ]);
     }
 
+    /**
+     * Handle the destroy session operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     public function destroySession(string $token, ?string $ip = null, ?string $userAgent = null, ?int $userId = null, ?string $email = null): void
     {
         $hash = hash('sha256', $token, true);
@@ -255,6 +296,11 @@ class AuthService
         $this->auditLogger->log('auth.logout', [], $userId, $email, $ip, $userAgent);
     }
 
+    /**
+     * Validate the email content.
+     *
+     * Central validation guarantees the same checks run across the application.
+     */
     private function validateEmail(string $email): void
     {
         if ($email === '' || mb_strlen($email) > 255 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
@@ -262,6 +308,11 @@ class AuthService
         }
     }
 
+    /**
+     * Handle the apply rate limiting operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function applyRateLimiting(
         RateLimiter $limiter,
         string $ip,
@@ -278,6 +329,11 @@ class AuthService
         }
     }
 
+    /**
+     * Handle the user exists operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function userExists(string $email): bool
     {
         $statement = $this->pdo->prepare('SELECT id FROM users WHERE email = :email LIMIT 1');
@@ -286,6 +342,11 @@ class AuthService
         return $statement->fetchColumn() !== false;
     }
 
+    /**
+     * Handle the find or create user operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function findOrCreateUser(string $email): int
     {
         $existingId = $this->getUserIdByEmail($email);
@@ -306,6 +367,11 @@ class AuthService
         return (int) $this->pdo->lastInsertId();
     }
 
+    /**
+     * Retrieve the user id by email.
+     *
+     * The helper centralises access to the user id by email so callers stay tidy.
+     */
     private function getUserIdByEmail(string $email): ?int
     {
         $statement = $this->pdo->prepare('SELECT id FROM users WHERE email = :email LIMIT 1');
@@ -315,6 +381,11 @@ class AuthService
         return $id === false ? null : (int) $id;
     }
 
+    /**
+     * Retrieve the user with totp by email.
+     *
+     * The helper centralises access to the user with totp by email so callers stay tidy.
+     */
     private function getUserWithTotpByEmail(string $email): ?array
     {
         $statement = $this->pdo->prepare('SELECT id, totp_secret, totp_period_seconds, totp_digits FROM users WHERE email = :email LIMIT 1');
@@ -333,6 +404,11 @@ class AuthService
         ];
     }
 
+    /**
+     * Handle the store user totp configuration operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function storeUserTotpConfiguration(int $userId, string $secret, ?int $period, ?int $digits): void
     {
         $secret = strtoupper(trim($secret));
@@ -352,6 +428,9 @@ class AuthService
     }
 
     /**
+     * Create the totp challenge instance.
+     *
+     * This method standardises construction so other code can rely on it.
      * @return array{code: string, secret: string, uri: string, period: int, digits: int}
      */
     private function createTotpChallenge(string $email, ?string $existingSecret = null, ?int $existingPeriod = null, ?int $existingDigits = null): array
@@ -374,6 +453,9 @@ class AuthService
     }
 
     /**
+     * Handle the store passcode workflow.
+     *
+     * This helper keeps the store passcode logic centralised for clarity and reuse.
      * @param array{code: string, secret: string, uri: string, period: int, digits: int} $challenge
      */
     private function storePasscode(string $email, string $action, array $challenge, DateTimeImmutable $expiresAt): void
@@ -396,6 +478,11 @@ class AuthService
         ]);
     }
 
+    /**
+     * Handle the assert passcode valid operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function assertPasscodeValid(string $email, string $action, string $code): array
     {
         $code = $this->normalizeCode($code);
@@ -447,6 +534,11 @@ class AuthService
         ];
     }
 
+    /**
+     * Handle the normalize code operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function normalizeCode(string $code): string
     {
         $normalized = preg_replace('/\D+/', '', $code);
@@ -458,6 +550,11 @@ class AuthService
         return $normalized;
     }
 
+    /**
+     * Handle the verify totp code operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function verifyTotpCode(string $secret, string $code, int $period, int $digits): bool
     {
         $now = time();
@@ -474,6 +571,11 @@ class AuthService
         return false;
     }
 
+    /**
+     * Calculate the totp value.
+     *
+     * Keeping the formula together prevents duplication across services.
+     */
     private function calculateTotp(string $secret, int $period, int $digits, string $algorithm, int $timestamp): string
     {
         $key = Base32::decodeUpper($secret);
@@ -489,6 +591,11 @@ class AuthService
         return str_pad((string) $code, $digits, '0', STR_PAD_LEFT);
     }
 
+    /**
+     * Build the totp uri representation.
+     *
+     * Centralised construction avoids duplicating structural knowledge elsewhere.
+     */
     private function buildTotpUri(string $secret, string $email, int $period, int $digits): string
     {
         $issuer = self::OTP_ISSUER;
@@ -513,6 +620,11 @@ class AuthService
         );
     }
 
+    /**
+     * Create the session instance.
+     *
+     * This method standardises construction so other code can rely on it.
+     */
     private function createSession(int $userId): array
     {
         $token = str_replace('-', '', Uuid::uuid4()->toString()) . bin2hex(random_bytes(16));
@@ -534,6 +646,11 @@ class AuthService
         ];
     }
 
+    /**
+     * Handle the log attempt operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
     private function logAttempt(
         RateLimiter $limiter,
         string $ip,
