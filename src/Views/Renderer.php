@@ -16,7 +16,12 @@ class Renderer
         $this->basePath = $basePath;
     }
 
-    public function render(ResponseInterface $response, string $template, array $data = [], int $status = 200): ResponseInterface
+    public function render(
+        ResponseInterface $response,
+        string $template,
+        array $data = [],
+        int $httpStatus = 200
+    ): ResponseInterface
     {
         $templatePath = $this->basePath . DIRECTORY_SEPARATOR . $template . '.php';
 
@@ -28,7 +33,7 @@ class Renderer
             $data['csrfToken'] = $_SESSION['csrf_token'] ?? null;
         }
 
-        extract($data);
+        extract($data, EXTR_SKIP);
 
         ob_start();
         include $templatePath;
@@ -36,6 +41,8 @@ class Renderer
 
         $response->getBody()->write($content);
 
-        return $response->withStatus($status)->withHeader('Content-Type', 'text/html; charset=utf-8');
+        return $response
+            ->withStatus($httpStatus)
+            ->withHeader('Content-Type', 'text/html; charset=utf-8');
     }
 }
