@@ -4,7 +4,7 @@ This repository contains the production code that powers the job.smeird.com work
 
 ## Overview of capabilities
 
-* **Passwordless authentication and recovery.** Registration and login both rely on short-lived email passcodes, are rate-limited, and produce sessions plus downloadable backup codes for break-glass access.【F:src/Services/AuthService.php†L39-L194】
+* **Passwordless authentication and recovery.** Registration and login rely on short-lived QR-delivered passcodes, are rate-limited, and produce sessions plus downloadable backup codes for break-glass access.【F:src/Services/AuthService.php†L39-L205】【F:resources/views/auth/qr.php†L1-L78】
 * **Safe document handling.** Uploads are capped at 1&nbsp;MiB, are limited to DOCX/PDF/Markdown/Text formats, and undergo structure checks (e.g. macro detection) before storage.【F:src/Documents/DocumentValidator.php†L11-L154】
 * **Generation workflow with guarded downloads.** Tailored artefacts are produced through queued jobs and exposed through HMAC-protected links that honour per-user tokens, format scopes, and expirations.【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:src/Controllers/GenerationDownloadController.php†L29-L137】
 * **Spend and token insight.** A Tailwind/Tabulator/Highcharts dashboard visualises per-call usage, running totals, and monthly aggregates sourced from the `api_usage` table.【F:resources/views/usage.php†L10-L112】【F:src/Services/UsageService.php†L20-L134】【F:src/Routes.php†L141-L142】
@@ -12,7 +12,7 @@ This repository contains the production code that powers the job.smeird.com work
 
 ## Architecture at a glance
 
-* A PHP-DI container wires controllers, services, repositories, and middleware inside `public/index.php`, including mail transport selection, rate limiters, and download token services.【F:public/index.php†L53-L179】
+* A PHP-DI container wires controllers, services, repositories, and middleware inside `public/index.php`, including QR passcode provisioning, rate limiters, and download token services.【F:public/index.php†L53-L167】
 * Runtime bootstrap loads environment variables and normalises the application URL for downstream consumers.【F:src/Bootstrap.php†L12-L43】
 * Every HTTP request runs lightweight database migrations that ensure core tables (users, pending passcodes, sessions, documents, generations, backup codes, audit logs) exist before handling traffic.【F:public/index.php†L181-L186】【F:src/Infrastructure/Database/Migrator.php†L19-L160】
 * Additional SQL migrations live in `database/migrations` and can be applied out-of-band through the `bin/migrate.php` helper, which tracks state via the `schema_migrations` table.【F:bin/migrate.php†L21-L76】
@@ -63,7 +63,7 @@ Enable or install the following extensions:
    ```
    This applies the SQL migrations in `database/migrations/` so the schema matches production before traffic hits the runtime migrator.【F:bin/migrate.php†L21-L76】
 5. **Set directory permissions**
-   Ensure the web server user can read the codebase and create the mail log directory specified by `MAIL_LOG_PATH` if SMTP is not configured.【F:public/index.php†L73-L89】
+   Ensure the web server user can read the codebase and write to the storage directories used for logs and cached artifacts.
 
 After these steps, point your virtual host at `public/index.php` and restart PHP-FPM or Apache so new environment variables take effect.
 
@@ -77,8 +77,6 @@ After these steps, point your virtual host at `public/index.php` and restart PHP
 | `APP_KEY` / `DOWNLOAD_TOKEN_SECRET` | Secret used to sign download tokens (set at least one). | 【F:public/index.php†L158-L171】 |
 | `DOWNLOAD_TOKEN_TTL` | Lifetime (seconds) for download URLs; defaults to 300. | 【F:public/index.php†L165-L169】 |
 | `DB_DSN` or `DB_DRIVER` + `DB_HOST`/`DB_PORT`/`DB_DATABASE`/`DB_SOCKET`/`DB_CHARSET`/`DB_USERNAME`/`DB_PASSWORD` | Database connection settings. | 【F:src/DB.php†L36-L78】 |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `SMTP_TLS`, `SMTP_FROM` | Outbound email configuration for passcode delivery. When unset, messages are appended to `MAIL_LOG_PATH`. | 【F:public/index.php†L73-L89】 |
-| `MAIL_LOG_PATH` | Fallback file path when SMTP is not available. | 【F:public/index.php†L86-L88】 |
 | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL_PLAN`, `OPENAI_MODEL_DRAFT`, `OPENAI_TARIFF_JSON`, `OPENAI_MAX_TOKENS` | OpenAI credentials, endpoints, tariff data, and token ceilings. | 【F:src/AI/OpenAIProvider.php†L52-L117】 |
 
 The application also respects `DB_DATABASE=':memory:'` when `DB_DRIVER=sqlite`, which is convenient for smoke testing.【F:src/DB.php†L41-L58】
@@ -112,10 +110,10 @@ Both scripts rely on PHP&nbsp;8 features and expect the same extensions listed i
 
 1. Deploy application code and vendor assets to your host.
 2. Ensure environment variables (.env or server-level) are populated with the configuration values above.
-3. Create the `storage/logs` directory (or adjust `MAIL_LOG_PATH`) if you plan to use the log mailer fallback.【F:public/index.php†L86-L88】
+3. Ensure any log/cache directories referenced by your environment are writable by the web server.
 4. Run `php bin/migrate.php` after every deployment that ships new migrations.【F:bin/migrate.php†L21-L76】
 5. Restart PHP-FPM/Apache and queue workers so new configuration takes effect.
-6. Verify the deployment by signing in, uploading a document, submitting a generation, downloading each output, and confirming analytics/retention pages render as expected.【F:src/Controllers/AuthController.php†L20-L193】【F:src/Documents/DocumentRepository.php†L23-L109】【F:src/Controllers/GenerationController.php†L78-L142】【F:resources/views/usage.php†L10-L112】
+6. Verify the deployment by signing in, uploading a document, submitting a generation, downloading each output, and confirming analytics/retention pages render as expected.【F:src/Controllers/AuthController.php†L20-L338】【F:src/Documents/DocumentRepository.php†L23-L109】【F:src/Controllers/GenerationController.php†L78-L142】【F:resources/views/usage.php†L10-L112】
 
 ## Support & further reading
 

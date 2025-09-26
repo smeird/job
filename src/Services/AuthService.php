@@ -17,26 +17,26 @@ class AuthService
     private const LOGIN_VERIFY_ACTION = 'login.verify';
 
     private PDO $pdo;
-    private MailerInterface $mailer;
     private RateLimiter $requestLimiter;
     private RateLimiter $verifyLimiter;
     private AuditLogger $auditLogger;
 
     public function __construct(
         PDO $pdo,
-        MailerInterface $mailer,
         RateLimiter $requestLimiter,
         RateLimiter $verifyLimiter,
         AuditLogger $auditLogger
     ) {
         $this->pdo = $pdo;
-        $this->mailer = $mailer;
         $this->requestLimiter = $requestLimiter;
         $this->verifyLimiter = $verifyLimiter;
         $this->auditLogger = $auditLogger;
     }
 
-    public function initiateRegistration(string $email, string $ip, ?string $userAgent = null): void
+    /**
+     * @return array{code: string, expires_at: DateTimeImmutable}
+     */
+    public function initiateRegistration(string $email, string $ip, ?string $userAgent = null): array
     {
         $email = strtolower(trim($email));
         $this->validateEmail($email);
@@ -53,23 +53,12 @@ class AuthService
         $this->storePasscode($email, 'register', $code, $expiresAt);
         $this->logAttempt($this->requestLimiter, $ip, $email, self::REGISTER_REQUEST_ACTION, $userAgent, ['stage' => 'request']);
 
-        $message = <<<TEXT
-        Your registration code is: {$code}
+        $this->auditLogger->log('auth.register.requested', ['status' => 'qr_generated'], null, $email, $ip, $userAgent);
 
-        It expires in 10 minutes. If you did not request this code, please ignore this email.
-        TEXT;
-
-        try {
-            $this->mailer->send($email, 'Your job.smeird.com registration code', trim($message));
-        } catch (\Throwable $exception) {
-            $this->auditLogger->log('auth.register.mail_failed', [
-                'error' => $exception->getMessage(),
-            ], null, $email, $ip, $userAgent);
-
-            throw $exception;
-        }
-
-        $this->auditLogger->log('auth.register.requested', ['status' => 'code_sent'], null, $email, $ip, $userAgent);
+        return [
+            'code' => $code,
+            'expires_at' => $expiresAt,
+        ];
     }
 
     public function verifyRegistration(string $email, string $code, string $ip, ?string $userAgent = null): array
@@ -100,7 +89,10 @@ class AuthService
         return $session;
     }
 
-    public function initiateLogin(string $email, string $ip, ?string $userAgent = null): void
+    /**
+     * @return array{code: string, expires_at: DateTimeImmutable}
+     */
+    public function initiateLogin(string $email, string $ip, ?string $userAgent = null): array
     {
         $email = strtolower(trim($email));
         $this->validateEmail($email);
@@ -117,23 +109,12 @@ class AuthService
         $this->storePasscode($email, 'login', $code, $expiresAt);
         $this->logAttempt($this->requestLimiter, $ip, $email, self::LOGIN_REQUEST_ACTION, $userAgent, ['stage' => 'request']);
 
-        $message = <<<TEXT
-        Your login code is: {$code}
+        $this->auditLogger->log('auth.login.requested', ['status' => 'qr_generated'], null, $email, $ip, $userAgent);
 
-        It expires in 10 minutes. If you did not request this code, please ignore this email.
-        TEXT;
-
-        try {
-            $this->mailer->send($email, 'Your job.smeird.com login code', trim($message));
-        } catch (\Throwable $exception) {
-            $this->auditLogger->log('auth.login.mail_failed', [
-                'error' => $exception->getMessage(),
-            ], null, $email, $ip, $userAgent);
-
-            throw $exception;
-        }
-
-        $this->auditLogger->log('auth.login.requested', ['status' => 'code_sent'], null, $email, $ip, $userAgent);
+        return [
+            'code' => $code,
+            'expires_at' => $expiresAt,
+        ];
     }
 
     public function verifyLogin(string $email, string $code, string $ip, ?string $userAgent = null): array

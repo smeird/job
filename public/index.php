@@ -17,11 +17,8 @@ use App\Middleware\SessionMiddleware;
 use App\Routes;
 use App\Services\AuthService;
 use App\Services\AuditLogger;
-use App\Services\LogMailer;
-use App\Services\MailerInterface;
 use App\Services\RateLimiter;
 use App\Services\RetentionPolicyService;
-use App\Services\SmtpMailer;
 use App\Services\UsageService;
 use App\Views\Renderer;
 use DI\Container;
@@ -70,24 +67,6 @@ $container->set(GenerationRepository::class, static function (Container $c): Gen
     return new GenerationRepository($c->get(\PDO::class));
 });
 
-$container->set(MailerInterface::class, static function () use ($rootPath): MailerInterface {
-    $smtpHost = getenv('SMTP_HOST');
-
-    if (!empty($smtpHost)) {
-        $smtpPort = (int) (getenv('SMTP_PORT') ?: 25);
-        $from = getenv('SMTP_FROM') ?: 'no-reply@job.smeird.com';
-        $username = getenv('SMTP_USERNAME') ?: null;
-        $password = getenv('SMTP_PASSWORD') ?: null;
-        $useTls = filter_var(getenv('SMTP_TLS') ?: false, FILTER_VALIDATE_BOOL);
-
-        return new SmtpMailer($smtpHost, $smtpPort, $from, $username, $password, $useTls);
-    }
-
-    $logPath = getenv('MAIL_LOG_PATH') ?: $rootPath . '/storage/logs/mail.log';
-
-    return new LogMailer($logPath);
-});
-
 $container->set(AuditLogger::class, static function (Container $c): AuditLogger {
     return new AuditLogger($c->get(\PDO::class));
 });
@@ -111,7 +90,6 @@ $container->set('rateLimiter.route.upload', static function (Container $c): Rate
 $container->set(AuthService::class, static function (Container $c): AuthService {
     return new AuthService(
         $c->get(\PDO::class),
-        $c->get(MailerInterface::class),
         $c->get('rateLimiter.request'),
         $c->get('rateLimiter.verify'),
         $c->get(AuditLogger::class)
