@@ -33,7 +33,7 @@ final class Job
         array $payload,
         int $attempts,
         string $status,
-        DateTimeImmutable $runAfter,
+        DateTimeImmutable $runAfter
     ) {
         $this->id = $id;
         $this->type = $type;
