@@ -60,8 +60,15 @@ if (is_string($generationIdRaw)) {
                 </p>
             </div>
             <div class="hero-actions">
-                <a class="gradient-button focus-ring" href="/dashboard">
-                    Open your workspace
+                <a class="gradient-button focus-ring" href="/auth/login">
+                    Sign in to your workspace
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                        <path d="M5 12h14"></path>
+                        <path d="M13 6l6 6-6 6"></path>
+                    </svg>
+                </a>
+                <a class="secondary-link focus-ring" href="/auth/register">
+                    Create an account
                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                         <path d="M5 12h14"></path>
                         <path d="M13 6l6 6-6 6"></path>
