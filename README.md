@@ -7,14 +7,14 @@ This repository contains the production code that powers the job.smeird.com work
 * **Passwordless authentication and recovery.** Registration and login rely on short-lived QR-delivered passcodes, are rate-limited, and produce sessions plus downloadable backup codes for break-glass access.【F:src/Services/AuthService.php†L39-L205】【F:resources/views/auth/qr.php†L1-L78】
 * **Safe document handling.** Uploads are capped at 1&nbsp;MiB, are limited to DOCX/PDF/Markdown/Text formats, and undergo structure checks (e.g. macro detection) before storage.【F:src/Documents/DocumentValidator.php†L11-L154】
 * **Generation workflow with guarded downloads.** Tailored artefacts are produced through queued jobs and exposed through HMAC-protected links that honour per-user tokens, format scopes, and expirations.【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:src/Controllers/GenerationDownloadController.php†L29-L137】
-* **Spend and token insight.** A Tailwind/Tabulator/Highcharts dashboard visualises per-call usage, running totals, and monthly aggregates sourced from the `api_usage` table.【F:resources/views/usage.php†L10-L112】【F:src/Services/UsageService.php†L20-L134】【F:src/Routes.php†L141-L142】
+* **Spend and token insight.** A Tailwind/Tabulator/Highcharts dashboard visualises per-call usage, running totals, and monthly aggregates sourced from the `api_usage` table.【F:resources/views/usage.php†L10-L112】【F:src/Services/UsageService.php†L20-L134】【F:src/Routes.php†L153-L154】
 * **Retention governance.** A dedicated `retention_settings` table captures purge policy state and drives the CLI purge utility that clears documents, generation outputs, usage rows, and audit logs after the configured number of days.【F:src/Services/RetentionPolicyService.php†L13-L182】【F:bin/purge.php†L18-L63】
 
 ## Architecture at a glance
 
 * A PHP-DI container wires controllers, services, repositories, and middleware inside `public/index.php`, including QR passcode provisioning, rate limiters, and download token services.【F:public/index.php†L53-L167】
 * Runtime bootstrap loads environment variables and normalises the application URL for downstream consumers.【F:src/Bootstrap.php†L12-L43】
-* Every HTTP request runs lightweight database migrations that ensure core tables (users, pending passcodes, sessions, documents, generations, backup codes, audit logs) exist before handling traffic.【F:public/index.php†L181-L186】【F:src/Infrastructure/Database/Migrator.php†L19-L160】
+* Every HTTP request runs lightweight database migrations so runtime tables (users, pending passcodes, sessions, documents, generations, generation_outputs, api_usage, backup codes, audit logs, retention settings, jobs) exist before handling traffic.【F:public/index.php†L181-L186】【F:src/Infrastructure/Database/Migrator.php†L19-L205】
 * Additional SQL migrations live in `database/migrations` and can be applied out-of-band through the `bin/migrate.php` helper, which tracks state via the `schema_migrations` table.【F:bin/migrate.php†L21-L76】
 * Background work is dispatched into the `jobs` table and processed by the `bin/worker.php` daemon, which requires `pcntl` and graceful signal handling.【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:bin/worker.php†L1-L68】
 * OpenAI interactions read model configuration, tariff data, and max token limits from environment variables and persist usage rows for reporting.【F:src/AI/OpenAIProvider.php†L52-L117】【F:src/Services/UsageService.php†L20-L102】
@@ -83,16 +83,16 @@ The application also respects `DB_DATABASE=':memory:'` when `DB_DRIVER=sqlite`, 
 
 ## Database and background jobs
 
-* The runtime migrator only creates the core tables required for authentication, document storage, generations, backup codes, and audit logs; it also amends audit log columns when needed for backwards compatibility.【F:src/Infrastructure/Database/Migrator.php†L19-L191】
-* SQL migrations introduce higher-level constructs such as the JSON-backed `api_usage` ledger, retention policies, and the job queue schema.【F:database/migrations/20240326000000_initial.php†L7-L141】【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:database/migrations/20240718000001_add_generation_stream_columns.php†L1-L13】
+* The runtime migrator now provisions authentication, document, generation, analytics, retention, and job tables in lock-step with the SQL definitions, adding columns when legacy installs are detected.【F:src/Infrastructure/Database/Migrator.php†L19-L205】
+* SQL migrations mirror the runtime schema so CLI-driven installs and on-request migrations converge on identical structures for analytics, retention, and background jobs.【F:database/migrations/20240326000000_initial.php†L7-L139】【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:database/migrations/20240718000001_add_generation_stream_columns.php†L1-L13】
 * Run the worker under a supervisor (systemd, supervisord, etc.) using `php bin/worker.php` so queued `tailor_cv` jobs are processed continuously.【F:bin/worker.php†L29-L68】
 * Configure a cron entry to execute `php bin/purge.php` daily. It honours the active retention policy and reports how many rows were removed per resource.【F:bin/purge.php†L18-L63】
 
 ## Usage analytics & retention
 
-* `/usage` renders a Tailwind-styled dashboard that fetches data from `/usage/data`; both routes require an authenticated session.【F:resources/views/usage.php†L10-L112】【F:src/Controllers/UsageController.php†L20-L47】【F:src/Routes.php†L141-L142】
+* `/usage` renders a Tailwind-styled dashboard that fetches data from `/usage/data`; both routes require an authenticated session.【F:resources/views/usage.php†L10-L112】【F:src/Controllers/UsageController.php†L20-L47】【F:src/Routes.php†L153-L154】
 * The analytics service aggregates per-call token counts, costs, and month-to-date totals, and falls back gracefully when metadata is missing.【F:src/Services/UsageService.php†L35-L134】
-* Retention settings are stored in `retention_settings` with JSON lists of the resources to purge; invalid configurations are rejected and sensible defaults (30 days, all resources) are provided when no row exists.【F:src/Services/RetentionPolicyService.php†L15-L139】
+* Retention settings are stored in `retention_settings` with JSON lists of the resources to purge; invalid configurations are rejected and sensible defaults (30 days, all resources) are provided when no row exists, and the `/retention` route exposes the configuration UI.【F:src/Services/RetentionPolicyService.php†L15-L139】【F:src/Routes.php†L153-L162】
 
 ## Document workflow highlights
 

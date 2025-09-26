@@ -31,6 +31,7 @@ use Slim\Factory\AppFactory;
 use Slim\Middleware\ErrorMiddleware;
 use App\Generations\GenerationDownloadService;
 use App\Generations\GenerationRepository;
+use App\Generations\GenerationDownloadService;
 use App\Generations\GenerationTokenService;
 
 require_once __DIR__ . '/../autoload.php';
@@ -156,6 +157,17 @@ $container->set(UsageService::class, static function (Container $c): UsageServic
 $container->set(UsageController::class, static function (Container $c): UsageController {
     return new UsageController($c->get(UsageService::class), $c->get(Renderer::class));
 
+});
+
+$container->set(RetentionPolicyService::class, static function (Container $c): RetentionPolicyService {
+    return new RetentionPolicyService($c->get(\PDO::class));
+});
+
+$container->set(RetentionController::class, static function (Container $c): RetentionController {
+    return new RetentionController(
+        $c->get(Renderer::class),
+        $c->get(RetentionPolicyService::class)
+    );
 });
 
 $container->set(SessionMiddleware::class, static function (Container $c): SessionMiddleware {
