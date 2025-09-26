@@ -1,38 +1,23 @@
 <?php
 /** @var string $title */
-?>
-<!DOCTYPE html>
-<html lang="en" class="h-full">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?= htmlspecialchars($title ?? 'Usage analytics', ENT_QUOTES) ?></title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.4/dist/tailwind.min.css">
+
+$fullWidth = true;
+$subtitle = 'Spend and token insight';
+$navLinks = [
+    ['href' => '/', 'label' => 'Dashboard', 'current' => false],
+    ['href' => '/documents', 'label' => 'Documents', 'current' => false],
+    ['href' => '/usage', 'label' => 'Usage', 'current' => true],
+    ['href' => '/retention', 'label' => 'Retention', 'current' => false],
+];
+$additionalHead = <<<'HTML'
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tabulator-tables@5.5.2/dist/css/tabulator.min.css">
     <script src="https://cdn.jsdelivr.net/npm/tabulator-tables@5.5.2/dist/js/tabulator.min.js" defer></script>
     <script src="https://code.highcharts.com/highcharts.js" defer></script>
     <script src="/assets/js/usage.js" defer></script>
-</head>
-<body class="min-h-full bg-slate-950 text-slate-100">
-<div class="mx-auto flex min-h-full w-full max-w-6xl flex-col gap-10 px-6 py-12 lg:px-10">
-    <nav class="flex flex-wrap gap-2 text-sm font-medium text-slate-300">
-        <?php
-        $navLinks = [
-            ['href' => '/', 'label' => 'Dashboard', 'current' => false],
-            ['href' => '/documents', 'label' => 'Documents', 'current' => false],
-            ['href' => '/usage', 'label' => 'Usage', 'current' => true],
-            ['href' => '/retention', 'label' => 'Retention', 'current' => false],
-        ];
-        foreach ($navLinks as $link) {
-            $isCurrent = $link['current'];
-            $classes = $isCurrent
-                ? 'inline-flex items-center gap-2 rounded-full border border-indigo-400/40 bg-indigo-500/20 px-4 py-2 text-indigo-100'
-                : 'inline-flex items-center gap-2 rounded-full border border-slate-700 px-4 py-2 text-slate-300 transition hover:border-slate-500 hover:bg-slate-800/60 hover:text-slate-100';
-            echo '<a href="' . htmlspecialchars($link['href'], ENT_QUOTES) . '" class="' . $classes . '">'
-                . htmlspecialchars($link['label'], ENT_QUOTES) . '</a>';
-        }
-        ?>
-    </nav>
+HTML;
+?>
+<?php ob_start(); ?>
+<div class="space-y-10">
     <header class="space-y-4">
         <p class="text-sm uppercase tracking-[0.2em] text-indigo-400">Insights</p>
         <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
@@ -130,5 +115,5 @@
         </article>
     </section>
 </div>
-</body>
-</html>
+<?php $body = ob_get_clean(); ?>
+<?php include __DIR__ . '/layout.php'; ?>

@@ -3,6 +3,10 @@
 /** @var string $body */
 
 use App\Security\CspConfig;
+
+$fullWidth = $fullWidth ?? false;
+$navLinks = $navLinks ?? [];
+$additionalHead = $additionalHead ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -69,11 +73,8 @@ use App\Security\CspConfig;
     <link rel="stylesheet" href="/assets/css/app.css">
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js" defer></script>
     <style>[x-cloak]{display:none!important;}</style>
+    <?= $additionalHead ?>
 </head>
-<?php
-$fullWidth = $fullWidth ?? false;
-$navLinks = $navLinks ?? [];
-?>
 <body id="site-job-smeird-com" data-site-id="job.smeird.com" class="min-h-screen bg-slate-950 text-slate-100">
 <?php if ($fullWidth) : ?>
     <div class="min-h-screen flex flex-col">
