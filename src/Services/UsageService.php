@@ -108,12 +108,21 @@ class UsageService
      */
     private function fetchMonthlySummary(int $userId): array
     {
-        $statement = $this->pdo->prepare(
-            'SELECT DATE_FORMAT(created_at, "%Y-%m-01") AS month_start, '
-            . 'SUM(tokens_used) AS total_tokens, SUM(cost_pence) AS total_cost '
-            . 'FROM api_usage WHERE user_id = :user_id '
-            . 'GROUP BY month_start ORDER BY month_start'
+        $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+        if ($driver === 'sqlite') {
+            $monthExpression = "strftime('%Y-%m-01', created_at)";
+        } else {
+            $monthExpression = "DATE_FORMAT(created_at, '%Y-%m-01')";
+        }
+
+        $sql = sprintf(
+            'SELECT %s AS month_start, SUM(tokens_used) AS total_tokens, SUM(cost_pence) AS total_cost '
+            . 'FROM api_usage WHERE user_id = :user_id GROUP BY month_start ORDER BY month_start',
+            $monthExpression
         );
+
+        $statement = $this->pdo->prepare($sql);
         $statement->execute(['user_id' => $userId]);
 
         $summary = [];

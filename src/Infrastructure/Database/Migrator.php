@@ -24,8 +24,12 @@ class Migrator
         $this->createSessionsTable();
         $this->createDocumentsTable();
         $this->createGenerationsTable();
+        $this->createGenerationOutputsTable();
+        $this->createApiUsageTable();
         $this->createBackupCodesTable();
         $this->createAuditLogsTable();
+        $this->createRetentionSettingsTable();
+        $this->createJobsTable();
     }
 
     private function createUsersTable(): void
@@ -123,12 +127,60 @@ class Migrator
             model VARCHAR(128) NOT NULL,
             temperature DECIMAL(4,2) NOT NULL DEFAULT 0.20,
             status VARCHAR(32) NOT NULL DEFAULT 'queued',
+            progress_percent TINYINT UNSIGNED NOT NULL DEFAULT 0,
+            cost_pence BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            error_message TEXT NULL,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             CONSTRAINT fk_generations_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             CONSTRAINT fk_generations_job_document FOREIGN KEY (job_document_id) REFERENCES documents(id) ON DELETE CASCADE,
             CONSTRAINT fk_generations_cv_document FOREIGN KEY (cv_document_id) REFERENCES documents(id) ON DELETE CASCADE,
             INDEX idx_generations_user_created (user_id, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        SQL;
+
+        $this->pdo->exec($sql);
+        $this->ensureGenerationsColumnExists('job_document_id', 'ADD COLUMN job_document_id BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER user_id');
+        $this->ensureGenerationsColumnExists('cv_document_id', 'ADD COLUMN cv_document_id BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER job_document_id');
+        $this->ensureGenerationsColumnExists('temperature', 'ADD COLUMN temperature DECIMAL(4,2) NOT NULL DEFAULT 0.20 AFTER model');
+        $this->ensureGenerationsColumnExists('progress_percent', 'ADD COLUMN progress_percent TINYINT UNSIGNED NOT NULL DEFAULT 0 AFTER status');
+        $this->ensureGenerationsColumnExists('cost_pence', 'ADD COLUMN cost_pence BIGINT UNSIGNED NOT NULL DEFAULT 0 AFTER progress_percent');
+        $this->ensureGenerationsColumnExists('error_message', 'ADD COLUMN error_message TEXT NULL AFTER cost_pence');
+    }
+
+    private function createGenerationOutputsTable(): void
+    {
+        $sql = <<<SQL
+        CREATE TABLE IF NOT EXISTS generation_outputs (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            generation_id BIGINT UNSIGNED NOT NULL,
+            mime_type VARCHAR(191) NULL,
+            content LONGBLOB NULL,
+            output_text LONGTEXT NULL,
+            tokens_used INT UNSIGNED NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_generation_outputs_generation FOREIGN KEY (generation_id) REFERENCES generations(id) ON DELETE CASCADE,
+            INDEX idx_generation_outputs_generation_created (generation_id, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        SQL;
+
+        $this->pdo->exec($sql);
+    }
+
+    private function createApiUsageTable(): void
+    {
+        $sql = <<<SQL
+        CREATE TABLE IF NOT EXISTS api_usage (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            user_id BIGINT UNSIGNED NOT NULL,
+            provider VARCHAR(128) NOT NULL,
+            endpoint VARCHAR(255) NOT NULL,
+            tokens_used INT UNSIGNED NULL,
+            cost_pence BIGINT UNSIGNED NOT NULL DEFAULT 0,
+            metadata JSON NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT fk_api_usage_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+            INDEX idx_api_usage_user_created (user_id, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         SQL;
 
@@ -174,6 +226,41 @@ class Migrator
         $this->ensureAuditEmailNullable();
     }
 
+    private function createRetentionSettingsTable(): void
+    {
+        $sql = <<<SQL
+        CREATE TABLE IF NOT EXISTS retention_settings (
+            id TINYINT UNSIGNED PRIMARY KEY,
+            purge_after_days INT UNSIGNED NOT NULL,
+            apply_to JSON NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        SQL;
+
+        $this->pdo->exec($sql);
+    }
+
+    private function createJobsTable(): void
+    {
+        $sql = <<<SQL
+        CREATE TABLE IF NOT EXISTS jobs (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            type VARCHAR(100) NOT NULL,
+            payload_json JSON NOT NULL,
+            run_after DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            attempts INT UNSIGNED NOT NULL DEFAULT 0,
+            status VARCHAR(32) NOT NULL DEFAULT 'pending',
+            error TEXT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_jobs_status_run_after (status, run_after),
+            INDEX idx_jobs_created_at (created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        SQL;
+
+        $this->pdo->exec($sql);
+    }
+
     private function ensureAuditColumnExists(string $table, string $column, string $alterStatement): void
     {
         try {
@@ -201,6 +288,22 @@ class Migrator
             }
 
             $this->pdo->exec(sprintf('ALTER TABLE pending_passcodes %s', $alterStatement));
+        } catch (PDOException $exception) {
+            // Ignore inability to inspect or alter the table.
+        }
+    }
+
+    private function ensureGenerationsColumnExists(string $column, string $alterStatement): void
+    {
+        try {
+            $statement = $this->pdo->prepare('SHOW COLUMNS FROM generations LIKE :column');
+            $statement->execute(['column' => $column]);
+
+            if ($statement->fetch() !== false) {
+                return;
+            }
+
+            $this->pdo->exec(sprintf('ALTER TABLE generations %s', $alterStatement));
         } catch (PDOException $exception) {
             // Ignore inability to inspect or alter the table.
         }
