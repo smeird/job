@@ -76,7 +76,7 @@ class DocumentService
                 $validation['size'],
                 $sha256,
                 $buffer,
-                new DateTimeImmutable(),
+                new DateTimeImmutable()
             );
 
             return $this->repository->save($document);

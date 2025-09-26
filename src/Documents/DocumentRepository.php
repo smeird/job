@@ -166,7 +166,7 @@ class DocumentRepository
             (int) $row['size_bytes'],
             $row['sha256'],
             is_resource($row['content']) ? stream_get_contents($row['content']) ?: '' : (string) $row['content'],
-            new DateTimeImmutable($row['created_at']),
+            new DateTimeImmutable($row['created_at'])
         );
     }
 }
