@@ -50,6 +50,20 @@ final class SecurityHeadersMiddleware implements MiddlewareInterface
             $formActionDirective .= ' ' . rtrim($formActionOrigin, '/');
         }
 
+        $scriptSources = [
+            "'self'",
+            "'unsafe-inline'",
+            'https://cdn.jsdelivr.net',
+            'https://code.highcharts.com',
+            CspConfig::alpineInitHash(),
+        ];
+
+        $styleSources = [
+            "'self'",
+            "'unsafe-inline'",
+            'https://cdn.jsdelivr.net',
+        ];
+
         $directives = [
             "default-src 'self'",
             "base-uri 'self'",
@@ -59,8 +73,8 @@ final class SecurityHeadersMiddleware implements MiddlewareInterface
             "frame-ancestors 'none'",
             "img-src 'self' data:",
             "object-src 'none'",
-            "script-src 'self' " . CspConfig::alpineInitHash(),
-            "style-src 'self'",
+            'script-src ' . implode(' ', $scriptSources),
+            'style-src ' . implode(' ', $styleSources),
         ];
 
         return implode('; ', $directives);

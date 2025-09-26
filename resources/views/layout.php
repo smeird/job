@@ -11,12 +11,15 @@ use App\Security\CspConfig;
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <title><?= htmlspecialchars($title ?? 'job.smeird.com', ENT_QUOTES) ?></title>
+    <meta name="application-name" content="job.smeird.com">
+    <meta name="apple-mobile-web-app-title" content="job.smeird.com">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@3.4.4/dist/tailwind.min.css">
+    <link rel="stylesheet" href="/assets/css/app.css">
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js" defer></script>
     <style>[x-cloak]{display:none!important;}</style>
 </head>
 <?php $fullWidth = $fullWidth ?? false; ?>
-<body class="min-h-screen bg-slate-950 text-slate-100">
+<body id="site-job-smeird-com" data-site-id="job.smeird.com" class="min-h-screen bg-slate-950 text-slate-100">
 <?php if ($fullWidth) : ?>
     <div class="min-h-screen flex flex-col">
         <header class="border-b border-slate-800/60 bg-slate-900/80 backdrop-blur">
