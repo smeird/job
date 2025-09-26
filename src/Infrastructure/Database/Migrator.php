@@ -34,12 +34,18 @@ class Migrator
         CREATE TABLE IF NOT EXISTS users (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             email VARCHAR(255) NOT NULL UNIQUE,
+            totp_secret VARCHAR(64) DEFAULT NULL,
+            totp_period_seconds INT UNSIGNED DEFAULT NULL,
+            totp_digits TINYINT UNSIGNED DEFAULT NULL,
             created_at DATETIME NOT NULL,
             updated_at DATETIME NOT NULL
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
         SQL;
 
         $this->pdo->exec($sql);
+        $this->ensureUserColumnExists('totp_secret', 'ADD COLUMN totp_secret VARCHAR(64) DEFAULT NULL AFTER email');
+        $this->ensureUserColumnExists('totp_period_seconds', 'ADD COLUMN totp_period_seconds INT UNSIGNED DEFAULT NULL AFTER totp_secret');
+        $this->ensureUserColumnExists('totp_digits', 'ADD COLUMN totp_digits TINYINT UNSIGNED DEFAULT NULL AFTER totp_period_seconds');
     }
 
     private function createPendingPasscodesTable(): void
@@ -211,6 +217,22 @@ class Migrator
             }
         } catch (PDOException $exception) {
             // Ignore if the column cannot be inspected.
+        }
+    }
+
+    private function ensureUserColumnExists(string $column, string $alterStatement): void
+    {
+        try {
+            $statement = $this->pdo->prepare('SHOW COLUMNS FROM users LIKE :column');
+            $statement->execute(['column' => $column]);
+
+            if ($statement->fetch() !== false) {
+                return;
+            }
+
+            $this->pdo->exec(sprintf('ALTER TABLE users %s', $alterStatement));
+        } catch (PDOException $exception) {
+            // Ignore inability to inspect or alter the table.
         }
     }
 }

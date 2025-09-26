@@ -446,6 +446,9 @@ final class SmokeSchema
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT NOT NULL UNIQUE,
+            totp_secret TEXT NULL,
+            totp_period_seconds INTEGER NULL,
+            totp_digits INTEGER NULL,
             name TEXT NULL,
             status TEXT NOT NULL DEFAULT "active",
             last_login_at TEXT NULL,
