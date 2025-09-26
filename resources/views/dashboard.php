@@ -155,8 +155,8 @@ $wizardJson = htmlspecialchars(
             class="rounded-2xl border border-slate-800/80 bg-slate-900/70 shadow-xl"
         >
             <div class="border-b border-slate-800/60 px-6 py-4">
-                <h3 class="text-lg font-semibold text-white" x-text="steps[step - 1]?.title"></h3>
-                <p class="text-sm text-slate-400" x-text="steps[step - 1]?.helper"></p>
+                <h3 class="text-lg font-semibold text-white" x-text="steps[step - 1] ? steps[step - 1].title : ''"></h3>
+                <p class="text-sm text-slate-400" x-text="steps[step - 1] ? steps[step - 1].helper : ''"></p>
             </div>
             <div class="space-y-6 px-6 py-6">
                 <template x-if="isWizardDisabled">
@@ -355,9 +355,28 @@ $wizardJson = htmlspecialchars(
 <script>
     document.addEventListener('alpine:init', () => {
         Alpine.data('generationWizard', (config) => {
-            const defaultThinkingTime = Number.isFinite(config.defaultThinkingTime)
+            // Provide a resilient array check for browsers that lack Array.isArray.
+            const isArray = Array.isArray || function (value) {
+                return Object.prototype.toString.call(value) === '[object Array]';
+            };
+
+            const models = isArray(config.models) ? config.models : [];
+            const jobDocuments = isArray(config.jobDocuments) ? config.jobDocuments : [];
+            const cvDocuments = isArray(config.cvDocuments) ? config.cvDocuments : [];
+            const generations = isArray(config.generations) ? config.generations : [];
+
+            // Determine whether the provided value is a finite number before using it in calculations.
+            const isFiniteNumber = function (value) {
+                return typeof value === 'number' && isFinite(value);
+            };
+
+            const defaultThinkingTime = isFiniteNumber(config.defaultThinkingTime)
                 ? config.defaultThinkingTime
                 : 30;
+
+            const firstModelValue = models.length > 0 && typeof models[0].value === 'string'
+                ? models[0].value
+                : '';
 
             return {
                 step: 1,
@@ -367,14 +386,14 @@ $wizardJson = htmlspecialchars(
                     { index: 3, title: 'Set parameters', description: 'Adjust the model and thinking time.', helper: 'Choose the best model and allow enough thinking time for complex roles.' },
                     { index: 4, title: 'Confirm & queue', description: 'Review before submitting.', helper: 'Double-check your selections before queuing the request.' },
                 ],
-                jobDocuments: config.jobDocuments ?? [],
-                cvDocuments: config.cvDocuments ?? [],
-                models: config.models ?? [],
-                generations: config.generations ?? [],
+                jobDocuments,
+                cvDocuments,
+                models,
+                generations,
                 form: {
                     job_document_id: null,
                     cv_document_id: null,
-                    model: (config.models?.[0]?.value) ?? '',
+                    model: firstModelValue,
                     thinking_time: defaultThinkingTime,
                 },
                 defaultThinkingTime,
@@ -400,17 +419,37 @@ $wizardJson = htmlspecialchars(
                     return this.selectedJobDocument && this.selectedCvDocument && this.thinkingTimeIsValid;
                 },
                 get thinkingTimeIsValid() {
-                    return Number.isFinite(this.form.thinking_time) && this.form.thinking_time >= 5 && this.form.thinking_time <= 60;
+                    return isFiniteNumber(this.form.thinking_time) && this.form.thinking_time >= 5 && this.form.thinking_time <= 60;
                 },
                 get selectedJobDocument() {
-                    return this.jobDocuments.find((doc) => doc.id === this.form.job_document_id) ?? null;
+                    const documents = isArray(this.jobDocuments) ? this.jobDocuments : [];
+                    for (let index = 0; index < documents.length; index += 1) {
+                        const documentItem = documents[index];
+                        if (documentItem && documentItem.id === this.form.job_document_id) {
+                            return documentItem;
+                        }
+                    }
+                    return null;
                 },
                 get selectedCvDocument() {
-                    return this.cvDocuments.find((doc) => doc.id === this.form.cv_document_id) ?? null;
+                    const documents = isArray(this.cvDocuments) ? this.cvDocuments : [];
+                    for (let index = 0; index < documents.length; index += 1) {
+                        const documentItem = documents[index];
+                        if (documentItem && documentItem.id === this.form.cv_document_id) {
+                            return documentItem;
+                        }
+                    }
+                    return null;
                 },
                 get displayModelLabel() {
-                    const match = this.models.find((model) => model.value === this.form.model);
-                    return match ? match.label : this.form.model;
+                    const availableModels = isArray(this.models) ? this.models : [];
+                    for (let index = 0; index < availableModels.length; index += 1) {
+                        const model = availableModels[index];
+                        if (model && model.value === this.form.model) {
+                            return model.label;
+                        }
+                    }
+                    return this.form.model;
                 },
                 previous() {
                     if (this.step > 1) {
@@ -451,16 +490,25 @@ $wizardJson = htmlspecialchars(
                         const data = await response.json();
 
                         if (!response.ok) {
-                            this.error = data?.error ?? 'Unable to queue the generation. Please try again.';
+                            const message = data && typeof data.error === 'string'
+                                ? data.error
+                                : 'Unable to queue the generation. Please try again.';
+                            this.error = message;
                             return;
                         }
 
-                        this.generations.unshift({
+                        const list = isArray(this.generations) ? this.generations : [];
+
+                        list.unshift({
                             ...data,
-                            thinking_time: data.thinking_time ?? this.form.thinking_time,
+                            thinking_time: typeof data.thinking_time === 'number'
+                                ? data.thinking_time
+                                : this.form.thinking_time,
                             job_document: this.selectedJobDocument,
                             cv_document: this.selectedCvDocument,
                         });
+
+                        this.generations = list;
 
                         this.successMessage = 'Generation queued successfully.';
                         this.step = 1;
@@ -492,7 +540,9 @@ $wizardJson = htmlspecialchars(
 
                     this.form.job_document_id = null;
                     this.form.cv_document_id = null;
-                    this.form.model = (this.models?.[0]?.value) ?? '';
+                    this.form.model = (isArray(this.models) && this.models.length > 0 && typeof this.models[0].value === 'string')
+                        ? this.models[0].value
+                        : '';
                     this.form.thinking_time = this.defaultThinkingTime;
 
                     if (this.isWizardDisabled) {
