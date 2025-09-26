@@ -7,6 +7,7 @@ namespace App\Services;
 use DateInterval;
 use DateTimeImmutable;
 use PDO;
+use ParagonIE\ConstantTime\Base32;
 use Ramsey\Uuid\Uuid;
 
 class AuthService
@@ -15,6 +16,11 @@ class AuthService
     private const REGISTER_VERIFY_ACTION = 'register.verify';
     private const LOGIN_REQUEST_ACTION = 'login.request';
     private const LOGIN_VERIFY_ACTION = 'login.verify';
+
+    private const OTP_PERIOD_SECONDS = 600;
+    private const OTP_DIGITS = 6;
+    private const OTP_ALGORITHM = 'sha1';
+    private const OTP_ISSUER = 'job.smeird.com';
 
     private PDO $pdo;
     private RateLimiter $requestLimiter;
@@ -34,7 +40,7 @@ class AuthService
     }
 
     /**
-     * @return array{code: string, expires_at: DateTimeImmutable}
+     * @return array{code: string, secret: string, uri: string, expires_at: DateTimeImmutable}
      */
     public function initiateRegistration(string $email, string $ip, ?string $userAgent = null): array
     {
@@ -47,16 +53,18 @@ class AuthService
             throw new \RuntimeException('An account with that email already exists. Please log in.');
         }
 
-        $code = $this->generatePasscode();
+        $challenge = $this->createTotpChallenge($email);
         $expiresAt = (new DateTimeImmutable())->add(new DateInterval('PT10M'));
 
-        $this->storePasscode($email, 'register', $code, $expiresAt);
+        $this->storePasscode($email, 'register', $challenge, $expiresAt);
         $this->logAttempt($this->requestLimiter, $ip, $email, self::REGISTER_REQUEST_ACTION, $userAgent, ['stage' => 'request']);
 
         $this->auditLogger->log('auth.register.requested', ['status' => 'qr_generated'], null, $email, $ip, $userAgent);
 
         return [
-            'code' => $code,
+            'code' => $challenge['code'],
+            'secret' => $challenge['secret'],
+            'uri' => $challenge['uri'],
             'expires_at' => $expiresAt,
         ];
     }
@@ -90,7 +98,7 @@ class AuthService
     }
 
     /**
-     * @return array{code: string, expires_at: DateTimeImmutable}
+     * @return array{code: string, secret: string, uri: string, expires_at: DateTimeImmutable}
      */
     public function initiateLogin(string $email, string $ip, ?string $userAgent = null): array
     {
@@ -103,16 +111,18 @@ class AuthService
             throw new \RuntimeException('No account was found with that email. Please register first.');
         }
 
-        $code = $this->generatePasscode();
+        $challenge = $this->createTotpChallenge($email);
         $expiresAt = (new DateTimeImmutable())->add(new DateInterval('PT10M'));
 
-        $this->storePasscode($email, 'login', $code, $expiresAt);
+        $this->storePasscode($email, 'login', $challenge, $expiresAt);
         $this->logAttempt($this->requestLimiter, $ip, $email, self::LOGIN_REQUEST_ACTION, $userAgent, ['stage' => 'request']);
 
         $this->auditLogger->log('auth.login.requested', ['status' => 'qr_generated'], null, $email, $ip, $userAgent);
 
         return [
-            'code' => $code,
+            'code' => $challenge['code'],
+            'secret' => $challenge['secret'],
+            'uri' => $challenge['uri'],
             'expires_at' => $expiresAt,
         ];
     }
@@ -277,23 +287,44 @@ class AuthService
         return $id === false ? null : (int) $id;
     }
 
-    private function generatePasscode(): string
+    /**
+     * @return array{code: string, secret: string, uri: string, period: int, digits: int}
+     */
+    private function createTotpChallenge(string $email): array
     {
-        return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+        $secret = Base32::encodeUpper(random_bytes(20));
+        $period = self::OTP_PERIOD_SECONDS;
+        $digits = self::OTP_DIGITS;
+        $code = $this->calculateTotp($secret, $period, $digits, self::OTP_ALGORITHM, time());
+        $uri = $this->buildTotpUri($secret, $email, $period, $digits);
+
+        return [
+            'code' => $code,
+            'secret' => $secret,
+            'uri' => $uri,
+            'period' => $period,
+            'digits' => $digits,
+        ];
     }
 
-    private function storePasscode(string $email, string $action, string $code, DateTimeImmutable $expiresAt): void
+    /**
+     * @param array{code: string, secret: string, uri: string, period: int, digits: int} $challenge
+     */
+    private function storePasscode(string $email, string $action, array $challenge, DateTimeImmutable $expiresAt): void
     {
         $this->pdo->prepare('DELETE FROM pending_passcodes WHERE email = :email AND action = :action')->execute([
             'email' => $email,
             'action' => $action,
         ]);
 
-        $statement = $this->pdo->prepare('INSERT INTO pending_passcodes (email, action, code_hash, expires_at, created_at) VALUES (:email, :action, :code_hash, :expires_at, :created_at)');
+        $statement = $this->pdo->prepare('INSERT INTO pending_passcodes (email, action, code_hash, totp_secret, period_seconds, digits, expires_at, created_at) VALUES (:email, :action, :code_hash, :totp_secret, :period_seconds, :digits, :expires_at, :created_at)');
         $statement->execute([
             'email' => $email,
             'action' => $action,
-            'code_hash' => password_hash($code, PASSWORD_ARGON2ID),
+            'code_hash' => password_hash($challenge['code'], PASSWORD_ARGON2ID),
+            'totp_secret' => $challenge['secret'],
+            'period_seconds' => $challenge['period'],
+            'digits' => $challenge['digits'],
             'expires_at' => $expiresAt->format('Y-m-d H:i:s'),
             'created_at' => (new DateTimeImmutable())->format('Y-m-d H:i:s'),
         ]);
@@ -305,7 +336,7 @@ class AuthService
             'now' => (new DateTimeImmutable())->format('Y-m-d H:i:s'),
         ]);
 
-        $statement = $this->pdo->prepare('SELECT id, code_hash FROM pending_passcodes WHERE email = :email AND action = :action LIMIT 1');
+        $statement = $this->pdo->prepare('SELECT id, code_hash, totp_secret, period_seconds, digits FROM pending_passcodes WHERE email = :email AND action = :action LIMIT 1');
         $statement->execute([
             'email' => $email,
             'action' => $action,
@@ -313,12 +344,86 @@ class AuthService
 
         $row = $statement->fetch();
 
-        if ($row === false || !password_verify($code, $row['code_hash'])) {
+        if ($row === false) {
+            throw new \RuntimeException('Invalid or expired code.');
+        }
+
+        $isValid = false;
+
+        if (isset($row['totp_secret']) && is_string($row['totp_secret']) && $row['totp_secret'] !== '') {
+            $period = isset($row['period_seconds']) ? (int) $row['period_seconds'] : self::OTP_PERIOD_SECONDS;
+            $digits = isset($row['digits']) ? (int) $row['digits'] : self::OTP_DIGITS;
+
+            if ($this->verifyTotpCode($row['totp_secret'], $code, $period, $digits)) {
+                $isValid = true;
+            }
+        }
+
+        if (!$isValid && isset($row['code_hash']) && password_verify($code, $row['code_hash'])) {
+            $isValid = true;
+        }
+
+        if (!$isValid) {
             throw new \RuntimeException('Invalid or expired code.');
         }
 
         $delete = $this->pdo->prepare('DELETE FROM pending_passcodes WHERE id = :id');
         $delete->execute(['id' => $row['id']]);
+    }
+
+    private function verifyTotpCode(string $secret, string $code, int $period, int $digits): bool
+    {
+        $now = time();
+
+        foreach ([-1, 0, 1] as $window) {
+            $timestamp = $now + ($window * $period);
+            $expected = $this->calculateTotp($secret, $period, $digits, self::OTP_ALGORITHM, $timestamp);
+
+            if (hash_equals($expected, $code)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function calculateTotp(string $secret, int $period, int $digits, string $algorithm, int $timestamp): string
+    {
+        $key = Base32::decodeUpper($secret);
+        $counter = intdiv($timestamp, $period);
+        $binaryCounter = pack('N*', ($counter >> 32) & 0xffffffff, $counter & 0xffffffff);
+        $hash = hash_hmac($algorithm, $binaryCounter, $key, true);
+        $offset = ord(substr($hash, -1)) & 0x0f;
+        $segment = substr($hash, $offset, 4);
+        $value = unpack('N', $segment)[1] & 0x7fffffff;
+        $modulo = 10 ** $digits;
+        $code = $value % $modulo;
+
+        return str_pad((string) $code, $digits, '0', STR_PAD_LEFT);
+    }
+
+    private function buildTotpUri(string $secret, string $email, int $period, int $digits): string
+    {
+        $issuer = self::OTP_ISSUER;
+        $label = $issuer;
+
+        if ($email !== '') {
+            $label .= ':' . $email;
+        }
+
+        $params = [
+            'secret' => $secret,
+            'issuer' => $issuer,
+            'period' => $period,
+            'digits' => $digits,
+            'algorithm' => strtoupper(self::OTP_ALGORITHM),
+        ];
+
+        return sprintf(
+            'otpauth://totp/%s?%s',
+            rawurlencode($label),
+            http_build_query($params, '', '&', PHP_QUERY_RFC3986)
+        );
     }
 
     private function createSession(int $userId): array

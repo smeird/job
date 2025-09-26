@@ -8,6 +8,8 @@ use DateTimeInterface;
 /** @var string $buttonLabel */
 /** @var string|null $email */
 /** @var string $code */
+/** @var string $totpSecret */
+/** @var string $qrValue */
 /** @var string $instructions */
 /** @var DateTimeInterface $expiresAt */
 /** @var string $resendUrl */
@@ -15,6 +17,7 @@ use DateTimeInterface;
 /** @var string|null $csrfToken */
 
 $groupedCode = trim(chunk_split($code, 3, ' '));
+$formattedSecret = trim(chunk_split(strtoupper($totpSecret), 4, ' '));
 ?>
 <?php
 $formId = 'form-' . preg_replace('/[^a-z0-9]+/', '-', strtolower(trim((string) $actionUrl, '/')));
@@ -40,7 +43,7 @@ $codeInputId = $formId . '-code';
             role="img"
             aria-live="polite"
             aria-label="QR code containing your one-time 6-digit passcode"
-            data-qr-code="<?= htmlspecialchars($code, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
+            data-qr-code="<?= htmlspecialchars($qrValue, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
         >
             <span class="text-xs font-medium text-slate-600">Loading QR…</span>
         </div>
@@ -50,12 +53,20 @@ $codeInputId = $formId . '-code';
         <p class="text-xs uppercase tracking-widest text-slate-500">
             Expires at <?= htmlspecialchars($expiresAt->format('H:i T'), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
         </p>
-        <p class="text-sm text-slate-200">
-            Can't scan? Enter this code manually:
-            <span class="font-semibold tracking-widest text-indigo-300">
-                <?= htmlspecialchars($groupedCode, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
-            </span>
-        </p>
+        <div class="space-y-2">
+            <p class="text-sm text-slate-200">
+                Can't scan? Enter this 6-digit code before it expires:
+                <span class="font-semibold tracking-widest text-indigo-300">
+                    <?= htmlspecialchars($groupedCode, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                </span>
+            </p>
+            <p class="text-xs text-slate-400">
+                Adding it to an authenticator or password manager? Use this setup key:
+                <span class="font-mono tracking-widest text-indigo-200">
+                    <?= htmlspecialchars($formattedSecret, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                </span>
+            </p>
+        </div>
     </div>
     <form
         id="<?= htmlspecialchars($formId, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>"
