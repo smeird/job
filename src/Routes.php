@@ -31,10 +31,10 @@ class Routes
             return $container->get(HomeController::class)->index($request, $response);
         });
 
-        $app->get('/auth', function (Request $request, Response $response): Response {
-            return $response
-                ->withHeader('Location', '/auth/login')
-                ->withStatus(302);
+
+        $app->get('/auth', function (Request $request, Response $response) use ($container) {
+            return $container->get(AuthController::class)->showLogin($request, $response);
+
         });
 
         $app->get('/auth/register', function (Request $request, Response $response) use ($container) {
