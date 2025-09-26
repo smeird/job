@@ -36,6 +36,10 @@ class DocumentPreviewer
 
     private function renderDocx(string $content): string
     {
+        if (!class_exists(ZipArchive::class)) {
+            return '';
+        }
+
         $resource = tmpfile();
 
         if ($resource === false) {
