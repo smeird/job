@@ -11,11 +11,39 @@
 
 $fullWidth = true;
 
+$wizardSteps = [
+    [
+        'index' => 1,
+        'title' => 'Choose job description',
+        'description' => 'Select the role you want to tailor for.',
+        'helper' => 'Pick the job posting that best matches the next application.',
+    ],
+    [
+        'index' => 2,
+        'title' => 'Choose CV',
+        'description' => 'Decide which base CV to tailor.',
+        'helper' => 'Use the CV with the strongest baseline for this role.',
+    ],
+    [
+        'index' => 3,
+        'title' => 'Set parameters',
+        'description' => 'Adjust the model and thinking time.',
+        'helper' => 'Choose the best model and allow enough thinking time for complex roles.',
+    ],
+    [
+        'index' => 4,
+        'title' => 'Confirm & queue',
+        'description' => 'Review before submitting.',
+        'helper' => 'Double-check your selections before queuing the request.',
+    ],
+];
+
 $wizardState = [
     'jobDocuments' => $jobDocuments,
     'cvDocuments' => $cvDocuments,
     'models' => $modelOptions,
     'generations' => $generations,
+    'steps' => $wizardSteps,
 ];
 
 $wizardJson = htmlspecialchars(
@@ -148,15 +176,27 @@ $wizardJson = htmlspecialchars(
     <div class="grid gap-6 lg:grid-cols-[320px,1fr]">
         <nav class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6">
             <ol class="space-y-4">
-                <template x-for="item in steps" :key="item.index">
-                    <li class="flex items-start gap-3" :class="item.index === step ? 'text-white' : 'text-slate-500'">
-                        <span class="flex h-9 w-9 items-center justify-center rounded-full border" :class="item.index === step ? 'border-indigo-400 bg-indigo-500/20 text-indigo-200' : 'border-slate-700'">{{ item.index }}</span>
+                <?php foreach ($wizardSteps as $stepItem) : ?>
+                    <li
+                        class="flex items-start gap-3"
+                        :class="step === <?= (int) $stepItem['index'] ?> ? 'text-white' : 'text-slate-500'"
+                    >
+                        <span
+                            class="flex h-9 w-9 items-center justify-center rounded-full border"
+                            :class="step === <?= (int) $stepItem['index'] ?> ? 'border-indigo-400 bg-indigo-500/20 text-indigo-200' : 'border-slate-700'"
+                        >
+                            <?= (int) $stepItem['index'] ?>
+                        </span>
                         <div>
-                            <p class="text-sm font-semibold" x-text="item.title"></p>
-                            <p class="text-xs text-slate-500" x-text="item.description"></p>
+                            <p class="text-sm font-semibold">
+                                <?= htmlspecialchars($stepItem['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                            </p>
+                            <p class="text-xs text-slate-500">
+                                <?= htmlspecialchars($stepItem['description'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                            </p>
                         </div>
                     </li>
-                </template>
+                <?php endforeach; ?>
             </ol>
         </nav>
         <section
@@ -165,9 +205,14 @@ $wizardJson = htmlspecialchars(
             tabindex="-1"
             class="rounded-2xl border border-slate-800/80 bg-slate-900/70 shadow-xl"
         >
+            <?php $firstWizardStep = $wizardSteps[0] ?? ['title' => 'Tailor your application', 'helper' => 'Follow the steps to queue a tailored CV.']; ?>
             <div class="border-b border-slate-800/60 px-6 py-4">
-                <h3 class="text-lg font-semibold text-white" x-text="steps[step - 1] ? steps[step - 1].title : ''"></h3>
-                <p class="text-sm text-slate-400" x-text="steps[step - 1] ? steps[step - 1].helper : ''"></p>
+                <h3 class="text-lg font-semibold text-white" x-text="steps[step - 1] ? steps[step - 1].title : ''">
+                    <?= htmlspecialchars($firstWizardStep['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                </h3>
+                <p class="text-sm text-slate-400" x-text="steps[step - 1] ? steps[step - 1].helper : ''">
+                    <?= htmlspecialchars($firstWizardStep['helper'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                </p>
             </div>
             <div class="space-y-6 px-6 py-6">
                 <template x-if="isWizardDisabled">
@@ -382,6 +427,52 @@ $wizardJson = htmlspecialchars(
                 return typeof value === 'number' && isFinite(value);
             };
 
+            // Normalise the steps collection so static HTML fallbacks stay in sync with the interactive wizard behaviour.
+            const normaliseSteps = function (value) {
+                if (!isArray(value)) {
+                    return [];
+                }
+
+                const list = [];
+
+                for (let index = 0; index < value.length; index += 1) {
+                    const stepItem = value[index];
+
+                    if (!stepItem) {
+                        continue;
+                    }
+
+                    const parsedIndex = typeof stepItem.index === 'number'
+                        ? stepItem.index
+                        : parseInt(stepItem.index, 10);
+
+                    const title = typeof stepItem.title === 'string' ? stepItem.title : '';
+                    const description = typeof stepItem.description === 'string' ? stepItem.description : '';
+                    const helper = typeof stepItem.helper === 'string' ? stepItem.helper : '';
+
+                    if (isFiniteNumber(parsedIndex) && title !== '') {
+                        list.push({
+                            index: parsedIndex,
+                            title,
+                            description,
+                            helper,
+                        });
+                    }
+                }
+
+                list.sort(function (a, b) {
+                    if (a.index < b.index) {
+                        return -1;
+                    }
+                    if (a.index > b.index) {
+                        return 1;
+                    }
+                    return 0;
+                });
+
+                return list;
+            };
+
             const defaultThinkingTime = isFiniteNumber(config.defaultThinkingTime)
 
                 ? config.defaultThinkingTime
@@ -391,14 +482,20 @@ $wizardJson = htmlspecialchars(
                 ? models[0].value
                 : '';
 
-            return {
-                step: 1,
-                steps: [
+            const providedSteps = normaliseSteps(config.steps);
+
+            const steps = providedSteps.length > 0
+                ? providedSteps
+                : [
                     { index: 1, title: 'Choose job description', description: 'Select the role you want to tailor for.', helper: 'Pick the job posting that best matches the next application.' },
                     { index: 2, title: 'Choose CV', description: 'Decide which base CV to tailor.', helper: 'Use the CV with the strongest baseline for this role.' },
                     { index: 3, title: 'Set parameters', description: 'Adjust the model and thinking time.', helper: 'Choose the best model and allow enough thinking time for complex roles.' },
                     { index: 4, title: 'Confirm & queue', description: 'Review before submitting.', helper: 'Double-check your selections before queuing the request.' },
-                ],
+                ];
+
+            return {
+                step: 1,
+                steps,
                 jobDocuments,
                 cvDocuments,
                 models,
