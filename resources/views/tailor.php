@@ -15,26 +15,26 @@ $wizardSteps = [
     [
         'index' => 1,
         'title' => 'Choose job description',
-        'description' => 'Select the role you want to tailor for.',
-        'helper' => 'Pick the job posting that best matches the next application.',
+        'summary' => 'Select the job description you want to tailor for.',
+        'helper' => 'Pick the posting that matches the upcoming application.',
     ],
     [
         'index' => 2,
         'title' => 'Choose CV',
-        'description' => 'Decide which base CV to tailor.',
-        'helper' => 'Use the CV with the strongest baseline for this role.',
+        'summary' => 'Select the CV that provides the best foundation.',
+        'helper' => 'Use the document that already aligns with the role.',
     ],
     [
         'index' => 3,
         'title' => 'Set parameters',
-        'description' => 'Adjust the model and thinking time.',
-        'helper' => 'Choose the best model and allow enough thinking time for complex roles.',
+        'summary' => 'Adjust the AI model and thinking time.',
+        'helper' => 'Higher thinking time gives GPT-5 more reasoning space.',
     ],
     [
         'index' => 4,
         'title' => 'Confirm & queue',
-        'description' => 'Review before submitting.',
-        'helper' => 'Double-check your selections before queuing the request.',
+        'summary' => 'Review your selections before submission.',
+        'helper' => 'Submit when everything looks correct.',
     ],
 ];
 
@@ -44,38 +44,47 @@ $wizardState = [
     'models' => $modelOptions,
     'generations' => $generations,
     'steps' => $wizardSteps,
+    'defaultThinkingTime' => 30,
 ];
 
 $wizardJson = htmlspecialchars(
     json_encode($wizardState, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-    ENT_QUOTES,
+    ENT_QUOTES | ENT_SUBSTITUTE,
     'UTF-8'
 );
 
-$additionalHead = '<script src="/assets/js/dashboard.js" defer></script>';
+$additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
 ?>
 <?php ob_start(); ?>
 
 <div
-    x-data="generationWizard(<?= $wizardJson ?>)"
-    x-init="startNewGeneration()"
-    class="space-y-10"
+    x-data="tailorWizard(<?= $wizardJson ?>)"
+    x-init="initialise()"
+    class="space-y-12"
 >
     <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-            <p class="text-sm uppercase tracking-widest text-indigo-400">Signed in as <?= htmlspecialchars($email, ENT_QUOTES) ?></p>
+            <p class="text-sm uppercase tracking-widest text-indigo-400">
+                Signed in as <?= htmlspecialchars($email, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+            </p>
             <h2 class="mt-2 text-3xl font-semibold tracking-tight text-white">Tailor a CV</h2>
             <p class="mt-2 text-base text-slate-400">
-                Pair a job description with your strongest CV, fine-tune the generation settings, and queue the request for processing.
+                Choose a job description, pick the seed CV, set the AI parameters, and queue the request for processing.
             </p>
         </div>
         <div class="flex flex-col gap-3 md:items-end">
-            <a href="/" class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800">
+            <a
+                href="/"
+                class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800"
+            >
                 ← Back to dashboard
             </a>
             <form method="post" action="/auth/logout" class="md:self-end">
                 <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
-                <button type="submit" class="inline-flex items-center justify-center rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800">
+                <button
+                    type="submit"
+                    class="inline-flex items-center justify-center rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800"
+                >
                     Sign out
                 </button>
             </form>
@@ -83,7 +92,7 @@ $additionalHead = '<script src="/assets/js/dashboard.js" defer></script>';
     </div>
 
     <div class="grid gap-6 lg:grid-cols-[320px,1fr]">
-        <nav class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6">
+        <aside class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6">
             <ol class="space-y-4">
                 <?php foreach ($wizardSteps as $stepItem) : ?>
                     <?php $stepIndex = (int) $stepItem['index']; ?>
@@ -91,48 +100,48 @@ $additionalHead = '<script src="/assets/js/dashboard.js" defer></script>';
                         <button
                             type="button"
                             class="flex w-full items-start gap-3 text-left"
-                            :class="isStepReachable(<?= $stepIndex ?>) ? (step === <?= $stepIndex ?> ? 'text-white' : 'text-slate-500 hover:text-slate-300 transition') : 'cursor-not-allowed text-slate-700'"
-                            :disabled="!isStepReachable(<?= $stepIndex ?>)"
-                            :aria-disabled="isStepReachable(<?= $stepIndex ?>) ? 'false' : 'true'"
-                            @click="goToStep(<?= $stepIndex ?>)"
+                            :class="canAccessStep(<?= $stepIndex ?>) ? (step === <?= $stepIndex ?> ? 'text-white' : 'text-slate-500 hover:text-slate-300 transition') : 'cursor-not-allowed text-slate-700'"
+                            :disabled="!canAccessStep(<?= $stepIndex ?>)"
+                            :aria-disabled="canAccessStep(<?= $stepIndex ?>) ? 'false' : 'true'"
+                            @click="goTo(<?= $stepIndex ?>)"
                         >
                             <span
                                 class="flex h-9 w-9 items-center justify-center rounded-full border"
-                                :class="step === <?= $stepIndex ?> ? 'border-indigo-400 bg-indigo-500/20 text-indigo-200' : (isStepReachable(<?= $stepIndex ?>) ? 'border-slate-700' : 'border-slate-800/80')"
+                                :class="step === <?= $stepIndex ?> ? 'border-indigo-400 bg-indigo-500/20 text-indigo-200' : (canAccessStep(<?= $stepIndex ?>) ? 'border-slate-700' : 'border-slate-800/80')"
                             >
                                 <?= $stepIndex ?>
                             </span>
-
                             <div>
                                 <p class="text-sm font-semibold">
                                     <?= htmlspecialchars($stepItem['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
                                 </p>
                                 <p class="text-xs text-slate-500">
-                                    <?= htmlspecialchars($stepItem['description'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                                    <?= htmlspecialchars($stepItem['summary'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
                                 </p>
                             </div>
                         </button>
                     </li>
                 <?php endforeach; ?>
             </ol>
-        </nav>
+        </aside>
+
         <section
-            x-ref="wizardPanel"
+            x-ref="panel"
             id="tailor-wizard"
             tabindex="-1"
             class="rounded-2xl border border-slate-800/80 bg-slate-900/70 shadow-xl"
         >
-            <?php $firstWizardStep = $wizardSteps[0] ?? ['title' => 'Tailor your application', 'helper' => 'Follow the steps to queue a tailored CV.']; ?>
+            <?php $initialStep = $wizardSteps[0] ?? ['title' => 'Tailor your application', 'helper' => 'Follow the steps to queue a tailored CV.']; ?>
             <div class="border-b border-slate-800/60 px-6 py-4">
-                <h3 class="text-lg font-semibold text-white" x-text="steps[step - 1] ? steps[step - 1].title : ''">
-                    <?= htmlspecialchars($firstWizardStep['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                <h3 class="text-lg font-semibold text-white" x-text="activeStep ? activeStep.title : ''">
+                    <?= htmlspecialchars($initialStep['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
                 </h3>
-                <p class="text-sm text-slate-400" x-text="steps[step - 1] ? steps[step - 1].helper : ''">
-                    <?= htmlspecialchars($firstWizardStep['helper'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                <p class="text-sm text-slate-400" x-text="activeStep ? activeStep.helper : ''">
+                    <?= htmlspecialchars($initialStep['helper'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
                 </p>
             </div>
             <div class="space-y-6 px-6 py-6">
-                <template x-if="isWizardDisabled">
+                <template x-if="isDisabled">
                     <div class="rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-200">
                         Upload at least one job description and CV to begin.
                     </div>
@@ -145,8 +154,13 @@ $additionalHead = '<script src="/assets/js/dashboard.js" defer></script>';
                         </p>
                     </template>
                     <template x-for="job in jobDocuments" :key="job.id">
-                        <label class="flex cursor-pointer flex-col gap-1 rounded-xl border px-4 py-3 transition" :class="form.job_document_id === job.id ? 'border-indigo-400 bg-indigo-500/10 text-white' : 'border-slate-700 hover:border-slate-500 hover:bg-slate-800/40'">
-                            <div class="flex items-center justify-between">
+                        <button
+                            type="button"
+                            class="flex w-full flex-col gap-1 rounded-xl border px-4 py-3 text-left transition"
+                            :class="form.job_document_id === job.id ? 'border-indigo-400 bg-indigo-500/10 text-white' : 'border-slate-700 hover:border-slate-500 hover:bg-slate-800/40'"
+                            @click="selectJob(job.id)"
+                        >
+                            <div class="flex items-center justify-between gap-3">
                                 <div class="flex items-center gap-3">
                                     <span class="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-200">
                                         <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -155,15 +169,16 @@ $additionalHead = '<script src="/assets/js/dashboard.js" defer></script>';
                                     </span>
                                     <div>
                                         <p class="font-medium" x-text="job.filename"></p>
-                                        <p class="text-xs text-slate-400">Added <span x-text="formatDate(job.created_at)"></span></p>
+                                        <p class="text-xs text-slate-400">
+                                            Added <span x-text="formatDate(job.created_at)"></span>
+                                        </p>
                                     </div>
                                 </div>
-                                <input type="radio" class="hidden" name="job_document" :value="job.id" x-model="form.job_document_id">
                                 <span class="text-xs uppercase tracking-wide" :class="form.job_document_id === job.id ? 'text-indigo-300' : 'text-slate-500'">
                                     Select
                                 </span>
                             </div>
-                        </label>
+                        </button>
                     </template>
                 </div>
 
@@ -174,8 +189,13 @@ $additionalHead = '<script src="/assets/js/dashboard.js" defer></script>';
                         </p>
                     </template>
                     <template x-for="cv in cvDocuments" :key="cv.id">
-                        <label class="flex cursor-pointer flex-col gap-1 rounded-xl border px-4 py-3 transition" :class="form.cv_document_id === cv.id ? 'border-indigo-400 bg-indigo-500/10 text-white' : 'border-slate-700 hover:border-slate-500 hover:bg-slate-800/40'">
-                            <div class="flex items-center justify-between">
+                        <button
+                            type="button"
+                            class="flex w-full flex-col gap-1 rounded-xl border px-4 py-3 text-left transition"
+                            :class="form.cv_document_id === cv.id ? 'border-indigo-400 bg-indigo-500/10 text-white' : 'border-slate-700 hover:border-slate-500 hover:bg-slate-800/40'"
+                            @click="selectCv(cv.id)"
+                        >
+                            <div class="flex items-center justify-between gap-3">
                                 <div class="flex items-center gap-3">
                                     <span class="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-200">
                                         <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
@@ -184,24 +204,30 @@ $additionalHead = '<script src="/assets/js/dashboard.js" defer></script>';
                                     </span>
                                     <div>
                                         <p class="font-medium" x-text="cv.filename"></p>
-                                        <p class="text-xs text-slate-400">Added <span x-text="formatDate(cv.created_at)"></span></p>
+                                        <p class="text-xs text-slate-400">
+                                            Added <span x-text="formatDate(cv.created_at)"></span>
+                                        </p>
                                     </div>
                                 </div>
-                                <input type="radio" class="hidden" name="cv_document" :value="cv.id" x-model="form.cv_document_id">
                                 <span class="text-xs uppercase tracking-wide" :class="form.cv_document_id === cv.id ? 'text-indigo-300' : 'text-slate-500'">
                                     Select
                                 </span>
                             </div>
-                        </label>
+                        </button>
                     </template>
                 </div>
 
                 <div x-show="step === 3" x-cloak class="space-y-6">
-                    <div>
+                    <div class="space-y-3">
                         <p class="text-sm font-medium text-slate-200">Model</p>
-                        <div class="mt-3 grid gap-3 md:grid-cols-3">
+                        <div class="grid gap-3 md:grid-cols-3">
                             <template x-for="model in models" :key="model.value">
-                                <button type="button" class="w-full rounded-xl border px-4 py-3 text-left text-sm transition" :class="form.model === model.value ? 'border-indigo-400 bg-indigo-500/10 text-white' : 'border-slate-700 hover:border-slate-500 hover:bg-slate-800/40'" @click="form.model = model.value">
+                                <button
+                                    type="button"
+                                    class="w-full rounded-xl border px-4 py-3 text-left text-sm transition"
+                                    :class="form.model === model.value ? 'border-indigo-400 bg-indigo-500/10 text-white' : 'border-slate-700 hover:border-slate-500 hover:bg-slate-800/40'"
+                                    @click="setModel(model.value)"
+                                >
                                     <p class="font-semibold" x-text="model.label"></p>
                                     <p class="mt-1 text-xs text-slate-400" x-text="model.value"></p>
                                 </button>
@@ -213,8 +239,17 @@ $additionalHead = '<script src="/assets/js/dashboard.js" defer></script>';
                             <span>Thinking time (seconds)</span>
                             <span class="font-semibold text-indigo-200" x-text="form.thinking_time + 's'"></span>
                         </div>
-                        <input type="range" min="5" max="60" step="5" x-model.number="form.thinking_time" class="w-full accent-indigo-500">
-                        <p class="text-xs text-slate-400">Give GPT-5 a little more time for deeper reasoning. Thirty seconds is a balanced default.</p>
+                        <input
+                            type="range"
+                            min="5"
+                            max="60"
+                            step="5"
+                            x-model.number="form.thinking_time"
+                            class="w-full accent-indigo-500"
+                        >
+                        <p class="text-xs text-slate-400">
+                            Give GPT-5 more time for complex roles. Thirty seconds is a balanced default.
+                        </p>
                     </div>
                 </div>
 
@@ -224,15 +259,15 @@ $additionalHead = '<script src="/assets/js/dashboard.js" defer></script>';
                         <dl class="mt-3 space-y-2 text-sm text-slate-300">
                             <div class="flex items-start justify-between gap-4">
                                 <dt class="text-slate-400">Job description</dt>
-                                <dd class="font-medium text-right" x-text="selectedJobDocument ? selectedJobDocument.filename : 'None selected'"></dd>
+                                <dd class="font-medium text-right" x-text="selectedJob ? selectedJob.filename : 'None selected'"></dd>
                             </div>
                             <div class="flex items-start justify-between gap-4">
                                 <dt class="text-slate-400">CV</dt>
-                                <dd class="font-medium text-right" x-text="selectedCvDocument ? selectedCvDocument.filename : 'None selected'"></dd>
+                                <dd class="font-medium text-right" x-text="selectedCv ? selectedCv.filename : 'None selected'"></dd>
                             </div>
                             <div class="flex items-start justify-between gap-4">
                                 <dt class="text-slate-400">Model</dt>
-                                <dd class="font-medium text-right" x-text="displayModelLabel"></dd>
+                                <dd class="font-medium text-right" x-text="selectedModelLabel"></dd>
                             </div>
                             <div class="flex items-start justify-between gap-4">
                                 <dt class="text-slate-400">Thinking time</dt>
@@ -241,30 +276,46 @@ $additionalHead = '<script src="/assets/js/dashboard.js" defer></script>';
                         </dl>
                     </div>
                     <div class="rounded-xl border border-indigo-500/30 bg-indigo-500/10 p-4 text-sm text-indigo-100">
-                        Once submitted, the request appears in your queue with status <strong class="font-semibold">queued</strong> until processing begins.
+                        Once submitted, the request appears in your queue with the status <strong class="font-semibold">queued</strong> until processing begins.
                     </div>
                 </div>
 
                 <div class="flex flex-col gap-3 border-t border-slate-800/60 pt-4 sm:flex-row sm:justify-between">
                     <div class="space-y-2">
-                        <template x-if="error">
-                            <div class="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200" x-text="error"></div>
+                        <template x-if="errorMessage">
+                            <div class="rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200" x-text="errorMessage"></div>
                         </template>
                         <template x-if="successMessage">
                             <div class="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-200" x-text="successMessage"></div>
                         </template>
                     </div>
                     <div class="flex flex-col gap-3 sm:flex-row">
-                        <button type="button" class="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-slate-500 hover:bg-slate-800/60" @click="previous()" :disabled="step === 1" :class="step === 1 ? 'cursor-not-allowed opacity-40' : ''">
+                        <button
+                            type="button"
+                            class="rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-300 transition hover:border-slate-500 hover:bg-slate-800/60"
+                            @click="previous()"
+                            :disabled="step === 1"
+                            :class="step === 1 ? 'cursor-not-allowed opacity-40' : ''"
+                        >
                             Back
                         </button>
                         <template x-if="step < steps.length">
-                            <button type="button" class="rounded-lg bg-indigo-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50" @click="next()" :disabled="!canMoveForward || isWizardDisabled">
+                            <button
+                                type="button"
+                                class="rounded-lg bg-indigo-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                @click="next()"
+                                :disabled="!canContinue || isDisabled"
+                            >
                                 Continue
                             </button>
                         </template>
                         <template x-if="step === steps.length">
-                            <button type="button" class="rounded-lg bg-indigo-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50" @click="submit()" :disabled="isSubmitting || isWizardDisabled || !canSubmit">
+                            <button
+                                type="button"
+                                class="rounded-lg bg-indigo-500 px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+                                @click="queue()"
+                                :disabled="isSubmitting || isDisabled || !canSubmit"
+                            >
                                 <span x-show="!isSubmitting">Confirm &amp; queue</span>
                                 <span x-show="isSubmitting" class="inline-flex items-center gap-2">
                                     <svg class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -310,12 +361,16 @@ $additionalHead = '<script src="/assets/js/dashboard.js" defer></script>';
                     <template x-for="item in generations" :key="item.id">
                         <tr class="hover:bg-slate-800/40">
                             <td class="px-4 py-4 text-slate-300" x-text="formatDateTime(item.created_at)"></td>
-                            <td class="px-4 py-4 font-medium text-slate-200" x-text="item.job_document.filename"></td>
-                            <td class="px-4 py-4" x-text="item.cv_document.filename"></td>
+                            <td class="px-4 py-4 font-medium text-slate-200" x-text="item.job_document && item.job_document.filename ? item.job_document.filename : ''"></td>
+                            <td class="px-4 py-4" x-text="item.cv_document && item.cv_document.filename ? item.cv_document.filename : ''"></td>
                             <td class="px-4 py-4" x-text="item.model"></td>
-                            <td class="px-4 py-4" x-text="item.thinking_time + 's'"></td>
+                            <td class="px-4 py-4" x-text="(item.thinking_time || 0) + 's'"></td>
                             <td class="px-4 py-4">
-                                <span class="inline-flex items-center rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold uppercase tracking-wide" :class="item.status === 'queued' ? 'text-amber-200 bg-amber-500/10 border border-amber-400/30' : 'text-emerald-200 bg-emerald-500/10 border border-emerald-400/30'" x-text="item.status"></span>
+                                <span
+                                    class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+                                    :class="item.status === 'queued' ? 'text-amber-200 border-amber-400/30 bg-amber-500/10' : 'text-emerald-200 border-emerald-400/30 bg-emerald-500/10'"
+                                    x-text="item.status"
+                                ></span>
                             </td>
                         </tr>
                     </template>
