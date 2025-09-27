@@ -81,7 +81,11 @@ $additionalHead = '<script src="/assets/js/dashboard.js" defer></script>';
     </div>
 
     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <a href="#tailor-wizard" class="group flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-100">
+        <a
+            href="#tailor-wizard"
+            class="group flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-100"
+            @click.prevent="startNewGeneration()"
+        >
             <span class="inline-flex items-center gap-2">
                 <span class="rounded-full bg-indigo-500/20 px-2 py-1 text-xs uppercase tracking-wide text-indigo-200">Tailor</span>
                 <span>Start tailoring</span>
@@ -173,25 +177,32 @@ $additionalHead = '<script src="/assets/js/dashboard.js" defer></script>';
             <ol class="space-y-4">
 
                 <?php foreach ($wizardSteps as $stepItem) : ?>
-                    <li
-                        class="flex items-start gap-3"
-                        :class="step === <?= (int) $stepItem['index'] ?> ? 'text-white' : 'text-slate-500'"
-                    >
-                        <span
-                            class="flex h-9 w-9 items-center justify-center rounded-full border"
-                            :class="step === <?= (int) $stepItem['index'] ?> ? 'border-indigo-400 bg-indigo-500/20 text-indigo-200' : 'border-slate-700'"
+                    <?php $stepIndex = (int) $stepItem['index']; ?>
+                    <li class="flex items-start gap-3">
+                        <button
+                            type="button"
+                            class="flex w-full items-start gap-3 text-left"
+                            :class="isStepReachable(<?= $stepIndex ?>) ? (step === <?= $stepIndex ?> ? 'text-white' : 'text-slate-500 hover:text-slate-300 transition') : 'cursor-not-allowed text-slate-700'"
+                            :disabled="!isStepReachable(<?= $stepIndex ?>)"
+                            :aria-disabled="isStepReachable(<?= $stepIndex ?>) ? 'false' : 'true'"
+                            @click="goToStep(<?= $stepIndex ?>)"
                         >
-                            <?= (int) $stepItem['index'] ?>
-                        </span>
+                            <span
+                                class="flex h-9 w-9 items-center justify-center rounded-full border"
+                                :class="step === <?= $stepIndex ?> ? 'border-indigo-400 bg-indigo-500/20 text-indigo-200' : (isStepReachable(<?= $stepIndex ?>) ? 'border-slate-700' : 'border-slate-800/80')"
+                            >
+                                <?= $stepIndex ?>
+                            </span>
 
-                        <div>
-                            <p class="text-sm font-semibold">
-                                <?= htmlspecialchars($stepItem['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
-                            </p>
-                            <p class="text-xs text-slate-500">
-                                <?= htmlspecialchars($stepItem['description'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
-                            </p>
-                        </div>
+                            <div>
+                                <p class="text-sm font-semibold">
+                                    <?= htmlspecialchars($stepItem['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                                </p>
+                                <p class="text-xs text-slate-500">
+                                    <?= htmlspecialchars($stepItem['description'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
+                                </p>
+                            </div>
+                        </button>
                     </li>
                 <?php endforeach; ?>
             </ol>

@@ -227,6 +227,63 @@
                     }
                 },
                 /**
+                 * Confirm whether the requested step can be accessed with the current selections.
+                 *
+                 * @param {number} targetStep The step identifier the user wants to open.
+                 * @returns {boolean} True when the step is available for navigation.
+                 */
+                isStepReachable(targetStep) {
+                    const parsedStep = typeof targetStep === 'number'
+                        ? targetStep
+                        : parseInt(targetStep, 10);
+
+                    if (!isFiniteNumber(parsedStep)) {
+                        return false;
+                    }
+
+                    const stepCount = isArray(this.steps) ? this.steps.length : 0;
+
+                    if (parsedStep < 1 || parsedStep > stepCount) {
+                        return false;
+                    }
+
+                    if (parsedStep === 1) {
+                        return true;
+                    }
+
+                    if (this.form.job_document_id === null) {
+                        return false;
+                    }
+
+                    if (parsedStep >= 3 && this.form.cv_document_id === null) {
+                        return false;
+                    }
+
+                    if (parsedStep >= 4 && (this.form.model === '' || !this.thinkingTimeIsValid)) {
+                        return false;
+                    }
+
+                    return true;
+                },
+                /**
+                 * Jump directly to a requested wizard step when prerequisites are satisfied.
+                 *
+                 * @param {number} targetStep The step identifier to make active.
+                 */
+                goToStep(targetStep) {
+                    const parsedStep = typeof targetStep === 'number'
+                        ? targetStep
+                        : parseInt(targetStep, 10);
+
+                    if (!this.isStepReachable(parsedStep)) {
+                        return;
+                    }
+
+                    this.step = parsedStep;
+                    this.error = '';
+                    this.successMessage = '';
+                },
+                /**
                  * Advance the wizard when the current step passes validation checks.
                  */
                 next() {
