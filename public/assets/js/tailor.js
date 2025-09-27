@@ -260,6 +260,7 @@
                 return this.selectedJob !== null && this.selectedCv !== null && this.thinkingTimeIsValid;
             },
 
+
             /**
              * Validate the thinking time slider value.
              *
@@ -300,6 +301,7 @@
                         return item.label || item.value;
                     }
                 }
+
 
                 return this.form.model;
             },
@@ -346,11 +348,13 @@
                     return;
                 }
 
+
                 this.step = normaliseNumber(targetStep, this.step);
                 this.errorMessage = '';
                 this.successMessage = '';
                 this.schedulePanelFocus();
             },
+
 
             /**
              * Advance the wizard to the next step.
@@ -363,6 +367,7 @@
                     this.schedulePanelFocus();
                 }
             },
+
 
             /**
              * Return to the previous step and clear transient messaging.
@@ -583,5 +588,6 @@
         }
 
         document.addEventListener('alpine:init', handleAlpineInitEvent);
+
     }
 })();
