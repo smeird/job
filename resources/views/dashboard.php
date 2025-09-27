@@ -150,7 +150,11 @@ $wizardJson = htmlspecialchars(
             <ol class="space-y-4">
                 <template x-for="item in steps" :key="item.index">
                     <li class="flex items-start gap-3" :class="item.index === step ? 'text-white' : 'text-slate-500'">
-                        <span class="flex h-9 w-9 items-center justify-center rounded-full border" :class="item.index === step ? 'border-indigo-400 bg-indigo-500/20 text-indigo-200' : 'border-slate-700'">{{ item.index }}</span>
+                        <span
+                            class="flex h-9 w-9 items-center justify-center rounded-full border"
+                            :class="item.index === step ? 'border-indigo-400 bg-indigo-500/20 text-indigo-200' : 'border-slate-700'"
+                            x-text="item.index"
+                        ></span>
                         <div>
                             <p class="text-sm font-semibold" x-text="item.title"></p>
                             <p class="text-xs text-slate-500" x-text="item.description"></p>
