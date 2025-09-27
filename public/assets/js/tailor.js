@@ -552,12 +552,12 @@
 
         if (window.Alpine) {
             registerTailorWizard(window.Alpine);
-        } else {
-            document.addEventListener('alpine:init', function (event) {
+        } else {           document.addEventListener('alpine:init', function (event) {
                 // Use the Alpine instance provided by the event detail, falling back to the global reference.
                 const alpineInstance = event && event.detail ? event.detail : window.Alpine;
 
                 registerTailorWizard(alpineInstance);
+
             });
         }
     }
