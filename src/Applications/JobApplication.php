@@ -32,6 +32,9 @@ class JobApplication
     /** @var string|null */
     private $reasonCode;
 
+    /** @var int|null */
+    private $generationId;
+
     /** @var DateTimeImmutable */
     private $createdAt;
 
@@ -52,6 +55,7 @@ class JobApplication
         string $status,
         ?DateTimeImmutable $appliedAt,
         ?string $reasonCode,
+        ?int $generationId,
         DateTimeImmutable $createdAt,
         DateTimeImmutable $updatedAt
     ) {
@@ -63,6 +67,7 @@ class JobApplication
         $this->status = $status;
         $this->appliedAt = $appliedAt;
         $this->reasonCode = $reasonCode;
+        $this->generationId = $generationId;
         $this->createdAt = $createdAt;
         $this->updatedAt = $updatedAt;
     }
@@ -138,6 +143,16 @@ class JobApplication
     }
 
     /**
+     * Handle the generation id operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
+    public function generationId(): ?int
+    {
+        return $this->generationId;
+    }
+
+    /**
      * Handle the applied at operation.
      *
      * Documenting this helper clarifies its role within the wider workflow.
@@ -187,6 +202,29 @@ class JobApplication
             $status,
             $appliedAt,
             $reasonCode,
+            $this->generationId,
+            $this->createdAt,
+            $updatedAt
+        );
+    }
+
+    /**
+     * Handle the with generation operation.
+     *
+     * This helper keeps immutable updates consistent when linking tailored drafts.
+     */
+    public function withGeneration(?int $generationId, DateTimeImmutable $updatedAt): self
+    {
+        return new self(
+            $this->id,
+            $this->userId,
+            $this->title,
+            $this->sourceUrl,
+            $this->description,
+            $this->status,
+            $this->appliedAt,
+            $this->reasonCode,
+            $generationId,
             $this->createdAt,
             $updatedAt
         );

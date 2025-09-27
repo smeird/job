@@ -5,6 +5,7 @@
 /** @var array<int, array<string, mixed>> $outstanding */
 /** @var array<int, array<string, mixed>> $applied */
 /** @var array<int, array<string, mixed>> $failed */
+/** @var array<int, array{id: int, label: string}> $generationOptions */
 /** @var array<int, string> $errors */
 /** @var string|null $status */
 /** @var array<string, string> $form */
@@ -160,6 +161,53 @@
                                         </form>
                                     </div>
                                 </header>
+                                <?php $generationFieldId = 'generation_' . ($item['id'] ?? '0') . '_outstanding'; ?>
+                                <div class="mt-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+                                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                        <div class="space-y-1">
+                                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tailored CV link</p>
+                                            <?php if (!empty($item['generation'])) : ?>
+                                                <p class="text-sm text-slate-200">
+                                                    <?= htmlspecialchars($item['generation']['cv_filename'] ?? 'CV draft', ENT_QUOTES) ?>
+                                                    <span class="text-slate-500">→</span>
+                                                    <?= htmlspecialchars($item['generation']['job_filename'] ?? 'Job description', ENT_QUOTES) ?>
+                                                </p>
+                                                <?php if (!empty($item['generation']['created_at'])) : ?>
+                                                    <p class="text-xs text-slate-500">
+                                                        Generated <?= htmlspecialchars($item['generation']['created_at'], ENT_QUOTES) ?>
+                                                    </p>
+                                                <?php endif; ?>
+                                            <?php else : ?>
+                                                <p class="text-sm text-slate-400">No tailored CV linked yet.</p>
+                                            <?php endif; ?>
+                                        </div>
+                                        <form method="post" action="/applications/<?= urlencode((string) $item['id']) ?>/generation" class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+                                            <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                                            <label for="<?= htmlspecialchars($generationFieldId, ENT_QUOTES) ?>" class="sr-only">Select tailored CV</label>
+                                            <select
+                                                id="<?= htmlspecialchars($generationFieldId, ENT_QUOTES) ?>"
+                                                name="generation_id"
+                                                class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 md:min-w-[220px]"
+                                            >
+                                                <option value="">No tailored CV</option>
+                                                <?php foreach ($generationOptions as $option) : ?>
+                                                    <?php $optionId = (int) $option['id']; ?>
+                                                    <option value="<?= htmlspecialchars((string) $optionId, ENT_QUOTES) ?>" <?= (isset($item['generation_id']) && (int) $item['generation_id'] === $optionId) ? 'selected' : '' ?>>
+                                                        <?= htmlspecialchars($option['label'], ENT_QUOTES) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-700">
+                                                Update link
+                                            </button>
+                                        </form>
+                                    </div>
+                                    <?php if (empty($generationOptions)) : ?>
+                                        <p class="mt-3 text-xs text-slate-500">
+                                            Generate a tailored CV from the Tailor page to link it with this application.
+                                        </p>
+                                    <?php endif; ?>
+                                </div>
                                 <?php if (!empty($item['source_url'])) : ?>
                                     <a href="<?= htmlspecialchars($item['source_url'], ENT_QUOTES) ?>" target="_blank" rel="noopener" class="mt-2 inline-flex items-center gap-2 text-xs text-indigo-300 hover:text-indigo-200">
                                         View listing
@@ -242,6 +290,53 @@
                                         </form>
                                     </div>
                                 </header>
+                                <?php $appliedGenerationFieldId = 'generation_' . ($item['id'] ?? '0') . '_applied'; ?>
+                                <div class="mt-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+                                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                        <div class="space-y-1">
+                                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tailored CV link</p>
+                                            <?php if (!empty($item['generation'])) : ?>
+                                                <p class="text-sm text-slate-200">
+                                                    <?= htmlspecialchars($item['generation']['cv_filename'] ?? 'CV draft', ENT_QUOTES) ?>
+                                                    <span class="text-slate-500">→</span>
+                                                    <?= htmlspecialchars($item['generation']['job_filename'] ?? 'Job description', ENT_QUOTES) ?>
+                                                </p>
+                                                <?php if (!empty($item['generation']['created_at'])) : ?>
+                                                    <p class="text-xs text-slate-500">
+                                                        Generated <?= htmlspecialchars($item['generation']['created_at'], ENT_QUOTES) ?>
+                                                    </p>
+                                                <?php endif; ?>
+                                            <?php else : ?>
+                                                <p class="text-sm text-slate-400">No tailored CV linked yet.</p>
+                                            <?php endif; ?>
+                                        </div>
+                                        <form method="post" action="/applications/<?= urlencode((string) $item['id']) ?>/generation" class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+                                            <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                                            <label for="<?= htmlspecialchars($appliedGenerationFieldId, ENT_QUOTES) ?>" class="sr-only">Select tailored CV</label>
+                                            <select
+                                                id="<?= htmlspecialchars($appliedGenerationFieldId, ENT_QUOTES) ?>"
+                                                name="generation_id"
+                                                class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 md:min-w-[220px]"
+                                            >
+                                                <option value="">No tailored CV</option>
+                                                <?php foreach ($generationOptions as $option) : ?>
+                                                    <?php $optionId = (int) $option['id']; ?>
+                                                    <option value="<?= htmlspecialchars((string) $optionId, ENT_QUOTES) ?>" <?= (isset($item['generation_id']) && (int) $item['generation_id'] === $optionId) ? 'selected' : '' ?>>
+                                                        <?= htmlspecialchars($option['label'], ENT_QUOTES) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-700">
+                                                Update link
+                                            </button>
+                                        </form>
+                                    </div>
+                                    <?php if (empty($generationOptions)) : ?>
+                                        <p class="mt-3 text-xs text-slate-500">
+                                            Generate a tailored CV from the Tailor page to link it with this application.
+                                        </p>
+                                    <?php endif; ?>
+                                </div>
                                 <?php if (!empty($item['source_url'])) : ?>
                                     <a href="<?= htmlspecialchars($item['source_url'], ENT_QUOTES) ?>" target="_blank" rel="noopener" class="mt-2 inline-flex items-center gap-2 text-xs text-indigo-300 hover:text-indigo-200">
                                         View listing
@@ -306,6 +401,53 @@
                                         </form>
                                     </div>
                                 </header>
+                                <?php $failedGenerationFieldId = 'generation_' . ($item['id'] ?? '0') . '_failed'; ?>
+                                <div class="mt-3 rounded-xl border border-slate-800 bg-slate-900/60 p-4">
+                                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                                        <div class="space-y-1">
+                                            <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Tailored CV link</p>
+                                            <?php if (!empty($item['generation'])) : ?>
+                                                <p class="text-sm text-slate-200">
+                                                    <?= htmlspecialchars($item['generation']['cv_filename'] ?? 'CV draft', ENT_QUOTES) ?>
+                                                    <span class="text-slate-500">→</span>
+                                                    <?= htmlspecialchars($item['generation']['job_filename'] ?? 'Job description', ENT_QUOTES) ?>
+                                                </p>
+                                                <?php if (!empty($item['generation']['created_at'])) : ?>
+                                                    <p class="text-xs text-slate-500">
+                                                        Generated <?= htmlspecialchars($item['generation']['created_at'], ENT_QUOTES) ?>
+                                                    </p>
+                                                <?php endif; ?>
+                                            <?php else : ?>
+                                                <p class="text-sm text-slate-400">No tailored CV linked yet.</p>
+                                            <?php endif; ?>
+                                        </div>
+                                        <form method="post" action="/applications/<?= urlencode((string) $item['id']) ?>/generation" class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
+                                            <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                                            <label for="<?= htmlspecialchars($failedGenerationFieldId, ENT_QUOTES) ?>" class="sr-only">Select tailored CV</label>
+                                            <select
+                                                id="<?= htmlspecialchars($failedGenerationFieldId, ENT_QUOTES) ?>"
+                                                name="generation_id"
+                                                class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 md:min-w-[220px]"
+                                            >
+                                                <option value="">No tailored CV</option>
+                                                <?php foreach ($generationOptions as $option) : ?>
+                                                    <?php $optionId = (int) $option['id']; ?>
+                                                    <option value="<?= htmlspecialchars((string) $optionId, ENT_QUOTES) ?>" <?= (isset($item['generation_id']) && (int) $item['generation_id'] === $optionId) ? 'selected' : '' ?>>
+                                                        <?= htmlspecialchars($option['label'], ENT_QUOTES) ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                            </select>
+                                            <button type="submit" class="inline-flex items-center justify-center rounded-lg bg-slate-800 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-slate-700">
+                                                Update link
+                                            </button>
+                                        </form>
+                                    </div>
+                                    <?php if (empty($generationOptions)) : ?>
+                                        <p class="mt-3 text-xs text-slate-500">
+                                            Generate a tailored CV from the Tailor page to link it with this application.
+                                        </p>
+                                    <?php endif; ?>
+                                </div>
                                 <?php if (!empty($item['source_url'])) : ?>
                                     <a href="<?= htmlspecialchars($item['source_url'], ENT_QUOTES) ?>" target="_blank" rel="noopener" class="mt-2 inline-flex items-center gap-2 text-xs text-indigo-300 hover:text-indigo-200">
                                         View listing
