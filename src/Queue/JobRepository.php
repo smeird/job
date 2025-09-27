@@ -11,6 +11,7 @@ use PDOException;
 use RuntimeException;
 use Throwable;
 
+use function in_array;
 use function json_decode;
 use function mb_substr;
 
@@ -21,6 +22,9 @@ final class JobRepository
     /** @var PDO */
     private $pdo;
 
+    /** @var string */
+    private $driverName;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -29,6 +33,7 @@ final class JobRepository
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
+        $this->driverName = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
     }
 
     /**
@@ -41,15 +46,22 @@ final class JobRepository
         try {
             $this->pdo->beginTransaction();
 
-            $statement = $this->pdo->prepare(
-                'SELECT id, type, payload_json, run_after, attempts, status, created_at '
+            $sql = 'SELECT id, type, payload_json, run_after, attempts, status, created_at '
                 . 'FROM jobs '
-                . 'WHERE status = :status AND run_after <= NOW() '
+                . 'WHERE status = :status AND run_after <= :now '
                 . 'ORDER BY run_after ASC, id ASC '
-                . 'LIMIT 1 FOR UPDATE SKIP LOCKED'
-            );
+                . 'LIMIT 1';
 
-            $statement->execute([':status' => 'pending']);
+            if ($this->supportsSkipLocked()) {
+                $sql .= ' FOR UPDATE SKIP LOCKED';
+            }
+
+            $statement = $this->pdo->prepare($sql);
+
+            $statement->execute([
+                ':status' => 'pending',
+                ':now' => $this->currentTimestamp(),
+            ]);
             $row = $statement->fetch(PDO::FETCH_ASSOC);
 
             if ($row === false) {
@@ -216,5 +228,25 @@ final class JobRepository
     private function truncateError(string $error): string
     {
         return mb_substr($error, 0, self::MAX_ERROR_LENGTH);
+    }
+
+    /**
+     * Provide the current timestamp in a portable format.
+     *
+     * Abstracting the formatting keeps driver-specific SQL out of call sites.
+     */
+    private function currentTimestamp(): string
+    {
+        return (new DateTimeImmutable('now'))->format('Y-m-d H:i:s');
+    }
+
+    /**
+     * Determine if the connection supports SKIP LOCKED semantics.
+     *
+     * Centralising the driver check ensures the reserve query stays readable.
+     */
+    private function supportsSkipLocked(): bool
+    {
+        return in_array($this->driverName, ['mysql', 'pgsql'], true);
     }
 }
