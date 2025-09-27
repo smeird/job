@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Applications\JobApplicationRepository;
 use App\Applications\JobApplicationService;
 use App\Views\Renderer;
+use DateTimeImmutable;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
@@ -53,18 +54,21 @@ final class JobApplicationController
         $userId = (int) $user['user_id'];
         $statusMessage = $request->getQueryParams()['status'] ?? null;
         $failureReasons = $this->service->failureReasons();
+        $generations = $this->service->generationsForUser($userId);
+        $generationIndex = $this->indexGenerations($generations);
 
         return $this->renderer->render($response, 'applications', [
             'title' => 'Job tracker',
             'subtitle' => 'Capture postings, track applications, and mark outcomes.',
             'fullWidth' => true,
             'navLinks' => $this->navLinks('applications'),
-            'outstanding' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'outstanding')),
-            'applied' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'applied')),
-            'failed' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'failed')), 
+            'outstanding' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'outstanding'), $generationIndex),
+            'applied' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'applied'), $generationIndex),
+            'failed' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'failed'), $generationIndex),
             'errors' => [],
             'status' => $statusMessage,
             'failureReasons' => $failureReasons,
+            'generationOptions' => $this->mapGenerationOptions($generations),
             'form' => [
                 'title' => '',
                 'source_url' => '',
@@ -91,6 +95,8 @@ final class JobApplicationController
         $formInput = is_array($data) ? $data : [];
 
         $failureReasons = $this->service->failureReasons();
+        $generations = $this->service->generationsForUser($userId);
+        $generationIndex = $this->indexGenerations($generations);
 
         $result = $this->service->createFromSubmission($userId, $formInput);
 
@@ -105,12 +111,13 @@ final class JobApplicationController
             'subtitle' => 'Capture postings, track applications, and mark outcomes.',
             'fullWidth' => true,
             'navLinks' => $this->navLinks('applications'),
-            'outstanding' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'outstanding')),
-            'applied' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'applied')),
-            'failed' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'failed')),
+            'outstanding' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'outstanding'), $generationIndex),
+            'applied' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'applied'), $generationIndex),
+            'failed' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'failed'), $generationIndex),
             'errors' => $result['errors'],
             'status' => null,
             'failureReasons' => $failureReasons,
+            'generationOptions' => $this->mapGenerationOptions($generations),
             'form' => [
                 'title' => isset($formInput['title']) ? (string) $formInput['title'] : '',
                 'source_url' => isset($formInput['source_url']) ? (string) $formInput['source_url'] : '',
@@ -176,6 +183,47 @@ final class JobApplicationController
     }
 
     /**
+     * Handle the tailored CV link workflow.
+     *
+     * This helper keeps the association between applications and generations tidy.
+     * @param array<string, string> $args
+     */
+    public function updateGeneration(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if ($user === null) {
+            return $response->withHeader('Location', '/auth/login')->withStatus(302);
+        }
+
+        $userId = (int) $user['user_id'];
+        $applicationId = isset($args['id']) ? (int) $args['id'] : 0;
+        $data = $request->getParsedBody();
+        $generationId = null;
+
+        if (is_array($data) && isset($data['generation_id'])) {
+            $value = trim((string) $data['generation_id']);
+
+            if ($value !== '') {
+                $generationId = (int) $value;
+            }
+        }
+
+        try {
+            $this->service->assignGeneration($userId, $applicationId, $generationId);
+            $message = $generationId !== null
+                ? 'Linked tailored CV to application.'
+                : 'Cleared tailored CV link.';
+        } catch (RuntimeException $exception) {
+            $message = $exception->getMessage();
+        }
+
+        return $response
+            ->withHeader('Location', '/applications?status=' . rawurlencode($message))
+            ->withStatus(302);
+    }
+
+    /**
      * Handle deletion of saved job applications.
      *
      * Centralising this logic keeps ownership validation and flash messaging aligned.
@@ -209,15 +257,23 @@ final class JobApplicationController
      *
      * This helper keeps response shaping consistent across controller actions.
      * @param array<int, \App\Applications\JobApplication> $applications
+     * @param array<int, array<string, mixed>> $generationIndex
      * @return array<int, array<string, mixed>>
      */
-    private function mapApplications(array $applications): array
+    private function mapApplications(array $applications, array $generationIndex): array
     {
-        return array_map(static function ($application) {
+        return array_map(static function ($application) use ($generationIndex) {
             $preview = mb_substr($application->description(), 0, 220);
 
             if (mb_strlen($application->description()) > 220) {
                 $preview .= '…';
+            }
+
+            $generationId = $application->generationId();
+            $linkedGeneration = null;
+
+            if ($generationId !== null && isset($generationIndex[$generationId])) {
+                $linkedGeneration = $generationIndex[$generationId];
             }
 
             return [
@@ -230,8 +286,93 @@ final class JobApplicationController
                 'created_at' => $application->createdAt()->format('Y-m-d H:i'),
                 'updated_at' => $application->updatedAt()->format('Y-m-d H:i'),
                 'description_preview' => $preview,
+                'generation_id' => $generationId,
+                'generation' => $linkedGeneration,
             ];
         }, $applications);
+    }
+
+    /**
+     * Handle the generation indexing workflow.
+     *
+     * This helper keeps lookup data for tailored drafts readily available.
+     * @param array<int, array<string, mixed>> $generations
+     * @return array<int, array<string, mixed>>
+     */
+    private function indexGenerations(array $generations): array
+    {
+        $indexed = [];
+
+        foreach ($generations as $generation) {
+            $id = isset($generation['id']) ? (int) $generation['id'] : 0;
+
+            if ($id <= 0) {
+                continue;
+            }
+
+            $indexed[$id] = [
+                'id' => $id,
+                'cv_filename' => isset($generation['cv_document']['filename']) ? (string) $generation['cv_document']['filename'] : 'CV draft',
+                'job_filename' => isset($generation['job_document']['filename']) ? (string) $generation['job_document']['filename'] : 'Job description',
+                'created_at' => $this->formatGenerationTimestamp(isset($generation['created_at']) ? (string) $generation['created_at'] : ''),
+            ];
+        }
+
+        return $indexed;
+    }
+
+    /**
+     * Handle the generation options workflow.
+     *
+     * This helper builds the select box options used for linking tailored drafts.
+     * @param array<int, array<string, mixed>> $generations
+     * @return array<int, array{id: int, label: string}>
+     */
+    private function mapGenerationOptions(array $generations): array
+    {
+        $options = [];
+
+        foreach ($generations as $generation) {
+            $id = isset($generation['id']) ? (int) $generation['id'] : 0;
+
+            if ($id <= 0) {
+                continue;
+            }
+
+            $cvFilename = isset($generation['cv_document']['filename']) ? (string) $generation['cv_document']['filename'] : 'CV draft';
+            $jobFilename = isset($generation['job_document']['filename']) ? (string) $generation['job_document']['filename'] : 'Job description';
+            $generatedAt = $this->formatGenerationTimestamp(isset($generation['created_at']) ? (string) $generation['created_at'] : '');
+            $label = $cvFilename . ' → ' . $jobFilename;
+
+            if ($generatedAt !== '') {
+                $label .= ' (generated ' . $generatedAt . ')';
+            }
+
+            $options[] = [
+                'id' => $id,
+                'label' => $label,
+            ];
+        }
+
+        return $options;
+    }
+
+    /**
+     * Handle the generation timestamp formatting workflow.
+     *
+     * This helper keeps date presentation consistent even when parsing fails.
+     */
+    private function formatGenerationTimestamp(?string $value): string
+    {
+        if ($value === null || $value === '') {
+            return '';
+        }
+
+        try {
+            return (new DateTimeImmutable($value))->format('Y-m-d H:i');
+        } catch (\Exception $exception) {
+            return $value;
+        }
     }
 
     /**

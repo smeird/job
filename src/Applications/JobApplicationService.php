@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Applications;
 
+use App\Generations\GenerationRepository;
 use RuntimeException;
 
 class JobApplicationService
@@ -19,14 +20,18 @@ class JobApplicationService
     /** @var JobApplicationRepository */
     private $repository;
 
+    /** @var GenerationRepository */
+    private $generationRepository;
+
     /**
      * Construct the object with its required dependencies.
      *
      * This ensures collaborating services are available for subsequent method calls.
      */
-    public function __construct(JobApplicationRepository $repository)
+    public function __construct(JobApplicationRepository $repository, GenerationRepository $generationRepository)
     {
         $this->repository = $repository;
+        $this->generationRepository = $generationRepository;
     }
 
     /**
@@ -104,6 +109,49 @@ class JobApplicationService
         }
 
         return $this->repository->updateStatus($application, $normalisedStatus, $normalisedReason);
+    }
+
+    /**
+     * Handle the generation listing workflow.
+     *
+     * This helper keeps access to tailored CV runs centralised for the controller.
+     * @return array<int, array<string, mixed>>
+     */
+    public function generationsForUser(int $userId): array
+    {
+        return $this->generationRepository->listForUser($userId);
+    }
+
+    /**
+     * Handle the assign generation workflow.
+     *
+     * This helper ensures only owned tailored drafts can be linked to an application.
+     */
+    public function assignGeneration(int $userId, int $applicationId, ?int $generationId): JobApplication
+    {
+        if ($applicationId <= 0) {
+            throw new RuntimeException('The requested job application could not be found.');
+        }
+
+        $application = $this->repository->findForUser($userId, $applicationId);
+
+        if ($application === null) {
+            throw new RuntimeException('The requested job application could not be found.');
+        }
+
+        $resolvedGenerationId = null;
+
+        if ($generationId !== null && $generationId > 0) {
+            $generation = $this->generationRepository->findForUser($userId, $generationId);
+
+            if ($generation === null) {
+                throw new RuntimeException('Select a tailored CV that belongs to your workspace.');
+            }
+
+            $resolvedGenerationId = (int) $generation['id'];
+        }
+
+        return $this->repository->updateGeneration($application, $resolvedGenerationId);
     }
 
     /**

@@ -6,6 +6,7 @@ namespace App\Applications;
 
 use DateTimeImmutable;
 use PDO;
+use PDOException;
 use RuntimeException;
 
 class JobApplicationRepository
@@ -35,8 +36,8 @@ class JobApplicationRepository
         $createdAt = $now->format('Y-m-d H:i:s');
 
         $statement = $this->pdo->prepare(
-            'INSERT INTO job_applications (user_id, title, source_url, description, status, applied_at, reason_code, created_at, updated_at) '
-            . 'VALUES (:user_id, :title, :source_url, :description, :status, :applied_at, :reason_code, :created_at, :updated_at)'
+            'INSERT INTO job_applications (user_id, title, source_url, description, status, applied_at, reason_code, generation_id, created_at, updated_at) '
+            . 'VALUES (:user_id, :title, :source_url, :description, :status, :applied_at, :reason_code, :generation_id, :created_at, :updated_at)'
         );
 
         $statement->bindValue(':user_id', $userId, PDO::PARAM_INT);
@@ -52,6 +53,7 @@ class JobApplicationRepository
         $statement->bindValue(':status', 'outstanding');
         $statement->bindValue(':applied_at', null, PDO::PARAM_NULL);
         $statement->bindValue(':reason_code', null, PDO::PARAM_NULL);
+        $statement->bindValue(':generation_id', null, PDO::PARAM_NULL);
         $statement->bindValue(':created_at', $createdAt);
         $statement->bindValue(':updated_at', $createdAt);
 
@@ -66,6 +68,7 @@ class JobApplicationRepository
             $sourceUrl,
             $description,
             'outstanding',
+            null,
             null,
             null,
             new DateTimeImmutable($createdAt),
@@ -193,6 +196,39 @@ class JobApplicationRepository
     }
 
     /**
+     * Handle the update generation operation.
+     *
+     * The helper keeps linking tailored drafts consistent across the service layer.
+     */
+    public function updateGeneration(JobApplication $application, ?int $generationId): JobApplication
+    {
+        $now = new DateTimeImmutable('now');
+        $statement = $this->pdo->prepare(
+            'UPDATE job_applications
+             SET generation_id = :generation_id, updated_at = :updated_at
+             WHERE id = :id AND user_id = :user_id'
+        );
+
+        if ($generationId !== null) {
+            $statement->bindValue(':generation_id', $generationId, PDO::PARAM_INT);
+        } else {
+            $statement->bindValue(':generation_id', null, PDO::PARAM_NULL);
+        }
+
+        $statement->bindValue(':updated_at', $now->format('Y-m-d H:i:s'));
+        $statement->bindValue(':id', (int) $application->id(), PDO::PARAM_INT);
+        $statement->bindValue(':user_id', $application->userId(), PDO::PARAM_INT);
+
+        $statement->execute();
+
+        if ($statement->rowCount() === 0) {
+            throw new RuntimeException('No job application was updated.');
+        }
+
+        return $application->withGeneration($generationId, $now);
+    }
+
+    /**
      * Handle the delete for user operation.
      *
      * The helper keeps deletion logic consistent across the service layer.
@@ -227,17 +263,21 @@ class JobApplicationRepository
                 status VARCHAR(32) NOT NULL DEFAULT 'outstanding',
                 applied_at DATETIME NULL,
                 reason_code VARCHAR(64) NULL,
+                generation_id BIGINT UNSIGNED NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 CONSTRAINT fk_job_applications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                CONSTRAINT fk_job_applications_generation FOREIGN KEY (generation_id) REFERENCES generations(id) ON DELETE SET NULL,
                 INDEX idx_job_applications_user_status (user_id, status),
-                INDEX idx_job_applications_user_created (user_id, created_at)
+                INDEX idx_job_applications_user_created (user_id, created_at),
+                INDEX idx_job_applications_generation (generation_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
             SQL;
 
             $this->pdo->exec($sql);
 
             $this->ensureReasonCodeColumn();
+            $this->ensureGenerationIdColumn();
 
             return;
         }
@@ -252,6 +292,7 @@ class JobApplicationRepository
             status TEXT NOT NULL DEFAULT 'outstanding',
             applied_at TEXT NULL,
             reason_code TEXT NULL,
+            generation_id INTEGER NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         )
@@ -262,6 +303,7 @@ class JobApplicationRepository
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_job_applications_user_status ON job_applications (user_id, status)');
         $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_job_applications_user_created ON job_applications (user_id, created_at)');
         $this->ensureReasonCodeColumn();
+        $this->ensureGenerationIdColumn();
 
     }
 
@@ -288,6 +330,7 @@ class JobApplicationRepository
             (string) $row['status'],
             $appliedAt,
             array_key_exists('reason_code', $row) && $row['reason_code'] !== null ? (string) $row['reason_code'] : null,
+            array_key_exists('generation_id', $row) && $row['generation_id'] !== null ? (int) $row['generation_id'] : null,
             new DateTimeImmutable((string) $row['created_at']),
             new DateTimeImmutable((string) $row['updated_at'])
         );
@@ -326,6 +369,58 @@ class JobApplicationRepository
 
         if ($hasColumn === false) {
             $this->pdo->exec('ALTER TABLE job_applications ADD COLUMN reason_code TEXT NULL');
+        }
+    }
+
+    /**
+     * Handle the ensure generation id column workflow.
+     *
+     * This helper keeps schema updates for tailored CV links predictable across drivers.
+     */
+    private function ensureGenerationIdColumn(): void
+    {
+        $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+        if ($driver === 'mysql') {
+            $statement = $this->pdo->prepare("SHOW COLUMNS FROM job_applications LIKE 'generation_id'");
+            $statement->execute();
+
+            if ($statement->fetch() === false) {
+                $this->pdo->exec("ALTER TABLE job_applications ADD COLUMN generation_id BIGINT UNSIGNED NULL AFTER reason_code");
+
+                try {
+                    $this->pdo->exec(
+                        'ALTER TABLE job_applications '
+                        . 'ADD CONSTRAINT fk_job_applications_generation '
+                        . 'FOREIGN KEY (generation_id) REFERENCES generations(id) ON DELETE SET NULL'
+                    );
+                } catch (PDOException $exception) {
+                    // Ignore inability to add the constraint on legacy installations.
+                }
+
+                try {
+                    $this->pdo->exec('CREATE INDEX idx_job_applications_generation ON job_applications (generation_id)');
+                } catch (PDOException $exception) {
+                    // Ignore duplicate index creation attempts.
+                }
+            }
+
+            return;
+        }
+
+        $statement = $this->pdo->query("PRAGMA table_info(job_applications)");
+
+        $hasColumn = false;
+
+        while ($row = $statement->fetch()) {
+            if (isset($row['name']) && $row['name'] === 'generation_id') {
+                $hasColumn = true;
+                break;
+            }
+        }
+
+        if ($hasColumn === false) {
+            $this->pdo->exec('ALTER TABLE job_applications ADD COLUMN generation_id INTEGER NULL');
         }
     }
 }

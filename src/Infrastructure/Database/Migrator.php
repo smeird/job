@@ -166,15 +166,23 @@ class Migrator
                 description LONGTEXT NOT NULL,
                 status VARCHAR(32) NOT NULL DEFAULT 'outstanding',
                 applied_at DATETIME NULL,
+                reason_code VARCHAR(64) NULL,
+                generation_id BIGINT UNSIGNED NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 CONSTRAINT fk_job_applications_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                CONSTRAINT fk_job_applications_generation FOREIGN KEY (generation_id) REFERENCES generations(id) ON DELETE SET NULL,
                 INDEX idx_job_applications_user_status (user_id, status),
-                INDEX idx_job_applications_user_created (user_id, created_at)
+                INDEX idx_job_applications_user_created (user_id, created_at),
+                INDEX idx_job_applications_generation (generation_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
             SQL;
 
             $this->pdo->exec($sql);
+
+            $this->ensureJobApplicationsColumnExists('reason_code', 'ADD COLUMN reason_code VARCHAR(64) NULL AFTER applied_at', 'ADD COLUMN reason_code TEXT NULL');
+            $this->ensureJobApplicationsColumnExists('generation_id', 'ADD COLUMN generation_id BIGINT UNSIGNED NULL AFTER reason_code', 'ADD COLUMN generation_id INTEGER NULL');
+            $this->ensureJobApplicationsGenerationForeignKey();
 
             return;
         }
@@ -188,6 +196,8 @@ class Migrator
             description TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'outstanding',
             applied_at TEXT NULL,
+            reason_code TEXT NULL,
+            generation_id INTEGER NULL,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
         );
@@ -206,6 +216,9 @@ class Migrator
             ON job_applications (user_id, created_at);
         SQL;
         $this->pdo->exec($indexCreatedSql);
+
+        $this->ensureJobApplicationsColumnExists('reason_code', 'ADD COLUMN reason_code VARCHAR(64) NULL AFTER applied_at', 'ADD COLUMN reason_code TEXT NULL');
+        $this->ensureJobApplicationsColumnExists('generation_id', 'ADD COLUMN generation_id BIGINT UNSIGNED NULL AFTER reason_code', 'ADD COLUMN generation_id INTEGER NULL');
     }
 
     /**
@@ -407,6 +420,82 @@ class Migrator
             $this->pdo->exec(sprintf('ALTER TABLE %s %s', $table, $alterStatement));
         } catch (PDOException $exception) {
             // Ignore inability to inspect or alter the table; migration may be running on a database without SHOW COLUMNS support.
+        }
+    }
+
+    /**
+     * Handle the ensure job applications column exists workflow.
+     *
+     * This helper keeps optional columns aligned across database drivers.
+     */
+    private function ensureJobApplicationsColumnExists(string $column, string $mysqlStatement, string $sqliteStatement): void
+    {
+        $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+        if ($driver === 'mysql') {
+            try {
+                $statement = $this->pdo->prepare('SHOW COLUMNS FROM job_applications LIKE :column');
+                $statement->execute(['column' => $column]);
+
+                if ($statement->fetch() === false) {
+                    $this->pdo->exec(sprintf('ALTER TABLE job_applications %s', $mysqlStatement));
+                }
+            } catch (PDOException $exception) {
+                // Ignore inability to inspect or alter the table on older databases.
+            }
+
+            return;
+        }
+
+        if ($driver !== 'sqlite') {
+            return;
+        }
+
+        $statement = $this->pdo->query('PRAGMA table_info(job_applications)');
+
+        if ($statement === false) {
+            return;
+        }
+
+        $hasColumn = false;
+
+        while ($row = $statement->fetch()) {
+            if (isset($row['name']) && $row['name'] === $column) {
+                $hasColumn = true;
+                break;
+            }
+        }
+
+        if ($hasColumn === false) {
+            $this->pdo->exec(sprintf('ALTER TABLE job_applications %s', $sqliteStatement));
+        }
+    }
+
+    /**
+     * Handle the ensure job applications generation foreign key workflow.
+     *
+     * This helper keeps the tailored CV reference constraints aligned across installations.
+     */
+    private function ensureJobApplicationsGenerationForeignKey(): void
+    {
+        if ($this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql') {
+            return;
+        }
+
+        try {
+            $this->pdo->exec(
+                'ALTER TABLE job_applications '
+                . 'ADD CONSTRAINT fk_job_applications_generation '
+                . 'FOREIGN KEY (generation_id) REFERENCES generations(id) ON DELETE SET NULL'
+            );
+        } catch (PDOException $exception) {
+            // Ignore inability to add the constraint on legacy schemas.
+        }
+
+        try {
+            $this->pdo->exec('CREATE INDEX idx_job_applications_generation ON job_applications (generation_id)');
+        } catch (PDOException $exception) {
+            // Ignore duplicate index creation attempts.
         }
     }
 
