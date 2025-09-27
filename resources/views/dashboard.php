@@ -176,6 +176,7 @@ $wizardJson = htmlspecialchars(
     <div class="grid gap-6 lg:grid-cols-[320px,1fr]">
         <nav class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6">
             <ol class="space-y-4">
+
                 <?php foreach ($wizardSteps as $stepItem) : ?>
                     <li
                         class="flex items-start gap-3"
@@ -187,6 +188,7 @@ $wizardJson = htmlspecialchars(
                         >
                             <?= (int) $stepItem['index'] ?>
                         </span>
+
                         <div>
                             <p class="text-sm font-semibold">
                                 <?= htmlspecialchars($stepItem['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
