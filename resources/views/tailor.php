@@ -8,6 +8,7 @@
 /** @var array<int, array<string, mixed>> $modelOptions */
 /** @var array<int, array{href: string, label: string, current: bool}> $navLinks */
 /** @var string|null $csrfToken */
+/** @var string $defaultPrompt */
 
 $fullWidth = true;
 
@@ -45,6 +46,7 @@ $wizardState = [
     'generations' => $generations,
     'steps' => $wizardSteps,
     'defaultThinkingTime' => 30,
+    'prompt' => $defaultPrompt,
 ];
 
 $wizardJson = htmlspecialchars(
@@ -249,6 +251,20 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
                         >
                         <p class="text-xs text-slate-400">
                             Give GPT-5 more time for complex roles. Thirty seconds is a balanced default.
+                        </p>
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <p class="text-sm font-medium text-slate-200">AI prompt</p>
+                            <span class="text-xs text-slate-500">Edit before queuing if needed.</span>
+                        </div>
+                        <textarea
+                            x-model.trim="form.prompt"
+                            rows="10"
+                            class="min-h-[200px] w-full rounded-xl border border-slate-700 bg-slate-950/40 px-4 py-3 text-sm text-slate-100 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
+                        ><?= htmlspecialchars($defaultPrompt, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?></textarea>
+                        <p class="text-xs text-slate-400">
+                            Review or customise the instructions guiding the AI. The default prompt keeps outputs accurate and grounded.
                         </p>
                     </div>
                 </div>
