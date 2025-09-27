@@ -21,9 +21,9 @@ $additionalHead = $additionalHead ?? '';
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
     <script><?= CspConfig::ALPINE_INIT_SCRIPT ?></script>
     <link rel="stylesheet" href="/assets/css/app.css">
+    <?= $additionalHead ?>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.5/dist/cdn.min.js" defer></script>
     <style>[x-cloak]{display:none!important;}</style>
-    <?= $additionalHead ?>
 </head>
 <body id="site-job-smeird-com" data-site-id="job.smeird.com" class="min-h-screen bg-slate-950 text-slate-100">
 <?php if ($fullWidth) : ?>
