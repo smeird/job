@@ -70,13 +70,6 @@ $additionalHead = '<script src="/assets/js/dashboard.js" defer></script>';
             </p>
         </div>
         <div class="flex flex-col gap-3 md:items-end">
-            <button
-                type="button"
-                class="inline-flex items-center justify-center rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:bg-indigo-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
-                @click="startNewGeneration()"
-            >
-                Start a tailored CV
-            </button>
             <form method="post" action="/auth/logout" class="md:self-end">
                 <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
                 <button type="submit" class="inline-flex items-center justify-center rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800">
