@@ -165,6 +165,7 @@
         };
 
         const defaultThinkingTime = normaliseNumber(config && config.defaultThinkingTime, 30);
+        const defaultPrompt = config && typeof config.prompt === 'string' ? config.prompt : '';
         let steps = buildSteps(config && config.steps);
 
         if (steps.length === 0) {
@@ -186,11 +187,13 @@
             models: toArray(config && config.models),
             generations: toArray(config && config.generations),
             defaultThinkingTime: defaultThinkingTime,
+            defaultPrompt: defaultPrompt,
             form: {
                 job_document_id: null,
                 cv_document_id: null,
                 model: '',
                 thinking_time: defaultThinkingTime,
+                prompt: defaultPrompt,
             },
             errorMessage: '',
             successMessage: '',
@@ -221,6 +224,7 @@
                     ? this.models[0].value
                     : '';
                 this.form.thinking_time = this.defaultThinkingTime;
+                this.form.prompt = this.defaultPrompt;
 
                 this.schedulePanelFocus();
             },
@@ -264,7 +268,7 @@
                 }
 
                 if (this.step === 3) {
-                    return this.form.model !== '' && this.thinkingTimeIsValid;
+                    return this.form.model !== '' && this.thinkingTimeIsValid && this.promptIsValid;
                 }
 
                 return true;
@@ -276,7 +280,10 @@
              * @returns {boolean} True when the wizard may queue a generation.
              */
             get canSubmit() {
-                return this.selectedJob !== null && this.selectedCv !== null && this.thinkingTimeIsValid;
+                return this.selectedJob !== null
+                    && this.selectedCv !== null
+                    && this.thinkingTimeIsValid
+                    && this.promptIsValid;
             },
 
 
@@ -287,6 +294,15 @@
              */
             get thinkingTimeIsValid() {
                 return typeof this.form.thinking_time === 'number' && this.form.thinking_time >= 5 && this.form.thinking_time <= 60;
+            },
+
+            /**
+             * Confirm the AI prompt field contains meaningful content.
+             *
+             * @returns {boolean} True when the prompt is present after trimming whitespace.
+             */
+            get promptIsValid() {
+                return typeof this.form.prompt === 'string' && this.form.prompt.trim() !== '';
             },
 
             /**
@@ -455,6 +471,7 @@
                             cv_document_id: this.form.cv_document_id,
                             model: this.form.model,
                             thinking_time: this.form.thinking_time,
+                            prompt: this.form.prompt,
                             _token: csrfToken,
                         }),
                     });

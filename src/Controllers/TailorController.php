@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Documents\DocumentRepository;
 use App\Generations\GenerationRepository;
+use App\Prompts\PromptLibrary;
 use App\Views\Renderer;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -61,6 +62,7 @@ final class TailorController
             'cvDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'cv')),
             'generations' => $this->generationRepository->listForUser($userId),
             'modelOptions' => GenerationController::availableModels(),
+            'defaultPrompt' => PromptLibrary::tailorPrompt(),
         ]);
     }
 
