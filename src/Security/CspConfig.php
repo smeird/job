@@ -15,6 +15,6 @@ final class CspConfig
      */
     public static function alpineInitHash(): string
     {
-        return 'sha256-' . base64_encode(hash('sha256', self::ALPINE_INIT_SCRIPT, true));
+        return "'sha256-" . base64_encode(hash('sha256', self::ALPINE_INIT_SCRIPT, true)) . "'";
     }
 }
