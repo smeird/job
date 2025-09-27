@@ -1093,7 +1093,7 @@ final class SmokeGeneration
         $insertGeneration->execute([
             'user_id' => $userId,
             'document_id' => $document['document_id'],
-            'model' => 'gpt-4o-mini',
+            'model' => 'gpt-5-mini',
             'prompt' => 'Tailor CV',
             'status' => 'pending',
             'created_at' => $now,
