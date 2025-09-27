@@ -8,7 +8,10 @@ use App\Documents\DocumentPreviewer;
 use App\Documents\DocumentRepository;
 use App\Documents\DocumentService;
 use App\Documents\DocumentValidationException;
+use App\Generations\GenerationRepository;
 use App\Views\Renderer;
+use DateTimeImmutable;
+use Exception;
 use PDOException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -29,6 +32,9 @@ final class DocumentController
     /** @var DocumentPreviewer */
     private $documentPreviewer;
 
+    /** @var GenerationRepository */
+    private $generationRepository;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -38,12 +44,14 @@ final class DocumentController
         Renderer $renderer,
         DocumentRepository $documentRepository,
         DocumentService $documentService,
-        DocumentPreviewer $documentPreviewer
+        DocumentPreviewer $documentPreviewer,
+        GenerationRepository $generationRepository
     ) {
         $this->renderer = $renderer;
         $this->documentRepository = $documentRepository;
         $this->documentService = $documentService;
         $this->documentPreviewer = $documentPreviewer;
+        $this->generationRepository = $generationRepository;
     }
 
     /**
@@ -69,6 +77,7 @@ final class DocumentController
             'navLinks' => $this->navLinks('documents'),
             'jobDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'job_description')),
             'cvDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'cv')),
+            'tailoredGenerations' => $this->mapGenerations($this->generationRepository->listForUser($userId)),
             'errors' => [],
             'status' => $status,
         ]);
@@ -133,6 +142,7 @@ final class DocumentController
             'navLinks' => $this->navLinks('documents'),
             'jobDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'job_description')),
             'cvDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'cv')),
+            'tailoredGenerations' => $this->mapGenerations($this->generationRepository->listForUser($userId)),
             'errors' => $errors,
             'status' => null,
         ]);
@@ -254,6 +264,48 @@ final class DocumentController
         }
 
         return sprintf('%.1f %s', $value, $units[$unitIndex]);
+    }
+
+    /**
+     * Map the generation rows into the view-friendly structure.
+     *
+     * The helper keeps tailored CV metadata formatting consistent across the documents workspace.
+     * @param array<int, array<string, mixed>> $generations
+     * @return array<int, array<string, mixed>>
+     */
+    private function mapGenerations(array $generations): array
+    {
+        $mapped = [];
+
+        foreach ($generations as $generation) {
+            $createdAt = new DateTimeImmutable();
+
+            if (isset($generation['created_at'])) {
+                try {
+                    $createdAt = new DateTimeImmutable((string) $generation['created_at']);
+                } catch (Exception $exception) {
+                    $createdAt = new DateTimeImmutable();
+                }
+            }
+
+            $mapped[] = [
+                'id' => (int) $generation['id'],
+                'status' => (string) $generation['status'],
+                'model' => (string) $generation['model'],
+                'thinking_time' => (int) $generation['thinking_time'],
+                'created_at' => $createdAt->format('Y-m-d H:i'),
+                'job_document' => [
+                    'id' => (int) $generation['job_document']['id'],
+                    'filename' => (string) $generation['job_document']['filename'],
+                ],
+                'cv_document' => [
+                    'id' => (int) $generation['cv_document']['id'],
+                    'filename' => (string) $generation['cv_document']['filename'],
+                ],
+            ];
+        }
+
+        return $mapped;
     }
 
     /**
