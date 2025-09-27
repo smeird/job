@@ -91,7 +91,8 @@ $container->set(DocumentController::class, static function (Container $c): Docum
         $c->get(Renderer::class),
         $c->get(DocumentRepository::class),
         $c->get(DocumentService::class),
-        $c->get(DocumentPreviewer::class)
+        $c->get(DocumentPreviewer::class),
+        $c->get(GenerationRepository::class)
     );
 });
 
