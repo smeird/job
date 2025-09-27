@@ -2,8 +2,8 @@
 /** @var string $title */
 /** @var string $subtitle */
 /** @var array<int, array{href: string, label: string, current: bool}> $navLinks */
-/** @var array<int, array{filename: string, created_at: string, size: string}> $jobDocuments */
-/** @var array<int, array{filename: string, created_at: string, size: string}> $cvDocuments */
+/** @var array<int, array{id: int|null, filename: string, created_at: string, size: string}> $jobDocuments */
+/** @var array<int, array{id: int|null, filename: string, created_at: string, size: string}> $cvDocuments */
 /** @var array<int, string> $errors */
 /** @var string|null $status */
 /** @var string|null $csrfToken */
@@ -100,11 +100,19 @@
                         <p class="py-4 text-slate-400">No job descriptions uploaded yet.</p>
                     <?php else : ?>
                         <?php foreach ($jobDocuments as $document) : ?>
-                            <article class="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+                            <article class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
                                     <p class="font-medium text-white"><?= htmlspecialchars($document['filename'], ENT_QUOTES) ?></p>
                                     <p class="text-xs text-slate-400">Added <?= htmlspecialchars($document['created_at'], ENT_QUOTES) ?> · <?= htmlspecialchars($document['size'], ENT_QUOTES) ?></p>
                                 </div>
+                                <?php if (!empty($document['id'])) : ?>
+                                    <form method="post" action="/documents/<?= urlencode((string) $document['id']) ?>/delete" class="self-start sm:self-auto">
+                                        <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                                        <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-100 transition hover:border-rose-300 hover:text-rose-50">
+                                            Delete
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
                             </article>
                         <?php endforeach; ?>
                     <?php endif; ?>
@@ -126,11 +134,19 @@
                         <p class="py-4 text-slate-400">No CVs uploaded yet.</p>
                     <?php else : ?>
                         <?php foreach ($cvDocuments as $document) : ?>
-                            <article class="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+                            <article class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
                                 <div>
                                     <p class="font-medium text-white"><?= htmlspecialchars($document['filename'], ENT_QUOTES) ?></p>
                                     <p class="text-xs text-slate-400">Added <?= htmlspecialchars($document['created_at'], ENT_QUOTES) ?> · <?= htmlspecialchars($document['size'], ENT_QUOTES) ?></p>
                                 </div>
+                                <?php if (!empty($document['id'])) : ?>
+                                    <form method="post" action="/documents/<?= urlencode((string) $document['id']) ?>/delete" class="self-start sm:self-auto">
+                                        <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                                        <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-100 transition hover:border-rose-300 hover:text-rose-50">
+                                            Delete
+                                        </button>
+                                    </form>
+                                <?php endif; ?>
                             </article>
                         <?php endforeach; ?>
                     <?php endif; ?>

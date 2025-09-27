@@ -193,6 +193,21 @@ class JobApplicationRepository
     }
 
     /**
+     * Handle the delete for user operation.
+     *
+     * The helper keeps deletion logic consistent across the service layer.
+     */
+    public function deleteForUser(int $userId, int $applicationId): bool
+    {
+        $statement = $this->pdo->prepare('DELETE FROM job_applications WHERE id = :id AND user_id = :user_id');
+        $statement->bindValue(':id', $applicationId, PDO::PARAM_INT);
+        $statement->bindValue(':user_id', $userId, PDO::PARAM_INT);
+        $statement->execute();
+
+        return $statement->rowCount() > 0;
+    }
+
+    /**
      * Handle the ensure schema operation.
      *
      * This helper keeps schema bootstrapping predictable across environments.

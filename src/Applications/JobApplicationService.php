@@ -107,6 +107,22 @@ class JobApplicationService
     }
 
     /**
+     * Handle the delete for user operation.
+     *
+     * This helper keeps ownership checks and messaging consistent for removals.
+     */
+    public function deleteForUser(int $userId, int $applicationId): void
+    {
+        if ($applicationId <= 0) {
+            throw new RuntimeException('The requested job application could not be found.');
+        }
+
+        if (!$this->repository->deleteForUser($userId, $applicationId)) {
+            throw new RuntimeException('The requested job application could not be found.');
+        }
+    }
+
+    /**
      * Handle the failure reasons workflow.
      *
      * This helper keeps the configured rejection codes available to consumers.

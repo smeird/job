@@ -133,15 +133,45 @@ final class DocumentController
     }
 
     /**
+     * Handle the delete workflow for stored documents.
+     *
+     * Centralising deletion ensures ownership checks and messaging remain consistent.
+     * @param array<string, string> $args
+     */
+    public function delete(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if (!is_array($user) || !isset($user['user_id'])) {
+            return $response->withHeader('Location', '/auth/login')->withStatus(302);
+        }
+
+        $userId = (int) $user['user_id'];
+        $documentId = isset($args['id']) ? (int) $args['id'] : 0;
+
+        try {
+            $this->documentService->deleteForUser($userId, $documentId);
+            $message = 'Document deleted successfully.';
+        } catch (RuntimeException $exception) {
+            $message = $exception->getMessage();
+        }
+
+        return $response
+            ->withHeader('Location', '/documents?status=' . rawurlencode($message))
+            ->withStatus(302);
+    }
+
+    /**
      * Map the provided data set into the desired shape.
      *
      * @param array<int, \App\Documents\Document> $documents
-     * @return array<int, array{filename: string, created_at: string, size: string}>
+     * @return array<int, array{id: int|null, filename: string, created_at: string, size: string}>
      */
     private function mapDocuments(array $documents): array
     {
         return array_map(function ($document) {
             return [
+                'id' => $document->id(),
                 'filename' => $document->filename(),
                 'created_at' => $document->createdAt()->format('Y-m-d H:i'),
                 'size' => $this->formatBytes($document->sizeBytes()),
