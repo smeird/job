@@ -44,6 +44,28 @@
             };
 
             /**
+             * Convert document identifiers into a comparable string form.
+             *
+             * @param {*} value The identifier to normalise for comparisons.
+             * @returns {string} A string representation of the identifier or an empty string when unavailable.
+             */
+            const normaliseId = function (value) {
+                if (typeof value === 'number' && isFinite(value)) {
+                    return String(value);
+                }
+
+                if (typeof value === 'string') {
+                    return value;
+                }
+
+                if (value !== null && typeof value === 'object' && typeof value.toString === 'function') {
+                    return value.toString();
+                }
+
+                return '';
+            };
+
+            /**
              * Normalise the steps collection so static HTML fallbacks stay in sync with the interactive wizard behaviour.
              *
              * @param {*} value The supplied step configuration array or fallback representation.
@@ -177,13 +199,27 @@
                  * @returns {object|null} The matched job document or null when unavailable.
                  */
                 get selectedJobDocument() {
+                    const selectedId = normaliseId(this.form.job_document_id);
+
+                    if (selectedId === '') {
+                        return null;
+                    }
+
                     const documents = isArray(this.jobDocuments) ? this.jobDocuments : [];
                     for (let index = 0; index < documents.length; index += 1) {
                         const documentItem = documents[index];
-                        if (documentItem && documentItem.id === this.form.job_document_id) {
+
+                        if (!documentItem) {
+                            continue;
+                        }
+
+                        const documentId = normaliseId(documentItem.id);
+
+                        if (documentId !== '' && documentId === selectedId) {
                             return documentItem;
                         }
                     }
+
                     return null;
                 },
                 /**
@@ -192,13 +228,27 @@
                  * @returns {object|null} The matched CV document or null when unavailable.
                  */
                 get selectedCvDocument() {
+                    const selectedId = normaliseId(this.form.cv_document_id);
+
+                    if (selectedId === '') {
+                        return null;
+                    }
+
                     const documents = isArray(this.cvDocuments) ? this.cvDocuments : [];
                     for (let index = 0; index < documents.length; index += 1) {
                         const documentItem = documents[index];
-                        if (documentItem && documentItem.id === this.form.cv_document_id) {
+
+                        if (!documentItem) {
+                            continue;
+                        }
+
+                        const documentId = normaliseId(documentItem.id);
+
+                        if (documentId !== '' && documentId === selectedId) {
                             return documentItem;
                         }
                     }
+
                     return null;
                 },
                 /**
