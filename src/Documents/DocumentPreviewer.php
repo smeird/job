@@ -108,7 +108,7 @@ class DocumentPreviewer
             $pdf = $this->pdfParser->parseContent($content);
 
             return $pdf->getText();
-        } catch (\Throwable) {
+        } catch (\Throwable $exception) {
             return '';
         }
     }
