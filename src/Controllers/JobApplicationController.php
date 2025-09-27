@@ -176,6 +176,35 @@ final class JobApplicationController
     }
 
     /**
+     * Handle deletion of saved job applications.
+     *
+     * Centralising this logic keeps ownership validation and flash messaging aligned.
+     * @param array<string, string> $args
+     */
+    public function delete(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if ($user === null) {
+            return $response->withHeader('Location', '/auth/login')->withStatus(302);
+        }
+
+        $userId = (int) $user['user_id'];
+        $applicationId = isset($args['id']) ? (int) $args['id'] : 0;
+
+        try {
+            $this->service->deleteForUser($userId, $applicationId);
+            $message = 'Job application deleted successfully.';
+        } catch (RuntimeException $exception) {
+            $message = $exception->getMessage();
+        }
+
+        return $response
+            ->withHeader('Location', '/applications?status=' . rawurlencode($message))
+            ->withStatus(302);
+    }
+
+    /**
      * Handle the mapping workflow.
      *
      * This helper keeps response shaping consistent across controller actions.

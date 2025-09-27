@@ -53,6 +53,10 @@ class Routes
             return $container->get(DocumentController::class)->upload($request, $response);
         });
 
+        $app->post('/documents/{id}/delete', function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(DocumentController::class)->delete($request, $response, $args);
+        });
+
         $app->get('/applications', function (Request $request, Response $response) use ($container) {
             return $container->get(JobApplicationController::class)->index($request, $response);
         });
@@ -63,6 +67,10 @@ class Routes
 
         $app->post('/applications/{id}/status', function (Request $request, Response $response, array $args) use ($container) {
             return $container->get(JobApplicationController::class)->updateStatus($request, $response, $args);
+        });
+
+        $app->post('/applications/{id}/delete', function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(JobApplicationController::class)->delete($request, $response, $args);
         });
 
 

@@ -106,4 +106,20 @@ class DocumentService
     {
         return $this->repository->find($id);
     }
+
+    /**
+     * Handle the delete for user operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
+    public function deleteForUser(int $userId, int $documentId): void
+    {
+        if ($documentId <= 0) {
+            throw new RuntimeException('The requested document could not be found.');
+        }
+
+        if (!$this->repository->deleteForUser($userId, $documentId)) {
+            throw new RuntimeException('The requested document could not be found.');
+        }
+    }
 }

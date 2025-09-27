@@ -139,6 +139,21 @@ class DocumentRepository
     }
 
     /**
+     * Handle the delete for user operation.
+     *
+     * Documenting this helper clarifies its role within the wider workflow.
+     */
+    public function deleteForUser(int $userId, int $documentId): bool
+    {
+        $statement = $this->pdo->prepare('DELETE FROM documents WHERE id = :id AND user_id = :user_id');
+        $statement->bindValue(':id', $documentId, PDO::PARAM_INT);
+        $statement->bindValue(':user_id', $userId, PDO::PARAM_INT);
+        $statement->execute();
+
+        return $statement->rowCount() > 0;
+    }
+
+    /**
      * Handle the ensure schema operation.
      *
      * Documenting this helper clarifies its role within the wider workflow.
