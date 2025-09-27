@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Applications\JobApplicationRepository;
-use App\Documents\DocumentRepository;
-use App\Generations\GenerationRepository;
 use App\Views\Renderer;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -16,14 +14,8 @@ class HomeController
     /** @var Renderer */
     private $renderer;
 
-    /** @var DocumentRepository */
-    private $documentRepository;
-
     /** @var JobApplicationRepository */
     private $jobApplicationRepository;
-
-    /** @var GenerationRepository */
-    private $generationRepository;
 
     /**
      * Construct the object with its required dependencies.
@@ -32,13 +24,9 @@ class HomeController
      */
     public function __construct(
         Renderer $renderer,
-        DocumentRepository $documentRepository,
-        GenerationRepository $generationRepository,
         JobApplicationRepository $jobApplicationRepository
     ) {
         $this->renderer = $renderer;
-        $this->documentRepository = $documentRepository;
-        $this->generationRepository = $generationRepository;
         $this->jobApplicationRepository = $jobApplicationRepository;
     }
 
@@ -71,29 +59,9 @@ class HomeController
             return $this->renderer->render($response, 'dashboard', [
                 'title' => 'Dashboard',
                 'subtitle' => 'Keep growing your career with confidence.',
+                'fullWidth' => true,
+                'navLinks' => $this->navLinks('dashboard'),
                 'email' => $user['email'],
-                'jobDocuments' => array_map(
-                    static function ($document) {
-                        return [
-                            'id' => $document->id(),
-                            'filename' => $document->filename(),
-                            'created_at' => $document->createdAt()->format('Y-m-d H:i'),
-                        ];
-                    },
-                    $this->documentRepository->listForUserAndType($userId, 'job_description')
-                ),
-                'cvDocuments' => array_map(
-                    static function ($document) {
-                        return [
-                            'id' => $document->id(),
-                            'filename' => $document->filename(),
-                            'created_at' => $document->createdAt()->format('Y-m-d H:i'),
-                        ];
-                    },
-                    $this->documentRepository->listForUserAndType($userId, 'cv')
-                ),
-                'generations' => $this->generationRepository->listForUser($userId),
-                'modelOptions' => GenerationController::availableModels(),
                 'outstandingApplications' => $outstandingApplications,
                 'outstandingApplicationsCount' => $outstandingCount,
             ]);
@@ -102,5 +70,31 @@ class HomeController
         return $this->renderer->render($response, 'home', [
             'title' => 'job.smeird.com',
         ]);
+    }
+
+    /**
+     * Handle the nav links workflow.
+     *
+     * This helper keeps the nav links logic centralised for clarity and reuse.
+     * @return array<int, array{href: string, label: string, current: bool}>
+     */
+    private function navLinks(string $current): array
+    {
+        $links = [
+            'dashboard' => ['href' => '/', 'label' => 'Dashboard'],
+            'tailor' => ['href' => '/tailor', 'label' => 'Tailor CV'],
+            'documents' => ['href' => '/documents', 'label' => 'Documents'],
+            'applications' => ['href' => '/applications', 'label' => 'Applications'],
+            'usage' => ['href' => '/usage', 'label' => 'Usage'],
+            'retention' => ['href' => '/retention', 'label' => 'Retention'],
+        ];
+
+        return array_map(static function ($key, $link) use ($current) {
+            return [
+                'href' => $link['href'],
+                'label' => $link['label'],
+                'current' => $key === $current,
+            ];
+        }, array_keys($links), $links);
     }
 }
