@@ -17,6 +17,9 @@ $additionalHead = $additionalHead ?? '';
     <title><?= htmlspecialchars($title ?? 'job.smeird.com', ENT_QUOTES) ?></title>
     <meta name="application-name" content="job.smeird.com">
     <meta name="apple-mobile-web-app-title" content="job.smeird.com">
+    <?php if (!empty($csrfToken)) : ?>
+        <meta name="csrf-token" content="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES, 'UTF-8') ?>">
+    <?php endif; ?>
     <script src="/assets/js/tailwind-config.js"></script>
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
     <script><?= CspConfig::ALPINE_INIT_SCRIPT ?></script>

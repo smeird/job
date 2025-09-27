@@ -71,6 +71,23 @@
         };
 
         /**
+         * Resolve the CSRF token stored within the document meta tags.
+         *
+         * @returns {string} The token string or an empty value when unavailable.
+         */
+        const resolveCsrfToken = function () {
+            const meta = document.querySelector('meta[name="csrf-token"]');
+
+            if (!meta) {
+                return '';
+            }
+
+            const value = meta.getAttribute('content');
+
+            return typeof value === 'string' ? value : '';
+        };
+
+        /**
          * Prepare an ordered list of wizard steps from the configuration payload.
          *
          * @param {*} value A potential array of step descriptors.
@@ -158,6 +175,8 @@
                 { index: 4, title: 'Confirm & queue', helper: 'Review your selections before submission.', summary: '' },
             ];
         }
+
+        const csrfToken = resolveCsrfToken();
 
         return {
             step: 1,
@@ -412,7 +431,7 @@
             },
 
             /**
-             * Queue the tailoring request by sending a JSON payload to the server.
+             * Queue the tailoring request by sending a JSON payload with CSRF protection to the server.
              */
             async queue() {
                 if (this.isSubmitting || !this.canSubmit) {
@@ -428,6 +447,7 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken,
                         },
                         credentials: 'same-origin',
                         body: JSON.stringify({
@@ -435,6 +455,7 @@
                             cv_document_id: this.form.cv_document_id,
                             model: this.form.model,
                             thinking_time: this.form.thinking_time,
+                            _token: csrfToken,
                         }),
                     });
 
