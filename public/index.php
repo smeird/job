@@ -11,6 +11,7 @@ use App\Controllers\JobApplicationController;
 use App\Controllers\GenerationController;
 use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
+use App\Controllers\TailorController;
 use App\Controllers\RetentionController;
 use App\Documents\DocumentRepository;
 use App\Documents\DocumentService;
@@ -144,9 +145,15 @@ $container->set(AuthController::class, static function (Container $c): AuthContr
 $container->set(HomeController::class, static function (Container $c): HomeController {
     return new HomeController(
         $c->get(Renderer::class),
-        $c->get(DocumentRepository::class),
-        $c->get(GenerationRepository::class),
         $c->get(JobApplicationRepository::class)
+    );
+});
+
+$container->set(TailorController::class, static function (Container $c): TailorController {
+    return new TailorController(
+        $c->get(Renderer::class),
+        $c->get(DocumentRepository::class),
+        $c->get(GenerationRepository::class)
     );
 });
 

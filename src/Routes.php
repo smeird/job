@@ -9,6 +9,7 @@ use App\Controllers\DocumentController;
 use App\Controllers\GenerationController;
 use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
+use App\Controllers\TailorController;
 use App\Controllers\JobApplicationController;
 use App\Controllers\RetentionController;
 use App\Controllers\UsageController;
@@ -38,6 +39,10 @@ class Routes
 
         $app->get('/', function (Request $request, Response $response) use ($container) {
             return $container->get(HomeController::class)->index($request, $response);
+        });
+
+        $app->get('/tailor', function (Request $request, Response $response) use ($container) {
+            return $container->get(TailorController::class)->show($request, $response);
         });
 
         $app->get('/documents', function (Request $request, Response $response) use ($container) {

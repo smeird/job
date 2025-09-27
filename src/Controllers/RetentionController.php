@@ -144,6 +144,7 @@ class RetentionController
     {
         $links = [
             'dashboard' => ['href' => '/', 'label' => 'Dashboard'],
+            'tailor' => ['href' => '/tailor', 'label' => 'Tailor CV'],
             'documents' => ['href' => '/documents', 'label' => 'Documents'],
             'applications' => ['href' => '/applications', 'label' => 'Applications'],
             'usage' => ['href' => '/usage', 'label' => 'Usage'],
