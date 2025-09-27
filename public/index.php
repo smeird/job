@@ -13,6 +13,7 @@ use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
 use App\Controllers\TailorController;
 use App\Controllers\RetentionController;
+use App\Documents\DocumentPreviewer;
 use App\Documents\DocumentRepository;
 use App\Documents\DocumentService;
 use App\Documents\DocumentValidator;
@@ -81,11 +82,16 @@ $container->set(DocumentService::class, static function (Container $c): Document
     return new DocumentService($c->get(DocumentRepository::class), $c->get(DocumentValidator::class));
 });
 
+$container->set(DocumentPreviewer::class, static function (): DocumentPreviewer {
+    return new DocumentPreviewer();
+});
+
 $container->set(DocumentController::class, static function (Container $c): DocumentController {
     return new DocumentController(
         $c->get(Renderer::class),
         $c->get(DocumentRepository::class),
-        $c->get(DocumentService::class)
+        $c->get(DocumentService::class),
+        $c->get(DocumentPreviewer::class)
     );
 });
 

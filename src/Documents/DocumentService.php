@@ -108,6 +108,26 @@ class DocumentService
     }
 
     /**
+     * Retrieve the requested document for the authenticated user.
+     *
+     * Guarding the lookup here keeps permission logic consistent everywhere the document is accessed.
+     */
+    public function getForUser(int $userId, int $documentId): Document
+    {
+        if ($documentId <= 0) {
+            throw new RuntimeException('The requested document could not be found.');
+        }
+
+        $document = $this->repository->findForUser($userId, $documentId);
+
+        if ($document === null) {
+            throw new RuntimeException('The requested document could not be found.');
+        }
+
+        return $document;
+    }
+
+    /**
      * Handle the delete for user operation.
      *
      * Documenting this helper clarifies its role within the wider workflow.

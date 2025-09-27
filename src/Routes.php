@@ -49,6 +49,10 @@ class Routes
             return $container->get(DocumentController::class)->index($request, $response);
         });
 
+        $app->get('/documents/{id}', function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(DocumentController::class)->show($request, $response, $args);
+        });
+
         $app->post('/documents/upload', function (Request $request, Response $response) use ($container) {
             return $container->get(DocumentController::class)->upload($request, $response);
         });
