@@ -179,7 +179,7 @@ if (is_string($generationIdRaw)) {
                     <div class="wizard-preview__options">
                         <div>
                             <span class="wizard-preview__option-label">Model</span>
-                            <span class="wizard-preview__option-value">GPT-4o mini · Fast and affordable</span>
+                            <span class="wizard-preview__option-value">GPT-5 Mini · Balanced performance</span>
                         </div>
                         <div>
                             <span class="wizard-preview__option-label">Thinking time</span>

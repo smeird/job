@@ -270,7 +270,7 @@ record_check($checks, 'Create generation', function () use (&$state, $client, $c
     $payload = [
         'job_description_id' => $state['documents'][1],
         'cv_source_id' => $state['documents'][0],
-        'model' => verify_env($config, 'OPENAI_MODEL_PLAN') ?? 'gpt-4.1-mini',
+        'model' => verify_env($config, 'OPENAI_MODEL_PLAN') ?? 'gpt-5-mini',
     ];
 
     $response = $client->post('generations', ['json' => $payload]);
