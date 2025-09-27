@@ -260,6 +260,7 @@
                 return this.selectedJob !== null && this.selectedCv !== null && this.thinkingTimeIsValid;
             },
 
+
             /**
              * Validate the thinking time slider value.
              *
@@ -300,6 +301,7 @@
                         return item.label || item.value;
                     }
                 }
+
 
                 return this.form.model;
             },
@@ -346,11 +348,13 @@
                     return;
                 }
 
+
                 this.step = normaliseNumber(targetStep, this.step);
                 this.errorMessage = '';
                 this.successMessage = '';
                 this.schedulePanelFocus();
             },
+
 
             /**
              * Advance the wizard to the next step.
@@ -363,6 +367,7 @@
                     this.schedulePanelFocus();
                 }
             },
+
 
             /**
              * Return to the previous step and clear transient messaging.
@@ -547,18 +552,42 @@
         Alpine.data('tailorWizard', tailorWizardFactory);
     };
 
-    if (typeof window !== "undefined") {
-        window.tailorWizard = tailorWizardFactory;
+    /**
+     * Handle the `alpine:init` lifecycle event by registering with the emitted instance.
+     *
+     * The CDN build of Alpine dispatches this event with its instance stored under
+     * `event.detail`. Falling back to `window.Alpine` accommodates environments that
+     * omit the detail payload while still exposing the global reference.
+     *
+     * @param {CustomEvent|Event} event The Alpine lifecycle event payload.
+     * @returns {void}
+     */
+    const handleAlpineInitEvent = function (event) {
+        const alpineInstance = event && event.detail ? event.detail : window.Alpine;
+
+        registerTailorWizard(alpineInstance);
+    };
+
+    if (typeof window !== 'undefined') {
+        /**
+         * Expose the wizard factory globally so `x-data="tailorWizard(...)"` resolves.
+         *
+         * Returning the factory result maintains backward compatibility with the
+         * previous global function signature while still delegating to the shared
+         * implementation defined above.
+         *
+         * @param {object} config The configuration payload generated on the server.
+         * @returns {object} Alpine-compatible wizard state and behaviour.
+         */
+        window.tailorWizard = function tailorWizard(config) {
+            return tailorWizardFactory(config);
+        };
 
         if (window.Alpine) {
             registerTailorWizard(window.Alpine);
-        } else {           document.addEventListener('alpine:init', function (event) {
-                // Use the Alpine instance provided by the event detail, falling back to the global reference.
-                const alpineInstance = event && event.detail ? event.detail : window.Alpine;
-
-                registerTailorWizard(alpineInstance);
-
-            });
         }
+
+        document.addEventListener('alpine:init', handleAlpineInitEvent);
+
     }
 })();
