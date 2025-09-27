@@ -21,6 +21,38 @@ $fullWidth = true;
             </p>
         </div>
         <div class="flex flex-col gap-3 md:items-end">
+            <div x-data="{ open: false }" class="relative md:self-end">
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800"
+                    @click="open = !open"
+                    @keydown.escape.window="open = false"
+                >
+                    <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                        <path d="M12 6.75a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM12 13.5a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM12 20.25a1.5 1.5 0 110-3 1.5 1.5 0 010 3z" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                    Settings
+                    <svg aria-hidden="true" class="h-4 w-4 transition" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                        <path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"></path>
+                    </svg>
+                </button>
+                <div
+                    x-cloak
+                    x-show="open"
+                    @click.away="open = false"
+                    class="absolute right-0 z-20 mt-2 w-56 overflow-hidden rounded-xl border border-slate-800/80 bg-slate-900/95 p-2 shadow-2xl backdrop-blur"
+                >
+                    <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Preferences</p>
+                    <a href="/usage" class="block rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800/80 hover:text-indigo-100">
+                        Usage analytics
+                        <span class="mt-1 block text-xs text-slate-400">Review account activity and feature trends.</span>
+                    </a>
+                    <a href="/retention" class="mt-1 block rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800/80 hover:text-indigo-100">
+                        Retention settings
+                        <span class="mt-1 block text-xs text-slate-400">Adjust data governance and purge rules.</span>
+                    </a>
+                </div>
+            </div>
             <form method="post" action="/auth/logout" class="md:self-end">
                 <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>">
                 <button type="submit" class="inline-flex items-center justify-center rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800">
@@ -30,7 +62,7 @@ $fullWidth = true;
         </div>
     </div>
 
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <a
             href="/tailor"
             class="group flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-100"
@@ -62,26 +94,6 @@ $fullWidth = true;
             <span class="text-xs font-semibold uppercase tracking-wide text-amber-200">
                 <?= (int) $outstandingApplicationsCount ?> outstanding
             </span>
-        </a>
-        <a href="/usage" class="group flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-100">
-            <span class="inline-flex items-center gap-2">
-                <span class="rounded-full bg-emerald-500/20 px-2 py-1 text-xs uppercase tracking-wide text-emerald-200">Insights</span>
-                <span>Usage analytics</span>
-            </span>
-            <svg aria-hidden="true" class="h-4 w-4 transition group-hover:translate-x-1" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                <path d="M5 12h14" stroke-linecap="round" stroke-linejoin="round"></path>
-                <path d="M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path>
-            </svg>
-        </a>
-        <a href="/retention" class="group flex items-center justify-between gap-3 rounded-xl border border-slate-800/80 bg-slate-900/60 px-4 py-3 text-sm font-medium text-slate-200 transition hover:border-indigo-400/60 hover:bg-indigo-500/10 hover:text-indigo-100">
-            <span class="inline-flex items-center gap-2">
-                <span class="rounded-full bg-sky-500/20 px-2 py-1 text-xs uppercase tracking-wide text-sky-200">Policy</span>
-                <span>Retention settings</span>
-            </span>
-            <svg aria-hidden="true" class="h-4 w-4 transition group-hover:translate-x-1" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                <path d="M5 12h14" stroke-linecap="round" stroke-linejoin="round"></path>
-                <path d="M13 6l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"></path>
-            </svg>
         </a>
     </div>
 
