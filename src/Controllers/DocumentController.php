@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Documents\DocumentPreviewer;
 use App\Documents\DocumentRepository;
 use App\Documents\DocumentService;
 use App\Documents\DocumentValidationException;
@@ -25,6 +26,9 @@ final class DocumentController
     /** @var DocumentService */
     private $documentService;
 
+    /** @var DocumentPreviewer */
+    private $documentPreviewer;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -33,11 +37,13 @@ final class DocumentController
     public function __construct(
         Renderer $renderer,
         DocumentRepository $documentRepository,
-        DocumentService $documentService
+        DocumentService $documentService,
+        DocumentPreviewer $documentPreviewer
     ) {
         $this->renderer = $renderer;
         $this->documentRepository = $documentRepository;
         $this->documentService = $documentService;
+        $this->documentPreviewer = $documentPreviewer;
     }
 
     /**
@@ -133,6 +139,51 @@ final class DocumentController
     }
 
     /**
+     * Display the stored document so the user can review its contents.
+     *
+     * Centralising the preview flow helps ensure ownership checks and messaging remain consistent.
+     * @param array<string, string> $args
+     */
+    public function show(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if (!is_array($user) || !isset($user['user_id'])) {
+            return $response->withHeader('Location', '/auth/login')->withStatus(302);
+        }
+
+        $userId = (int) $user['user_id'];
+        $documentId = isset($args['id']) ? (int) $args['id'] : 0;
+
+        try {
+            $document = $this->documentService->getForUser($userId, $documentId);
+        } catch (RuntimeException $exception) {
+            return $response
+                ->withHeader('Location', '/documents?status=' . rawurlencode($exception->getMessage()))
+                ->withStatus(302);
+        }
+
+        $preview = $this->documentPreviewer->render($document);
+        $documentType = $document->documentType() === 'cv' ? 'CV' : 'Job description';
+
+        return $this->renderer->render($response, 'document-view', [
+            'title' => $document->filename() . ' · Documents',
+            'subtitle' => 'Document preview',
+            'fullWidth' => true,
+            'navLinks' => $this->navLinks('documents'),
+            'document' => [
+                'id' => $document->id(),
+                'filename' => $document->filename(),
+                'created_at' => $document->createdAt()->format('Y-m-d H:i'),
+                'size' => $this->formatBytes($document->sizeBytes()),
+                'mime_type' => $document->mimeType(),
+                'type_label' => $documentType,
+                'preview' => $preview,
+            ],
+        ]);
+    }
+
+    /**
      * Handle the delete workflow for stored documents.
      *
      * Centralising deletion ensures ownership checks and messaging remain consistent.
@@ -165,7 +216,7 @@ final class DocumentController
      * Map the provided data set into the desired shape.
      *
      * @param array<int, \App\Documents\Document> $documents
-     * @return array<int, array{id: int|null, filename: string, created_at: string, size: string}>
+     * @return array<int, array{id: int|null, filename: string, created_at: string, size: string, view_url: string|null}>
      */
     private function mapDocuments(array $documents): array
     {
@@ -175,6 +226,9 @@ final class DocumentController
                 'filename' => $document->filename(),
                 'created_at' => $document->createdAt()->format('Y-m-d H:i'),
                 'size' => $this->formatBytes($document->sizeBytes()),
+                'view_url' => $document->id() !== null
+                    ? '/documents/' . rawurlencode((string) $document->id())
+                    : null,
             ];
         }, $documents);
     }

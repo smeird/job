@@ -106,12 +106,19 @@
                                     <p class="text-xs text-slate-400">Added <?= htmlspecialchars($document['created_at'], ENT_QUOTES) ?> · <?= htmlspecialchars($document['size'], ENT_QUOTES) ?></p>
                                 </div>
                                 <?php if (!empty($document['id'])) : ?>
-                                    <form method="post" action="/documents/<?= urlencode((string) $document['id']) ?>/delete" class="self-start sm:self-auto">
-                                        <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
-                                        <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-100 transition hover:border-rose-300 hover:text-rose-50">
-                                            Delete
-                                        </button>
-                                    </form>
+                                    <div class="flex items-center gap-2 self-start sm:self-auto">
+                                        <?php if (!empty($document['view_url'])) : ?>
+                                            <a href="<?= htmlspecialchars($document['view_url'], ENT_QUOTES) ?>" class="inline-flex items-center gap-2 rounded-full border border-indigo-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-100 transition hover:border-indigo-300 hover:text-indigo-50">
+                                                View
+                                            </a>
+                                        <?php endif; ?>
+                                        <form method="post" action="/documents/<?= urlencode((string) $document['id']) ?>/delete">
+                                            <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                                            <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-100 transition hover:border-rose-300 hover:text-rose-50">
+                                                Delete
+                                            </button>
+                                        </form>
+                                    </div>
                                 <?php endif; ?>
                             </article>
                         <?php endforeach; ?>
@@ -140,12 +147,19 @@
                                     <p class="text-xs text-slate-400">Added <?= htmlspecialchars($document['created_at'], ENT_QUOTES) ?> · <?= htmlspecialchars($document['size'], ENT_QUOTES) ?></p>
                                 </div>
                                 <?php if (!empty($document['id'])) : ?>
-                                    <form method="post" action="/documents/<?= urlencode((string) $document['id']) ?>/delete" class="self-start sm:self-auto">
-                                        <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
-                                        <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-100 transition hover:border-rose-300 hover:text-rose-50">
-                                            Delete
-                                        </button>
-                                    </form>
+                                    <div class="flex items-center gap-2 self-start sm:self-auto">
+                                        <?php if (!empty($document['view_url'])) : ?>
+                                            <a href="<?= htmlspecialchars($document['view_url'], ENT_QUOTES) ?>" class="inline-flex items-center gap-2 rounded-full border border-indigo-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-100 transition hover:border-indigo-300 hover:text-indigo-50">
+                                                View
+                                            </a>
+                                        <?php endif; ?>
+                                        <form method="post" action="/documents/<?= urlencode((string) $document['id']) ?>/delete">
+                                            <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                                            <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-100 transition hover:border-rose-300 hover:text-rose-50">
+                                                Delete
+                                            </button>
+                                        </form>
+                                    </div>
                                 <?php endif; ?>
                             </article>
                         <?php endforeach; ?>
