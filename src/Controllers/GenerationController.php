@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Documents\DocumentRepository;
 use App\Generations\GenerationRepository;
+use App\Prompts\PromptLibrary;
 use RuntimeException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -64,6 +65,14 @@ final class GenerationController
         $thinkingTime = $this->extractInt($payload['thinking_time'] ?? null);
         $prompt = isset($payload['prompt']) ? trim((string) $payload['prompt']) : '';
 
+        if ($prompt === '') {
+            $prompt = PromptLibrary::tailorPrompt();
+        }
+
+        if ($prompt === '') {
+            throw new HttpBadRequestException($request, 'Provide tailoring instructions before submitting.');
+        }
+
         if ($jobDocumentId === null || $cvDocumentId === null) {
             throw new HttpBadRequestException($request, 'Both job and CV documents are required.');
         }
@@ -74,10 +83,6 @@ final class GenerationController
 
         if ($thinkingTime === null || $thinkingTime < 5 || $thinkingTime > 60) {
             throw new HttpBadRequestException($request, 'Thinking time must be between 5 and 60 seconds.');
-        }
-
-        if ($prompt === '') {
-            throw new HttpBadRequestException($request, 'Provide tailoring instructions before submitting.');
         }
 
         $userId = (int) $user['user_id'];
