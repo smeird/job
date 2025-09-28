@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Documents\DocumentRepository;
+use App\Generations\GenerationLogRepository;
 use App\Generations\GenerationRepository;
 use App\Prompts\PromptLibrary;
 use App\Views\Renderer;
@@ -22,6 +23,9 @@ final class TailorController
     /** @var GenerationRepository */
     private $generationRepository;
 
+    /** @var GenerationLogRepository */
+    private $generationLogRepository;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -30,11 +34,13 @@ final class TailorController
     public function __construct(
         Renderer $renderer,
         DocumentRepository $documentRepository,
-        GenerationRepository $generationRepository
+        GenerationRepository $generationRepository,
+        GenerationLogRepository $generationLogRepository
     ) {
         $this->renderer = $renderer;
         $this->documentRepository = $documentRepository;
         $this->generationRepository = $generationRepository;
+        $this->generationLogRepository = $generationLogRepository;
     }
 
     /**
@@ -61,6 +67,7 @@ final class TailorController
             'jobDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'job_description')),
             'cvDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'cv')),
             'generations' => $this->generationRepository->listForUser($userId),
+            'generationLogs' => $this->generationLogRepository->listRecentForUser($userId),
             'modelOptions' => GenerationController::availableModels(),
             'defaultPrompt' => PromptLibrary::tailorPrompt(),
         ]);
