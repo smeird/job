@@ -219,7 +219,8 @@ final class TailorCvJobHandler implements JobHandlerInterface
      */
     private function buildConstraints(array $payload, string $cvMarkdown): string
     {
-        $template = PromptLibrary::tailorPrompt();
+        $templateValue = isset($payload['prompt']) ? trim((string) $payload['prompt']) : '';
+        $template = $templateValue !== '' ? $templateValue : PromptLibrary::tailorPrompt();
         $jobTitle = $this->optionalString($payload, 'job_title');
         $company = $this->optionalString($payload, 'company');
         $competencies = $payload['competencies'] ?? [];
