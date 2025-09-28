@@ -5,6 +5,7 @@
 /** @var array<int, array<string, mixed>> $jobDocuments */
 /** @var array<int, array<string, mixed>> $cvDocuments */
 /** @var array<int, array<string, mixed>> $generations */
+/** @var array<int, array<string, mixed>> $generationLogs */
 /** @var array<int, array<string, mixed>> $modelOptions */
 /** @var array<int, array{href: string, label: string, current: bool}> $navLinks */
 /** @var string|null $csrfToken */
@@ -44,6 +45,7 @@ $wizardState = [
     'cvDocuments' => $cvDocuments,
     'models' => $modelOptions,
     'generations' => $generations,
+    'logs' => $generationLogs,
     'steps' => $wizardSteps,
     'defaultThinkingTime' => 30,
     'prompt' => $defaultPrompt,
@@ -392,6 +394,51 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
                     </template>
                 </tbody>
             </table>
+        </div>
+    </section>
+
+    <section class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6 shadow-xl">
+        <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+                <h3 class="text-xl font-semibold text-white">Processing logs</h3>
+                <p class="text-sm text-slate-400">Review recent failures recorded while tailoring CVs.</p>
+            </div>
+            <template x-if="processingLogs.length">
+                <span class="rounded-full border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-200">
+                    <span x-text="processingLogs.length"></span>
+                    <span class="ml-1">issue<span x-text="processingLogs.length === 1 ? '' : 's'"></span></span>
+                </span>
+            </template>
+        </div>
+        <div class="mt-6 space-y-4">
+            <template x-if="processingLogs.length === 0">
+                <p class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 text-sm text-slate-400">
+                    No processing issues recorded. This list updates when the queue reports a problem.
+                </p>
+            </template>
+            <template x-for="log in processingLogs" :key="log.id">
+                <article class="space-y-3 rounded-xl border border-rose-500/30 bg-rose-500/5 p-5 text-sm text-slate-200">
+                    <header class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div class="space-y-1">
+                            <p class="font-semibold text-white" x-text="log.message || 'Processing log'"></p>
+                            <p class="text-xs text-slate-400">
+                                <span x-text="formatDateTime(log.created_at)"></span>
+                                <template x-if="log.generation_id">
+                                    <span>
+                                        · Generation <span x-text="'#' + log.generation_id"></span>
+                                    </span>
+                                </template>
+                            </p>
+                        </div>
+                        <span class="inline-flex items-center rounded-full border border-rose-400/40 bg-rose-500/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-100">
+                            Failure
+                        </span>
+                    </header>
+                    <template x-if="log.error">
+                        <p class="rounded-lg border border-rose-400/40 bg-rose-500/15 p-3 text-xs text-rose-100" x-text="log.error"></p>
+                    </template>
+                </article>
+            </template>
         </div>
     </section>
 </div>

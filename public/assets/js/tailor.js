@@ -186,6 +186,7 @@
             cvDocuments: toArray(config && config.cvDocuments),
             models: toArray(config && config.models),
             generations: toArray(config && config.generations),
+            processingLogs: toArray(config && config.logs),
             defaultThinkingTime: defaultThinkingTime,
             defaultPrompt: defaultPrompt,
             form: {

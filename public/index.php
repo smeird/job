@@ -35,6 +35,7 @@ use DI\Container;
 use Slim\Factory\AppFactory;
 use Slim\Middleware\ErrorMiddleware;
 use App\Generations\GenerationDownloadService;
+use App\Generations\GenerationLogRepository;
 use App\Generations\GenerationRepository;
 use App\Generations\GenerationTokenService;
 
@@ -119,6 +120,10 @@ $container->set(GenerationRepository::class, static function (Container $c): Gen
     return new GenerationRepository($c->get(\PDO::class), $c->get(DocumentPreviewer::class));
 });
 
+$container->set(GenerationLogRepository::class, static function (Container $c): GenerationLogRepository {
+    return new GenerationLogRepository($c->get(\PDO::class));
+});
+
 $container->set(AuditLogger::class, static function (Container $c): AuditLogger {
     return new AuditLogger($c->get(\PDO::class));
 });
@@ -163,7 +168,8 @@ $container->set(TailorController::class, static function (Container $c): TailorC
     return new TailorController(
         $c->get(Renderer::class),
         $c->get(DocumentRepository::class),
-        $c->get(GenerationRepository::class)
+        $c->get(GenerationRepository::class),
+        $c->get(GenerationLogRepository::class)
     );
 });
 
