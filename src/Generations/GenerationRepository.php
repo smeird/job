@@ -4,13 +4,27 @@ declare(strict_types=1);
 
 namespace App\Generations;
 
+use App\Documents\Document;
+use App\Documents\DocumentPreviewer;
 use DateTimeImmutable;
 use PDO;
+use RuntimeException;
+use Throwable;
+
+use function in_array;
+use function json_encode;
+use function preg_replace;
+use function trim;
+
+use const JSON_THROW_ON_ERROR;
 
 final class GenerationRepository
 {
     /** @var PDO */
     private $pdo;
+
+    /** @var DocumentPreviewer */
+    private $documentPreviewer;
 
     /** @var bool */
     private $hasThinkingTimeColumn;
@@ -20,9 +34,10 @@ final class GenerationRepository
      *
      * This ensures collaborating services are available for subsequent method calls.
      */
-    public function __construct(PDO $pdo)
+    public function __construct(PDO $pdo, ?DocumentPreviewer $documentPreviewer = null)
     {
         $this->pdo = $pdo;
+        $this->documentPreviewer = $documentPreviewer ?? new DocumentPreviewer();
         $this->hasThinkingTimeColumn = $this->detectThinkingTimeColumn();
     }
 
@@ -31,44 +46,71 @@ final class GenerationRepository
      *
      * Documenting this helper clarifies its role within the wider workflow.
      */
-    public function create(int $userId, int $jobDocumentId, int $cvDocumentId, string $model, int $thinkingTime): array
-    {
+    public function create(
+        int $userId,
+        Document $jobDocument,
+        Document $cvDocument,
+        string $model,
+        int $thinkingTime,
+        string $prompt
+    ): array {
         $now = (new DateTimeImmutable())->format('Y-m-d H:i:s');
 
-        if ($this->hasThinkingTimeColumn) {
-            $statement = $this->pdo->prepare(
-                'INSERT INTO generations (user_id, job_document_id, cv_document_id, model, thinking_time, status, created_at, updated_at)
-                 VALUES (:user_id, :job_document_id, :cv_document_id, :model, :thinking_time, :status, :created_at, :updated_at)'
-            );
+        $jobDocumentId = (int) $jobDocument->id();
+        $cvDocumentId = (int) $cvDocument->id();
 
-            $statement->execute([
-                ':user_id' => $userId,
-                ':job_document_id' => $jobDocumentId,
-                ':cv_document_id' => $cvDocumentId,
-                ':model' => $model,
-                ':thinking_time' => $thinkingTime,
-                ':status' => 'queued',
-                ':created_at' => $now,
-                ':updated_at' => $now,
-            ]);
-        } else {
-            $statement = $this->pdo->prepare(
-                'INSERT INTO generations (user_id, job_document_id, cv_document_id, model, status, created_at, updated_at)
-                 VALUES (:user_id, :job_document_id, :cv_document_id, :model, :status, :created_at, :updated_at)'
-            );
-
-            $statement->execute([
-                ':user_id' => $userId,
-                ':job_document_id' => $jobDocumentId,
-                ':cv_document_id' => $cvDocumentId,
-                ':model' => $model,
-                ':status' => 'queued',
-                ':created_at' => $now,
-                ':updated_at' => $now,
-            ]);
+        if ($jobDocumentId <= 0 || $cvDocumentId <= 0) {
+            throw new RuntimeException('Unable to queue the generation because a required document is missing.');
         }
 
-        $id = (int) $this->pdo->lastInsertId();
+        $this->pdo->beginTransaction();
+
+        try {
+            if ($this->hasThinkingTimeColumn) {
+                $statement = $this->pdo->prepare(
+                    'INSERT INTO generations (user_id, job_document_id, cv_document_id, model, thinking_time, status, created_at, updated_at)'
+                        . ' VALUES (:user_id, :job_document_id, :cv_document_id, :model, :thinking_time, :status, :created_at, :updated_at)'
+                );
+
+                $statement->execute([
+                    ':user_id' => $userId,
+                    ':job_document_id' => $jobDocumentId,
+                    ':cv_document_id' => $cvDocumentId,
+                    ':model' => $model,
+                    ':thinking_time' => $thinkingTime,
+                    ':status' => 'queued',
+                    ':created_at' => $now,
+                    ':updated_at' => $now,
+                ]);
+            } else {
+                $statement = $this->pdo->prepare(
+                    'INSERT INTO generations (user_id, job_document_id, cv_document_id, model, status, created_at, updated_at)'
+                        . ' VALUES (:user_id, :job_document_id, :cv_document_id, :model, :status, :created_at, :updated_at)'
+                );
+
+                $statement->execute([
+                    ':user_id' => $userId,
+                    ':job_document_id' => $jobDocumentId,
+                    ':cv_document_id' => $cvDocumentId,
+                    ':model' => $model,
+                    ':status' => 'queued',
+                    ':created_at' => $now,
+                    ':updated_at' => $now,
+                ]);
+            }
+
+            $id = (int) $this->pdo->lastInsertId();
+
+            $this->queueTailorJob($id, $userId, $jobDocument, $cvDocument, $model, $thinkingTime, $prompt, $now);
+
+            $this->pdo->commit();
+        } catch (Throwable $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            throw new RuntimeException('Failed to queue the tailoring job for processing.', 0, $exception);
+        }
 
         return $this->findForUser($userId, $id);
     }
@@ -81,14 +123,14 @@ final class GenerationRepository
     public function findForUser(int $userId, int $generationId): ?array
     {
         $statement = $this->pdo->prepare(
-            'SELECT g.id, g.model, ' . $this->thinkingTimeSelectExpression() . ', g.status, g.created_at,
-                    jd.id AS job_document_id, jd.filename AS job_filename,
-                    cv.id AS cv_document_id, cv.filename AS cv_filename
-             FROM generations g
-             INNER JOIN documents jd ON jd.id = g.job_document_id
-             INNER JOIN documents cv ON cv.id = g.cv_document_id
-             WHERE g.id = :id AND g.user_id = :user_id
-             LIMIT 1'
+            'SELECT g.id, g.model, ' . $this->thinkingTimeSelectExpression() . ', g.status, g.created_at,'
+                . ' jd.id AS job_document_id, jd.filename AS job_filename,'
+                . ' cv.id AS cv_document_id, cv.filename AS cv_filename'
+                . ' FROM generations g'
+                . ' INNER JOIN documents jd ON jd.id = g.job_document_id'
+                . ' INNER JOIN documents cv ON cv.id = g.cv_document_id'
+                . ' WHERE g.id = :id AND g.user_id = :user_id'
+                . ' LIMIT 1'
         );
 
         $statement->execute([
@@ -110,14 +152,14 @@ final class GenerationRepository
     public function listForUser(int $userId): array
     {
         $statement = $this->pdo->prepare(
-            'SELECT g.id, g.model, ' . $this->thinkingTimeSelectExpression() . ', g.status, g.created_at,
-                    jd.id AS job_document_id, jd.filename AS job_filename,
-                    cv.id AS cv_document_id, cv.filename AS cv_filename
-             FROM generations g
-             INNER JOIN documents jd ON jd.id = g.job_document_id
-             INNER JOIN documents cv ON cv.id = g.cv_document_id
-             WHERE g.user_id = :user_id
-             ORDER BY g.created_at DESC'
+            'SELECT g.id, g.model, ' . $this->thinkingTimeSelectExpression() . ', g.status, g.created_at,'
+                . ' jd.id AS job_document_id, jd.filename AS job_filename,'
+                . ' cv.id AS cv_document_id, cv.filename AS cv_filename'
+                . ' FROM generations g'
+                . ' INNER JOIN documents jd ON jd.id = g.job_document_id'
+                . ' INNER JOIN documents cv ON cv.id = g.cv_document_id'
+                . ' WHERE g.user_id = :user_id'
+                . ' ORDER BY g.created_at DESC'
         );
 
         $statement->execute([':user_id' => $userId]);
@@ -157,6 +199,98 @@ final class GenerationRepository
         ];
     }
 
+    /**
+     * Queue the tailor CV job in the background worker.
+     *
+     * Consolidating the queuing logic keeps database interactions predictable.
+     */
+    private function queueTailorJob(
+        int $generationId,
+        int $userId,
+        Document $jobDocument,
+        Document $cvDocument,
+        string $model,
+        int $thinkingTime,
+        string $prompt,
+        string $queuedAt
+    ): void {
+        $jobDescription = $this->extractDocumentText($jobDocument);
+        $cvMarkdown = $this->extractDocumentText($cvDocument);
+
+        if ($jobDescription === '') {
+            throw new RuntimeException('The job description could not be converted into text.');
+        }
+
+        if ($cvMarkdown === '') {
+            throw new RuntimeException('The CV could not be converted into text.');
+        }
+
+        $payload = [
+            'generation_id' => $generationId,
+            'user_id' => $userId,
+            'job_document_id' => $jobDocument->id(),
+            'cv_document_id' => $cvDocument->id(),
+            'job_description' => $jobDescription,
+            'cv_markdown' => $cvMarkdown,
+            'model' => $model,
+            'thinking_time' => $thinkingTime,
+            'prompt' => $prompt,
+        ];
+
+        $statement = $this->pdo->prepare(
+            'INSERT INTO jobs (type, payload_json, run_after, attempts, status, created_at)'
+                . ' VALUES (:type, :payload_json, :run_after, 0, :status, :created_at)'
+        );
+
+        $statement->execute([
+            ':type' => 'tailor_cv',
+            ':payload_json' => json_encode($payload, JSON_THROW_ON_ERROR),
+            ':run_after' => $queuedAt,
+            ':status' => 'pending',
+            ':created_at' => $queuedAt,
+        ]);
+    }
+
+    /**
+     * Extract the textual content from a stored document.
+     *
+     * Having a central helper keeps conversions consistent across job payloads.
+     */
+    private function extractDocumentText(Document $document): string
+    {
+        $mime = $document->mimeType();
+        $raw = '';
+
+        if (in_array($mime, ['text/plain', 'text/markdown'], true)) {
+            $raw = $document->content();
+        } else {
+            $raw = $this->documentPreviewer->render($document);
+        }
+
+        if ($raw === '') {
+            return '';
+        }
+
+        return $this->normaliseExtractedText($raw);
+    }
+
+    /**
+     * Normalise extracted text into a stable format.
+     *
+     * Consolidating whitespace handling keeps downstream prompts clean and predictable.
+     */
+    private function normaliseExtractedText(string $text): string
+    {
+        $trimmed = trim($text);
+
+        if ($trimmed === '') {
+            return '';
+        }
+
+        $normalised = preg_replace(["/\r\n?/", "/\n{3,}/"], ["\n", "\n\n"], $trimmed);
+
+        return $normalised === null ? '' : (string) $normalised;
+    }
 
     /**
      * Determine whether the generations table provides the thinking_time column.

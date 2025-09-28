@@ -6,6 +6,7 @@ namespace App\Controllers;
 
 use App\Documents\DocumentRepository;
 use App\Generations\GenerationRepository;
+use RuntimeException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Slim\Exception\HttpBadRequestException;
@@ -61,6 +62,7 @@ final class GenerationController
         $cvDocumentId = $this->extractInt($payload['cv_document_id'] ?? null);
         $model = isset($payload['model']) ? trim((string) $payload['model']) : '';
         $thinkingTime = $this->extractInt($payload['thinking_time'] ?? null);
+        $prompt = isset($payload['prompt']) ? trim((string) $payload['prompt']) : '';
 
         if ($jobDocumentId === null || $cvDocumentId === null) {
             throw new HttpBadRequestException($request, 'Both job and CV documents are required.');
@@ -74,6 +76,10 @@ final class GenerationController
             throw new HttpBadRequestException($request, 'Thinking time must be between 5 and 60 seconds.');
         }
 
+        if ($prompt === '') {
+            throw new HttpBadRequestException($request, 'Provide tailoring instructions before submitting.');
+        }
+
         $userId = (int) $user['user_id'];
 
         $jobDocument = $this->documentRepository->findForUserByType($userId, $jobDocumentId, 'job_description');
@@ -83,7 +89,18 @@ final class GenerationController
             return $this->json($response->withStatus(422), ['error' => 'Document selection is invalid.']);
         }
 
-        $generation = $this->generationRepository->create($userId, $jobDocument->id(), $cvDocument->id(), $model, $thinkingTime);
+        try {
+            $generation = $this->generationRepository->create(
+                $userId,
+                $jobDocument,
+                $cvDocument,
+                $model,
+                $thinkingTime,
+                $prompt
+            );
+        } catch (RuntimeException $exception) {
+            return $this->json($response->withStatus(422), ['error' => $exception->getMessage()]);
+        }
 
         return $this->json($response->withStatus(201), $generation);
     }

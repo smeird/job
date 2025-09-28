@@ -116,7 +116,7 @@ $container->set(JobApplicationController::class, static function (Container $c):
 });
 
 $container->set(GenerationRepository::class, static function (Container $c): GenerationRepository {
-    return new GenerationRepository($c->get(\PDO::class));
+    return new GenerationRepository($c->get(\PDO::class), $c->get(DocumentPreviewer::class));
 });
 
 $container->set(AuditLogger::class, static function (Container $c): AuditLogger {
