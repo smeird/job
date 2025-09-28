@@ -460,6 +460,10 @@
                 this.successMessage = '';
 
                 try {
+                    const promptPayload = typeof this.form.prompt === 'string' && this.form.prompt.trim() !== ''
+                        ? this.form.prompt
+                        : this.defaultPrompt;
+
                     const response = await fetch('/generations', {
                         method: 'POST',
                         headers: {
@@ -472,7 +476,7 @@
                             cv_document_id: this.form.cv_document_id,
                             model: this.form.model,
                             thinking_time: this.form.thinking_time,
-                            prompt: this.form.prompt,
+                            prompt: promptPayload,
                             _token: csrfToken,
                         }),
                     });
