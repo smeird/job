@@ -104,7 +104,8 @@ $container->set(JobApplicationRepository::class, static function (Container $c):
 $container->set(JobApplicationService::class, static function (Container $c): JobApplicationService {
     return new JobApplicationService(
         $c->get(JobApplicationRepository::class),
-        $c->get(GenerationRepository::class)
+        $c->get(GenerationRepository::class),
+        $c->get(DocumentRepository::class)
     );
 });
 

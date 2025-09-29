@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace App\Applications;
 
+use App\Documents\Document;
+use App\Documents\DocumentRepository;
 use App\Generations\GenerationRepository;
+use PDOException;
 use RuntimeException;
 
 class JobApplicationService
@@ -23,15 +26,22 @@ class JobApplicationService
     /** @var GenerationRepository */
     private $generationRepository;
 
+    /** @var DocumentRepository */
+    private $documentRepository;
+
     /**
      * Construct the object with its required dependencies.
      *
      * This ensures collaborating services are available for subsequent method calls.
      */
-    public function __construct(JobApplicationRepository $repository, GenerationRepository $generationRepository)
-    {
+    public function __construct(
+        JobApplicationRepository $repository,
+        GenerationRepository $generationRepository,
+        DocumentRepository $documentRepository
+    ) {
         $this->repository = $repository;
         $this->generationRepository = $generationRepository;
+        $this->documentRepository = $documentRepository;
     }
 
     /**
@@ -73,6 +83,8 @@ class JobApplicationService
         $storedUrl = $sourceUrl === '' ? null : $sourceUrl;
 
         $application = $this->repository->create($userId, $title, $storedUrl, $description);
+
+        $this->storeJobDescriptionDocument($application);
 
         return [
             'application' => $application,
@@ -203,5 +215,78 @@ class JobApplicationService
         }
 
         return $key;
+    }
+
+    /**
+     * Persist the job description text as a document for the tailoring workflow.
+     *
+     * Centralising this logic ensures each saved application automatically exposes its description to the Tailor CV wizard.
+     */
+    private function storeJobDescriptionDocument(JobApplication $application): void
+    {
+        $description = $application->description();
+
+        if ($description === '') {
+            return;
+        }
+
+        $document = new Document(
+            null,
+            $application->userId(),
+            'job_description',
+            $this->buildJobDescriptionFilename($application),
+            'text/plain',
+            strlen($description),
+            hash('sha256', $description . '|' . (string) $application->id()),
+            $description,
+            $application->createdAt()
+        );
+
+        try {
+            $this->documentRepository->save($document);
+        } catch (PDOException $exception) {
+            if ($this->isUniqueConstraintViolation($exception)) {
+                return;
+            }
+
+            throw $exception;
+        }
+    }
+
+    /**
+     * Generate a descriptive filename for the persisted job description text.
+     *
+     * Creating the filename here keeps presentation consistent across the applications and documents workspaces.
+     */
+    private function buildJobDescriptionFilename(JobApplication $application): string
+    {
+        $title = preg_replace('/[^A-Za-z0-9]+/', '-', $application->title());
+        $normalised = trim((string) $title, '-');
+
+        if ($normalised === '') {
+            $normalised = 'job-description';
+        }
+
+        $timestamp = $application->createdAt()->format('Ymd_His');
+
+        return strtolower($normalised) . '-' . $timestamp . '.txt';
+    }
+
+    /**
+     * Determine whether the provided PDO exception represents a unique constraint violation.
+     *
+     * Isolating the detection keeps the storage helper resilient without silencing unrelated database errors.
+     */
+    private function isUniqueConstraintViolation(PDOException $exception): bool
+    {
+        $errorInfo = $exception->errorInfo;
+
+        if (isset($errorInfo[0]) && $errorInfo[0] === '23000') {
+            return true;
+        }
+
+        $driverCode = isset($errorInfo[1]) ? (int) $errorInfo[1] : null;
+
+        return in_array($driverCode, [1062, 1555, 2067], true);
     }
 }
