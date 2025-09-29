@@ -134,7 +134,7 @@ final class OpenAIProvider
             'model' => $this->modelPlan,
             'input' => $this->formatMessagesForResponses($messages),
             'max_output_tokens' => $this->maxTokens,
-            'response' => $this->buildPlanJsonSchema(),
+            'response_format' => $this->buildPlanJsonSchema(),
         ];
 
         $result = $this->performChatRequest($payload, 'plan', $streamHandler);
@@ -519,60 +519,57 @@ final class OpenAIProvider
     private function buildPlanJsonSchema(): array
     {
         return [
-            'modalities' => ['text'],
-            'text' => [
-                'format' => 'json',
-                'json_schema' => [
-                    'name' => 'tailoring_plan',
-                    'schema' => [
-                        'type' => 'object',
-                        'additionalProperties' => false,
-                        'required' => ['summary', 'strengths', 'gaps', 'next_steps'],
-                        'properties' => [
-                            'summary' => [
+            'type' => 'json_schema',
+            'json_schema' => [
+                'name' => 'tailoring_plan',
+                'schema' => [
+                    'type' => 'object',
+                    'additionalProperties' => false,
+                    'required' => ['summary', 'strengths', 'gaps', 'next_steps'],
+                    'properties' => [
+                        'summary' => [
+                            'type' => 'string',
+                            'minLength' => 1,
+                        ],
+                        'strengths' => [
+                            'type' => 'array',
+                            'minItems' => 1,
+                            'items' => [
                                 'type' => 'string',
                                 'minLength' => 1,
                             ],
-                            'strengths' => [
-                                'type' => 'array',
-                                'minItems' => 1,
-                                'items' => [
-                                    'type' => 'string',
-                                    'minLength' => 1,
-                                ],
+                        ],
+                        'gaps' => [
+                            'type' => 'array',
+                            'minItems' => 1,
+                            'items' => [
+                                'type' => 'string',
+                                'minLength' => 1,
                             ],
-                            'gaps' => [
-                                'type' => 'array',
-                                'minItems' => 1,
-                                'items' => [
-                                    'type' => 'string',
-                                    'minLength' => 1,
-                                ],
-                            ],
-                            'next_steps' => [
-                                'type' => 'array',
-                                'minItems' => 1,
-                                'items' => [
-                                    'type' => 'object',
-                                    'additionalProperties' => false,
-                                    'required' => ['task', 'rationale', 'priority', 'estimated_minutes'],
-                                    'properties' => [
-                                        'task' => [
-                                            'type' => 'string',
-                                            'minLength' => 1,
-                                        ],
-                                        'rationale' => [
-                                            'type' => 'string',
-                                            'minLength' => 1,
-                                        ],
-                                        'priority' => [
-                                            'type' => 'string',
-                                            'enum' => ['high', 'medium', 'low'],
-                                        ],
-                                        'estimated_minutes' => [
-                                            'type' => 'integer',
-                                            'minimum' => 1,
-                                        ],
+                        ],
+                        'next_steps' => [
+                            'type' => 'array',
+                            'minItems' => 1,
+                            'items' => [
+                                'type' => 'object',
+                                'additionalProperties' => false,
+                                'required' => ['task', 'rationale', 'priority', 'estimated_minutes'],
+                                'properties' => [
+                                    'task' => [
+                                        'type' => 'string',
+                                        'minLength' => 1,
+                                    ],
+                                    'rationale' => [
+                                        'type' => 'string',
+                                        'minLength' => 1,
+                                    ],
+                                    'priority' => [
+                                        'type' => 'string',
+                                        'enum' => ['high', 'medium', 'low'],
+                                    ],
+                                    'estimated_minutes' => [
+                                        'type' => 'integer',
+                                        'minimum' => 1,
                                     ],
                                 ],
                             ],
