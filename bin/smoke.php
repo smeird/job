@@ -374,7 +374,7 @@ final class SmokeStream implements StreamInterface
             $this->rewind();
 
             return stream_get_contents($this->resource) ?: '';
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
             return '';
         }
     }
