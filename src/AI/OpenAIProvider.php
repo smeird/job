@@ -18,6 +18,7 @@ use Throwable;
 
 use function is_array;
 use function is_numeric;
+use function is_string;
 use function json_decode;
 use function json_encode;
 use function max;
@@ -31,7 +32,7 @@ final class OpenAIProvider
 {
     private const PROVIDER = 'openai';
     private const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
-    private const ENDPOINT_CHAT_COMPLETIONS = '/chat/completions';
+    private const ENDPOINT_RESPONSES = '/responses';
     private const MAX_ATTEMPTS = 5;
     private const INITIAL_BACKOFF_MS = 200;
     private const MAX_BACKOFF_MS = 4000;
@@ -129,8 +130,8 @@ final class OpenAIProvider
 
         $payload = [
             'model' => $this->modelPlan,
-            'messages' => $messages,
-            'max_tokens' => $this->maxTokens,
+            'input' => $this->formatMessagesForResponses($messages),
+            'max_output_tokens' => $this->maxTokens,
             'response_format' => ['type' => 'json_object'],
         ];
 
@@ -174,8 +175,8 @@ final class OpenAIProvider
 
         $payload = [
             'model' => $this->modelDraft,
-            'messages' => $messages,
-            'max_tokens' => $this->maxTokens,
+            'input' => $this->formatMessagesForResponses($messages),
+            'max_output_tokens' => $this->maxTokens,
         ];
 
         $result = $this->performChatRequest($payload, 'draft', $streamHandler);
@@ -197,6 +198,7 @@ final class OpenAIProvider
 
         if ($isStreaming) {
             $requestPayload['stream'] = true;
+            $requestPayload['stream_options'] = ['include_usage' => true];
         }
 
         $attempt = 0;
@@ -216,7 +218,7 @@ final class OpenAIProvider
                     $options['stream'] = true;
                 }
 
-                $response = $this->client->request('POST', self::ENDPOINT_CHAT_COMPLETIONS, $options);
+                $response = $this->client->request('POST', self::ENDPOINT_RESPONSES, $options);
 
                 if ($isStreaming && $streamHandler !== null) {
                     $parsed = $this->consumeStream($response, $streamHandler);
@@ -226,15 +228,20 @@ final class OpenAIProvider
 
                 $usage = $parsed['usage'];
                 $responseMeta = $parsed['response'];
+                $finishReason = $responseMeta['choices'][0]['finish_reason'] ?? null;
+
+                if ($finishReason === null && isset($responseMeta['output'][0]['finish_reason'])) {
+                    $finishReason = $responseMeta['output'][0]['finish_reason'];
+                }
 
                 $metadata = [
                     'operation' => $operation,
                     'response_id' => $responseMeta['id'] ?? null,
                     'model' => $responseMeta['model'] ?? ($payload['model'] ?? null),
-                    'finish_reason' => $responseMeta['choices'][0]['finish_reason'] ?? null,
+                    'finish_reason' => $finishReason,
                 ];
 
-                $this->recordUsage(self::ENDPOINT_CHAT_COMPLETIONS, $payload['model'] ?? 'unknown', $usage, $metadata);
+                $this->recordUsage(self::ENDPOINT_RESPONSES, $payload['model'] ?? 'unknown', $usage, $metadata);
 
                 return [
                     'content' => $parsed['content'],
@@ -274,13 +281,13 @@ final class OpenAIProvider
             throw new RuntimeException('Unable to decode OpenAI API response.', 0, $exception);
         }
 
-        $choice = $data['choices'][0] ?? [];
-        $message = $choice['message']['content'] ?? '';
+        $output = $data['output'] ?? [];
+        $content = $this->extractTextFromOutput(is_array($output) ? $output : []);
 
         return [
-            'content' => is_string($message) ? $message : '',
+            'content' => $content,
             'usage' => $this->normaliseUsage($data['usage'] ?? []),
-            'response' => $data,
+            'response' => $this->normaliseResponseMeta($data),
         ];
     }
 
@@ -301,8 +308,9 @@ final class OpenAIProvider
             'model' => null,
             'choices' => [['finish_reason' => null]],
         ];
+        $streamEnded = false;
 
-        while (!$body->eof()) {
+        while (!$body->eof() && !$streamEnded) {
             $buffer .= $body->read(8192);
 
             while (($delimiterPosition = strpos($buffer, "\n\n")) !== false) {
@@ -319,7 +327,8 @@ final class OpenAIProvider
                     $payload = trim(substr($line, 5));
 
                     if ($payload === '[DONE]') {
-                        break 3;
+                        $streamEnded = true;
+                        break;
                     }
 
                     try {
@@ -329,23 +338,47 @@ final class OpenAIProvider
                         continue;
                     }
 
-                    if (isset($event['choices'][0]['delta']['content'])) {
-                        $chunk = (string) $event['choices'][0]['delta']['content'];
-                        $content .= $chunk;
-                        $handler($chunk);
-                    }
+                    $type = isset($event['type']) ? (string) $event['type'] : '';
 
-                    if (isset($event['choices'][0]['finish_reason'])) {
-                        $responseMeta['choices'][0]['finish_reason'] = $event['choices'][0]['finish_reason'];
-                    }
+                    if ($type === 'response.output_text.delta') {
+                        $chunk = (string) ($event['delta'] ?? '');
 
-                    if (isset($event['model'])) {
-                        $responseMeta['model'] = $event['model'];
-                    }
+                        if ($chunk !== '') {
+                            $content .= $chunk;
+                            $handler($chunk);
+                        }
 
-                    if (isset($event['usage'])) {
-                        $usage = $this->normaliseUsage($event['usage']);
+                        if (isset($event['response']['model'])) {
+                            $responseMeta['model'] = $event['response']['model'];
+                        }
+
+                        if (isset($event['response']['id'])) {
+                            $responseMeta['id'] = $event['response']['id'];
+                        }
+                    } elseif ($type === 'response.completed') {
+                        if (isset($event['response'])) {
+                            $responseMeta = $event['response'] + $responseMeta;
+                            $usage = $this->normaliseUsage($event['response']['usage'] ?? []);
+
+                            if ($content === '' && isset($event['response']['output']) && is_array($event['response']['output'])) {
+                                $content = $this->extractTextFromOutput($event['response']['output']);
+                            }
+
+                            if (isset($event['response']['output'][0]['finish_reason'])) {
+                                $responseMeta['choices'][0]['finish_reason'] = $event['response']['output'][0]['finish_reason'];
+                            }
+                        }
+
+                        $streamEnded = true;
+                        break;
+                    } elseif ($type === 'response.error') {
+                        $message = isset($event['error']['message']) ? (string) $event['error']['message'] : 'Unknown streaming error.';
+                        throw new RuntimeException('OpenAI streaming error: ' . $message);
                     }
+                }
+
+                if ($streamEnded) {
+                    break;
                 }
             }
         }
@@ -353,8 +386,124 @@ final class OpenAIProvider
         return [
             'content' => $content,
             'usage' => $usage,
-            'response' => $responseMeta,
+            'response' => $this->normaliseResponseMeta($responseMeta),
         ];
+    }
+
+    /**
+     * Transform chat-style message arrays into the Responses API input schema.
+     *
+     * @param array<int, array<string, mixed>> $messages
+     * @return array<int, array{role: string, content: array<int, array{type: string, text: string}>}>
+     */
+    private function formatMessagesForResponses(array $messages): array
+    {
+        $formatted = [];
+
+        foreach ($messages as $message) {
+            $role = isset($message['role']) ? (string) $message['role'] : 'user';
+            $content = $message['content'] ?? '';
+
+            if (is_array($content)) {
+                $parts = [];
+
+                foreach ($content as $part) {
+                    if (is_array($part) && isset($part['type'], $part['text'])) {
+                        $parts[] = [
+                            'type' => (string) $part['type'],
+                            'text' => (string) $part['text'],
+                        ];
+                    } elseif (is_string($part)) {
+                        $parts[] = [
+                            'type' => 'text',
+                            'text' => $part,
+                        ];
+                    }
+                }
+
+                if ($parts === []) {
+                    $parts[] = [
+                        'type' => 'text',
+                        'text' => is_string($content) ? $content : '',
+                    ];
+                }
+            } else {
+                $parts = [[
+                    'type' => 'text',
+                    'text' => (string) $content,
+                ]];
+            }
+
+            $formatted[] = [
+                'role' => $role,
+                'content' => $parts,
+            ];
+        }
+
+        return $formatted;
+    }
+
+    /**
+     * Extract plain text output from the Responses API output array.
+     *
+     * @param array<int, array<string, mixed>> $output
+     */
+    private function extractTextFromOutput(array $output): string
+    {
+        $content = '';
+
+        foreach ($output as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $segments = $item['content'] ?? [];
+
+            if (!is_array($segments)) {
+                continue;
+            }
+
+            foreach ($segments as $segment) {
+                if (!is_array($segment)) {
+                    continue;
+                }
+
+                $type = isset($segment['type']) ? (string) $segment['type'] : '';
+
+                if (($type === 'output_text' || $type === 'text') && isset($segment['text'])) {
+                    $content .= (string) $segment['text'];
+                }
+            }
+        }
+
+        return $content;
+    }
+
+    /**
+     * Normalise response metadata into a schema compatible with downstream consumers.
+     *
+     * @param array<string, mixed> $response
+     * @return array<string, mixed>
+     */
+    private function normaliseResponseMeta(array $response): array
+    {
+        if (!isset($response['choices'])) {
+            $finishReason = null;
+
+            if (isset($response['output']) && is_array($response['output'])) {
+                $firstOutput = $response['output'][0] ?? null;
+
+                if (is_array($firstOutput) && isset($firstOutput['finish_reason'])) {
+                    $finishReason = $firstOutput['finish_reason'];
+                }
+            }
+
+            $response['choices'] = [
+                ['finish_reason' => $finishReason],
+            ];
+        }
+
+        return $response;
     }
 
     /**
@@ -365,8 +514,8 @@ final class OpenAIProvider
      */
     private function normaliseUsage(array $usage): array
     {
-        $prompt = (int) ($usage['prompt_tokens'] ?? 0);
-        $completion = (int) ($usage['completion_tokens'] ?? 0);
+        $prompt = (int) ($usage['prompt_tokens'] ?? ($usage['input_tokens'] ?? 0));
+        $completion = (int) ($usage['completion_tokens'] ?? ($usage['output_tokens'] ?? 0));
         $total = (int) ($usage['total_tokens'] ?? ($prompt + $completion));
 
         return [
