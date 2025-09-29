@@ -384,22 +384,45 @@ class Migrator
      */
     private function createJobsTable(): void
     {
-        $sql = <<<SQL
+        $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+        if ($driver === 'mysql') {
+            $sql = <<<SQL
+            CREATE TABLE IF NOT EXISTS jobs (
+                id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+                type VARCHAR(100) NOT NULL,
+                payload_json JSON NOT NULL,
+                run_after DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                attempts INT UNSIGNED NOT NULL DEFAULT 0,
+                status VARCHAR(32) NOT NULL DEFAULT 'pending',
+                error TEXT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_jobs_status_run_after (status, run_after),
+                INDEX idx_jobs_created_at (created_at)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            SQL;
+
+            $this->pdo->exec($sql);
+
+            return;
+        }
+
+        $sql = <<<'SQL'
         CREATE TABLE IF NOT EXISTS jobs (
-            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-            type VARCHAR(100) NOT NULL,
-            payload_json JSON NOT NULL,
-            run_after DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            attempts INT UNSIGNED NOT NULL DEFAULT 0,
-            status VARCHAR(32) NOT NULL DEFAULT 'pending',
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            type TEXT NOT NULL,
+            payload_json TEXT NOT NULL,
+            run_after TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            attempts INTEGER NOT NULL DEFAULT 0,
+            status TEXT NOT NULL DEFAULT 'pending',
             error TEXT NULL,
-            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            INDEX idx_jobs_status_run_after (status, run_after),
-            INDEX idx_jobs_created_at (created_at)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         SQL;
 
         $this->pdo->exec($sql);
+        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_jobs_status_run_after ON jobs (status, run_after)');
+        $this->pdo->exec('CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs (created_at)');
     }
 
     /**
