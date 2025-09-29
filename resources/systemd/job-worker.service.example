@@ -1,0 +1,20 @@
+# Example systemd unit for the job queue worker.
+# Copy this file to /etc/systemd/system/job-worker.service and adjust paths as needed.
+[Unit]
+Description=Queue worker for job.smeird.com
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/job
+ExecStart=/usr/bin/php /var/www/job/bin/worker.php
+Restart=always
+RestartSec=5
+Environment=APP_ENV=production
+EnvironmentFile=-/etc/default/job-worker
+
+[Install]
+WantedBy=multi-user.target
