@@ -33,6 +33,7 @@ final class OpenAIProvider
     private const PROVIDER = 'openai';
     private const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
     private const ENDPOINT_RESPONSES = 'responses';
+
     private const MAX_ATTEMPTS = 5;
     private const INITIAL_BACKOFF_MS = 200;
     private const MAX_BACKOFF_MS = 4000;
@@ -242,7 +243,9 @@ final class OpenAIProvider
                     'finish_reason' => $finishReason,
                 ];
 
+
                 $this->recordUsage('/' . ltrim(self::ENDPOINT_RESPONSES, '/'), $payload['model'] ?? 'unknown', $usage, $metadata);
+
 
                 return [
                     'content' => $parsed['content'],
