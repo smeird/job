@@ -9,6 +9,7 @@ use App\Prompts\PromptLibrary;
 use App\Queue\Job;
 use App\Queue\JobHandlerInterface;
 use App\Queue\TransientJobException;
+use App\Settings\SiteSettingsRepository;
 use DateTimeImmutable;
 use League\CommonMark\CommonMarkConverter;
 use PDO;
@@ -37,6 +38,9 @@ final class TailorCvJobHandler implements JobHandlerInterface
     /** @var PDO */
     private $pdo;
 
+    /** @var SiteSettingsRepository */
+    private $settingsRepository;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -45,6 +49,7 @@ final class TailorCvJobHandler implements JobHandlerInterface
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
+        $this->settingsRepository = new SiteSettingsRepository($pdo);
         $this->markdownConverter = new CommonMarkConverter([
             'html_input' => 'strip',
             'allow_unsafe_links' => false,
@@ -66,7 +71,7 @@ final class TailorCvJobHandler implements JobHandlerInterface
 
         $this->updateGenerationStatus($generationId, 'processing');
 
-        $provider = new OpenAIProvider($userId, null, $this->pdo);
+        $provider = new OpenAIProvider($userId, null, $this->pdo, $this->settingsRepository);
 
         $plan = $this->generatePlan($provider, $jobDescription, $cvMarkdown);
         $constraints = $this->buildConstraints($payload, $cvMarkdown);
