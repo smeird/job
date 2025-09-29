@@ -22,6 +22,8 @@ use function is_string;
 use function json_decode;
 use function json_encode;
 use function max;
+use function strpos;
+use function strtolower;
 use function random_int;
 use function rtrim;
 use function sprintf;
@@ -134,10 +136,20 @@ final class OpenAIProvider
             'model' => $this->modelPlan,
             'input' => $this->formatMessagesForResponses($messages),
             'max_output_tokens' => $this->maxTokens,
-            'response' => $this->buildPlanJsonSchema(),
+            'response_format' => $this->buildPlanJsonSchema(),
         ];
 
-        $result = $this->performChatRequest($payload, 'plan', $streamHandler);
+        try {
+            $result = $this->performChatRequest($payload, 'plan', $streamHandler);
+        } catch (RuntimeException $exception) {
+            if (!$this->shouldFallbackToJsonObject($exception)) {
+                throw $exception;
+            }
+
+            $payload['response_format'] = ['type' => 'json_object'];
+            error_log('Falling back to json_object response format after plan request failure: ' . $exception->getMessage());
+            $result = $this->performChatRequest($payload, 'plan', $streamHandler);
+        }
         $content = trim($result['content']);
 
         try {
@@ -254,11 +266,21 @@ final class OpenAIProvider
                 ];
             } catch (RequestException $exception) {
                 $attempt++;
+                $statusCode = null;
                 $response = $exception->getResponse();
-                $statusCode = $response !== null ? $response->getStatusCode() : null;
+
+                if ($response !== null) {
+                    $statusCode = $response->getStatusCode();
+                }
 
                 if ($attempt >= self::MAX_ATTEMPTS || !$this->shouldRetry($statusCode)) {
-                    throw new RuntimeException('OpenAI API request failed: ' . $exception->getMessage(), 0, $exception);
+                    $detail = $this->extractRequestErrorDetail($exception);
+
+                    throw new RuntimeException(
+                        $this->buildRequestFailureMessage($statusCode, $detail, $exception),
+                        0,
+                        $exception
+                    );
                 }
 
                 $this->waitWithJitter($delayMs);
@@ -519,60 +541,57 @@ final class OpenAIProvider
     private function buildPlanJsonSchema(): array
     {
         return [
-            'modalities' => ['text'],
-            'text' => [
-                'format' => 'json',
-                'json_schema' => [
-                    'name' => 'tailoring_plan',
-                    'schema' => [
-                        'type' => 'object',
-                        'additionalProperties' => false,
-                        'required' => ['summary', 'strengths', 'gaps', 'next_steps'],
-                        'properties' => [
-                            'summary' => [
+            'type' => 'json_schema',
+            'json_schema' => [
+                'name' => 'tailoring_plan',
+                'schema' => [
+                    'type' => 'object',
+                    'additionalProperties' => false,
+                    'required' => ['summary', 'strengths', 'gaps', 'next_steps'],
+                    'properties' => [
+                        'summary' => [
+                            'type' => 'string',
+                            'minLength' => 1,
+                        ],
+                        'strengths' => [
+                            'type' => 'array',
+                            'minItems' => 1,
+                            'items' => [
                                 'type' => 'string',
                                 'minLength' => 1,
                             ],
-                            'strengths' => [
-                                'type' => 'array',
-                                'minItems' => 1,
-                                'items' => [
-                                    'type' => 'string',
-                                    'minLength' => 1,
-                                ],
+                        ],
+                        'gaps' => [
+                            'type' => 'array',
+                            'minItems' => 1,
+                            'items' => [
+                                'type' => 'string',
+                                'minLength' => 1,
                             ],
-                            'gaps' => [
-                                'type' => 'array',
-                                'minItems' => 1,
-                                'items' => [
-                                    'type' => 'string',
-                                    'minLength' => 1,
-                                ],
-                            ],
-                            'next_steps' => [
-                                'type' => 'array',
-                                'minItems' => 1,
-                                'items' => [
-                                    'type' => 'object',
-                                    'additionalProperties' => false,
-                                    'required' => ['task', 'rationale', 'priority', 'estimated_minutes'],
-                                    'properties' => [
-                                        'task' => [
-                                            'type' => 'string',
-                                            'minLength' => 1,
-                                        ],
-                                        'rationale' => [
-                                            'type' => 'string',
-                                            'minLength' => 1,
-                                        ],
-                                        'priority' => [
-                                            'type' => 'string',
-                                            'enum' => ['high', 'medium', 'low'],
-                                        ],
-                                        'estimated_minutes' => [
-                                            'type' => 'integer',
-                                            'minimum' => 1,
-                                        ],
+                        ],
+                        'next_steps' => [
+                            'type' => 'array',
+                            'minItems' => 1,
+                            'items' => [
+                                'type' => 'object',
+                                'additionalProperties' => false,
+                                'required' => ['task', 'rationale', 'priority', 'estimated_minutes'],
+                                'properties' => [
+                                    'task' => [
+                                        'type' => 'string',
+                                        'minLength' => 1,
+                                    ],
+                                    'rationale' => [
+                                        'type' => 'string',
+                                        'minLength' => 1,
+                                    ],
+                                    'priority' => [
+                                        'type' => 'string',
+                                        'enum' => ['high', 'medium', 'low'],
+                                    ],
+                                    'estimated_minutes' => [
+                                        'type' => 'integer',
+                                        'minimum' => 1,
                                     ],
                                 ],
                             ],
@@ -581,6 +600,52 @@ final class OpenAIProvider
                 ],
             ],
         ];
+    }
+
+    /**
+     * Decide whether to retry plan generation with a simpler JSON object response format.
+     *
+     * Certain OpenAI models do not yet support the structured `json_schema` format. When the
+     * API reports that limitation we fall back to requesting a plain JSON object so plan
+     * generation can continue without manual intervention.
+     */
+    private function shouldFallbackToJsonObject(RuntimeException $exception): bool
+    {
+        $previous = $exception->getPrevious();
+
+        if (!$previous instanceof RequestException) {
+            return false;
+        }
+
+        $response = $previous->getResponse();
+
+        if ($response === null || $response->getStatusCode() !== 400) {
+            return false;
+        }
+
+        $message = strtolower($exception->getMessage());
+
+        if ($message !== '' && $this->mentionsUnsupportedSchema($message)) {
+            return true;
+        }
+
+        $body = (string) $response->getBody();
+
+        if ($body !== '' && $this->mentionsUnsupportedSchema(strtolower($body))) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Evaluate whether an error payload indicates that structured outputs are unsupported.
+     */
+    private function mentionsUnsupportedSchema(string $message): bool
+    {
+        return strpos($message, 'response_format') !== false
+            || strpos($message, 'json_schema') !== false
+            || strpos($message, 'structured output') !== false;
     }
 
     /**
@@ -763,6 +828,61 @@ final class OpenAIProvider
         }
 
         return $statusCode >= 500 && $statusCode < 600;
+    }
+
+    /**
+     * Extract a helpful error description from a failed HTTP response.
+     *
+     * Normalising the detail here keeps error handling consistent and avoids duplicating JSON
+     * decoding logic throughout the class.
+     */
+    private function extractRequestErrorDetail(RequestException $exception): ?string
+    {
+        $response = $exception->getResponse();
+
+        if ($response === null) {
+            return null;
+        }
+
+        $body = (string) $response->getBody();
+
+        if ($body === '') {
+            return null;
+        }
+
+        try {
+            $data = json_decode($body, true, 512, JSON_THROW_ON_ERROR);
+        } catch (JsonException $ignored) {
+            return trim($body);
+        }
+
+        if (isset($data['error']['message']) && is_string($data['error']['message'])) {
+            return trim($data['error']['message']);
+        }
+
+        if (isset($data['message']) && is_string($data['message'])) {
+            return trim($data['message']);
+        }
+
+        return trim($body);
+    }
+
+    /**
+     * Build a clear exception message summarising the API failure for logging and UX.
+     */
+    private function buildRequestFailureMessage(?int $statusCode, ?string $detail, RequestException $exception): string
+    {
+        $prefix = 'OpenAI API request failed';
+
+        if ($statusCode !== null) {
+            $prefix .= sprintf(' (status %d)', $statusCode);
+        }
+
+        if ($detail !== null && $detail !== '') {
+            return $prefix . ': ' . $detail;
+        }
+
+        return $prefix . ': ' . $exception->getMessage();
     }
 
     /**
