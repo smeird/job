@@ -1219,7 +1219,7 @@ final class SmokePurge
 
         $this->pdo->exec("INSERT INTO documents (filename, mime_type, size_bytes, sha256, content, extracted_text, created_at) VALUES ('old.txt', 'text/plain', 12, 'hash-old', 'old', 'old', '$old')");
         $this->pdo->exec("INSERT INTO generation_outputs (generation_id, mime_type, content, output_text, tokens_used, created_at) VALUES (1, 'text/plain', 'legacy', 'legacy', 0, '$old')");
-        $this->pdo->exec("INSERT INTO api_usage (user_id, provider, endpoint, tokens_used, cost_pence, metadata, created_at) VALUES (1, 'openai', '/chat/completions', 10, 1, '{}', '$old')");
+        $this->pdo->exec("INSERT INTO api_usage (user_id, provider, endpoint, tokens_used, cost_pence, metadata, created_at) VALUES (1, 'openai', '/responses', 10, 1, '{}', '$old')");
         $this->pdo->exec("INSERT INTO audit_logs (user_id, email, action, ip_address, user_agent, details, created_at) VALUES (1, 'smoke@example.com', 'test', '127.0.0.1', 'smoke', '{}', '$old')");
 
         $service = new RetentionPolicyService($this->pdo);
