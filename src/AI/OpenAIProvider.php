@@ -210,7 +210,7 @@ final class OpenAIProvider
     private function performChatRequest(array $payload, string $operation, ?callable $streamHandler): array
     {
         $isStreaming = $streamHandler !== null;
-        $requestPayload = $payload;
+        $requestPayload = $this->normaliseRequestPayload($payload);
 
         if ($isStreaming) {
             $requestPayload['stream'] = true;
@@ -291,6 +291,34 @@ final class OpenAIProvider
                 throw new RuntimeException('Unable to encode OpenAI request payload.', 0, $exception);
             }
         }
+    }
+
+    /**
+     * Normalise the outgoing payload to match the latest OpenAI Responses API expectations.
+     *
+     * This helper safeguards against legacy configuration values that still populate the
+     * deprecated `response_format` key by converting them into the modern `response.format`
+     * structure accepted by the API.
+     *
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function normaliseRequestPayload(array $payload): array
+    {
+        if (isset($payload['response_format'])) {
+            $format = $payload['response_format'];
+            unset($payload['response_format']);
+
+            if (!isset($payload['response']) || !is_array($payload['response'])) {
+                $payload['response'] = [];
+            }
+
+            if (!isset($payload['response']['format'])) {
+                $payload['response']['format'] = $format;
+            }
+        }
+
+        return $payload;
     }
 
     /**
