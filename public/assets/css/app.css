@@ -144,6 +144,53 @@ html[data-theme='light'] .text-slate-500 {
     color: #64748b !important;
 }
 
+/* Improve contrast for tinted interface accents when light mode is active. */
+html[data-theme='light'] .text-indigo-50,
+html[data-theme='light'] .text-indigo-100 {
+    color: #312e81 !important;
+}
+
+html[data-theme='light'] .text-indigo-200 {
+    color: #3730a3 !important;
+}
+
+html[data-theme='light'] .text-indigo-300 {
+    color: #4338ca !important;
+}
+
+html[data-theme='light'] .text-rose-50,
+html[data-theme='light'] .text-rose-100 {
+    color: #9f1239 !important;
+}
+
+html[data-theme='light'] .text-rose-200 {
+    color: #be123c !important;
+}
+
+html[data-theme='light'] .text-rose-300 {
+    color: #e11d48 !important;
+}
+
+html[data-theme='light'] .text-emerald-100 {
+    color: #065f46 !important;
+}
+
+html[data-theme='light'] .text-emerald-200 {
+    color: #047857 !important;
+}
+
+html[data-theme='light'] .text-emerald-300 {
+    color: #059669 !important;
+}
+
+html[data-theme='light'] .text-amber-200 {
+    color: #b45309 !important;
+}
+
+html[data-theme='light'] .text-amber-300 {
+    color: #d97706 !important;
+}
+
 .min-h-screen {
     min-height: 100vh;
 }
