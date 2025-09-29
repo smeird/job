@@ -724,13 +724,29 @@ final class OpenAIProvider
 
         $message = strtolower($exception->getMessage());
 
-        if ($message !== '' && $this->mentionsUnknownResponseParameter($message)) {
-            return true;
+        if ($message !== '') {
+            if ($this->mentionsUnsupportedLegacyResponseFormat($message)) {
+                return false;
+            }
+
+            if ($this->mentionsUnknownResponseParameter($message)) {
+                return true;
+            }
         }
 
         $body = strtolower((string) $response->getBody());
 
-        return $body !== '' && $this->mentionsUnknownResponseParameter($body);
+        if ($body !== '') {
+            if ($this->mentionsUnsupportedLegacyResponseFormat($body)) {
+                return false;
+            }
+
+            if ($this->mentionsUnknownResponseParameter($body)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
@@ -747,6 +763,15 @@ final class OpenAIProvider
         }
 
         return strpos($message, 'response is not allowed') !== false;
+    }
+
+    /**
+     * Detect whether the message indicates the legacy response_format parameter is unsupported.
+     */
+    private function mentionsUnsupportedLegacyResponseFormat(string $message): bool
+    {
+        return strpos($message, "unsupported parameter") !== false
+            && strpos($message, "'response_format'") !== false;
     }
 
     /**
