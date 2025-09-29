@@ -139,6 +139,10 @@ class Routes
             return $container->get(GenerationController::class)->show($request, $response, $args);
         });
 
+        $app->post('/generations/{id}/delete', function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(GenerationController::class)->delete($request, $response, $args);
+        });
+
         $app->get('/generations/{id}/download', function (Request $request, Response $response, array $args) use ($container) {
             return $container->get(GenerationDownloadController::class)->download($request, $response, $args);
         });

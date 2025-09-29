@@ -199,6 +199,7 @@
             errorMessage: '',
             successMessage: '',
             isSubmitting: false,
+            cancellingGenerations: [],
 
             /**
              * Initialise the wizard with default selections and contextual messaging.
@@ -510,6 +511,84 @@
                     this.errorMessage = 'A network error prevented queuing the generation.';
                 } finally {
                     this.isSubmitting = false;
+                }
+            },
+
+            /**
+             * Determine whether the provided generation is currently cancelling.
+             *
+             * @param {*} identifier The generation identifier to inspect.
+             * @returns {boolean} True when a cancellation request is in-flight.
+             */
+            isCancellingGeneration(identifier) {
+                const id = toId(identifier);
+
+                if (id === '') {
+                    return false;
+                }
+
+                return this.cancellingGenerations.indexOf(id) !== -1;
+            },
+
+            /**
+             * Remove a queued generation job from the processing pipeline.
+             *
+             * @param {*} identifier The generation identifier targeted for removal.
+             */
+            async cancelGeneration(identifier) {
+                const id = toId(identifier);
+
+                if (id === '' || this.isCancellingGeneration(id)) {
+                    return;
+                }
+
+                this.errorMessage = '';
+                this.successMessage = '';
+                this.cancellingGenerations = this.cancellingGenerations.concat(id);
+
+                try {
+                    const response = await fetch(`/generations/${encodeURIComponent(id)}/delete`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken,
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            _token: csrfToken,
+                        }),
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        const message = data && typeof data.error === 'string'
+                            ? data.error
+                            : 'Unable to delete the queued job.';
+
+                        this.errorMessage = message;
+
+                        return;
+                    }
+
+                    const index = this.generations.findIndex(function (item) {
+                        return toId(item && item.id) === id;
+                    });
+
+                    if (index !== -1) {
+                        this.generations.splice(index, 1, data);
+                        this.generations = this.generations.slice();
+                    } else if (data && typeof data === 'object') {
+                        this.generations = [data].concat(this.generations);
+                    }
+
+                    this.successMessage = 'Generation removed from queue.';
+                } catch (error) {
+                    this.errorMessage = 'A network error prevented deleting the queued job.';
+                } finally {
+                    this.cancellingGenerations = this.cancellingGenerations.filter(function (value) {
+                        return value !== id;
+                    });
                 }
             },
 

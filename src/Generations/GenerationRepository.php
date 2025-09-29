@@ -12,6 +12,7 @@ use RuntimeException;
 use Throwable;
 
 use function in_array;
+use function json_decode;
 use function json_encode;
 use function preg_replace;
 use function trim;
@@ -174,6 +175,76 @@ final class GenerationRepository
     }
 
     /**
+     * Remove a queued generation from the processing pipeline for the given user.
+     *
+     * Cancelling removes the background job before it is executed and marks the
+     * generation as cancelled so the UI reflects the new terminal state.
+     */
+    public function cancelQueuedGeneration(int $userId, int $generationId): ?array
+    {
+        $this->pdo->beginTransaction();
+
+        try {
+            $statement = $this->pdo->prepare(
+                'SELECT status FROM generations WHERE id = :id AND user_id = :user_id LIMIT 1'
+            );
+
+            $statement->execute([
+                ':id' => $generationId,
+                ':user_id' => $userId,
+            ]);
+
+            $row = $statement->fetch(PDO::FETCH_ASSOC);
+
+            if ($row === false) {
+                $this->pdo->rollBack();
+
+                return null;
+            }
+
+            $status = (string) $row['status'];
+
+            if ($status !== 'queued') {
+                $this->pdo->rollBack();
+
+                return null;
+            }
+
+            $jobId = $this->findPendingJobIdForGeneration($generationId);
+
+            if ($jobId === null) {
+                $this->pdo->rollBack();
+
+                return null;
+            }
+
+            $deleteJob = $this->pdo->prepare('DELETE FROM jobs WHERE id = :id');
+            $deleteJob->execute([':id' => $jobId]);
+
+            $updateGeneration = $this->pdo->prepare(
+                'UPDATE generations SET status = :status, progress_percent = 0, error_message = NULL, '
+                . 'updated_at = :updated_at WHERE id = :id'
+            );
+
+            $updateGeneration->execute([
+                ':status' => 'cancelled',
+                ':updated_at' => (new DateTimeImmutable('now'))->format('Y-m-d H:i:s'),
+                ':id' => $generationId,
+            ]);
+
+            $this->pdo->commit();
+        } catch (Throwable $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            throw new RuntimeException('Failed to cancel the queued generation.', 0, $exception);
+        }
+
+        return $this->findForUser($userId, $generationId);
+    }
+
+    /**
      * Handle the normalise row workflow.
      *
      * This helper keeps the normalise row logic centralised for clarity and reuse.
@@ -290,6 +361,32 @@ final class GenerationRepository
         $normalised = preg_replace(["/\r\n?/", "/\n{3,}/"], ["\n", "\n\n"], $trimmed);
 
         return $normalised === null ? '' : (string) $normalised;
+    }
+
+    /**
+     * Locate the pending job identifier associated with the supplied generation.
+     *
+     * The queue stores generation identifiers inside the JSON payload, so the
+     * lookup must decode each pending job until it finds a matching entry.
+     */
+    private function findPendingJobIdForGeneration(int $generationId): ?int
+    {
+        $statement = $this->pdo->prepare(
+            "SELECT id, payload_json FROM jobs WHERE type = :type AND status = 'pending'"
+        );
+
+        $statement->execute([':type' => 'tailor_cv']);
+
+        while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
+            $payload = json_decode((string) $row['payload_json'], true, 512, JSON_THROW_ON_ERROR);
+            $payloadGenerationId = isset($payload['generation_id']) ? (int) $payload['generation_id'] : 0;
+
+            if ($payloadGenerationId === $generationId) {
+                return (int) $row['id'];
+            }
+        }
+
+        return null;
     }
 
     /**

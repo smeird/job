@@ -366,12 +366,13 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
                         <th class="px-4 py-3">Model</th>
                         <th class="px-4 py-3">Thinking time</th>
                         <th class="px-4 py-3">Status</th>
+                        <th class="px-4 py-3 text-right">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-slate-800/60">
                     <template x-if="generations.length === 0">
                         <tr>
-                            <td colspan="6" class="px-4 py-5 text-center text-sm text-slate-400">
+                            <td colspan="7" class="px-4 py-5 text-center text-sm text-slate-400">
                                 No generations yet. Your queued requests will appear here.
                             </td>
                         </tr>
@@ -386,9 +387,34 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
                             <td class="px-4 py-4">
                                 <span
                                     class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide"
-                                    :class="item.status === 'queued' ? 'text-amber-200 border-amber-400/30 bg-amber-500/10' : 'text-emerald-200 border-emerald-400/30 bg-emerald-500/10'"
+                                    :class="item.status === 'queued'
+                                        ? 'text-amber-200 border-amber-400/30 bg-amber-500/10'
+                                        : (item.status === 'failed'
+                                            ? 'text-rose-200 border-rose-400/40 bg-rose-500/10'
+                                            : (item.status === 'cancelled'
+                                                ? 'text-slate-200 border-slate-500/40 bg-slate-800/40'
+                                                : 'text-emerald-200 border-emerald-400/30 bg-emerald-500/10'))"
                                     x-text="item.status"
                                 ></span>
+                            </td>
+                            <td class="px-4 py-4 text-right">
+                                <template x-if="item.status === 'queued'">
+                                    <button
+                                        type="button"
+                                        class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-rose-400/40 hover:bg-rose-500/10 hover:text-rose-100"
+                                        @click="cancelGeneration(item.id)"
+                                        :disabled="isCancellingGeneration(item.id)"
+                                        :class="isCancellingGeneration(item.id) ? 'cursor-not-allowed opacity-60' : ''"
+                                    >
+                                        <span x-show="!isCancellingGeneration(item.id)">Cancel</span>
+                                        <span x-show="isCancellingGeneration(item.id)" class="inline-flex items-center gap-2">
+                                            <svg class="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                                <path d="M12 4v2m4.24.76l-1.42 1.42M20 12h-2m-.76 4.24l-1.42-1.42M12 20v-2m-4.24-.76l1.42-1.42M4 12h2m.76-4.24l1.42 1.42" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            </svg>
+                                            Removing…
+                                        </span>
+                                    </button>
+                                </template>
                             </td>
                         </tr>
                     </template>

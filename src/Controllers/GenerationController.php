@@ -139,6 +139,39 @@ final class GenerationController
     }
 
     /**
+     * Delete a queued generation job before the worker processes it.
+     *
+     * Removing the queued job allows users to retract requests that were added
+     * to the processing pipeline in error.
+     */
+    public function delete(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if (!is_array($user) || !isset($user['user_id'])) {
+            return $this->json($response->withStatus(401), ['error' => 'Authentication required.']);
+        }
+
+        $generationId = $this->extractInt($args['id'] ?? null);
+
+        if ($generationId === null) {
+            throw new HttpBadRequestException($request, 'Invalid generation identifier.');
+        }
+
+        try {
+            $generation = $this->generationRepository->cancelQueuedGeneration((int) $user['user_id'], $generationId);
+        } catch (RuntimeException $exception) {
+            return $this->json($response->withStatus(500), ['error' => 'Unable to delete the queued job.']);
+        }
+
+        if ($generation === null) {
+            return $this->json($response->withStatus(422), ['error' => 'Only queued jobs can be deleted.']);
+        }
+
+        return $this->json($response, $generation);
+    }
+
+    /**
      * Handle the available models workflow.
      *
      * This helper keeps the available models logic centralised for clarity and reuse.
