@@ -32,7 +32,8 @@ final class OpenAIProvider
 {
     private const PROVIDER = 'openai';
     private const DEFAULT_BASE_URL = 'https://api.openai.com/v1';
-    private const ENDPOINT_RESPONSES = '/responses';
+    private const ENDPOINT_RESPONSES = 'responses';
+
     private const MAX_ATTEMPTS = 5;
     private const INITIAL_BACKOFF_MS = 200;
     private const MAX_BACKOFF_MS = 4000;
@@ -90,7 +91,8 @@ final class OpenAIProvider
 
         $this->settingsRepository = $settingsRepository ?? new SiteSettingsRepository($this->pdo);
         $this->apiKey = $this->requireEnv('OPENAI_API_KEY');
-        $this->baseUrl = rtrim($this->env('OPENAI_BASE_URL') ?? self::DEFAULT_BASE_URL, '/');
+        $baseUrl = $this->env('OPENAI_BASE_URL') ?? self::DEFAULT_BASE_URL;
+        $this->baseUrl = rtrim($baseUrl, '/') . '/';
         $this->modelPlan = $this->requireEnv('OPENAI_MODEL_PLAN');
         $this->modelDraft = $this->requireEnv('OPENAI_MODEL_DRAFT');
         $this->maxTokens = $this->resolveMaxTokens();
@@ -241,7 +243,9 @@ final class OpenAIProvider
                     'finish_reason' => $finishReason,
                 ];
 
-                $this->recordUsage(self::ENDPOINT_RESPONSES, $payload['model'] ?? 'unknown', $usage, $metadata);
+
+                $this->recordUsage('/' . ltrim(self::ENDPOINT_RESPONSES, '/'), $payload['model'] ?? 'unknown', $usage, $metadata);
+
 
                 return [
                     'content' => $parsed['content'],
