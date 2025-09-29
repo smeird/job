@@ -16,14 +16,14 @@ use PDOException;
 use RuntimeException;
 use Throwable;
 
-use const JSON_THROW_ON_ERROR;
-
 use function array_filter;
 use function array_map;
 use function array_values;
 use function implode;
 use function is_array;
 use function json_encode;
+use function json_last_error;
+use function json_last_error_msg;
 use function mb_substr;
 use function sprintf;
 use function strip_tags;
@@ -305,13 +305,37 @@ final class TailorCvJobHandler implements JobHandlerInterface
                 ':ip_address' => '127.0.0.1',
                 ':action' => 'generation_failed',
                 ':user_agent' => 'queue-worker',
-                ':details' => json_encode($this->buildFailureContext($generationId, $error, $context), JSON_THROW_ON_ERROR),
+                ':details' => $this->encodeFailureDetails($generationId, $error, $context),
                 ':created_at' => (new DateTimeImmutable('now'))->format('Y-m-d H:i:s'),
                 ':generation_id' => $generationId,
             ]);
         } catch (Throwable $throwable) {
             // Swallow logging errors to avoid masking the original failure.
         }
+    }
+
+    /**
+     * Safely encode the failure details into JSON for audit logging.
+     *
+     * Using a compatibility layer means the handler continues to operate on platforms
+     * where JSON_THROW_ON_ERROR might not be available while still surfacing
+     * encoding problems in a predictable way.
+     */
+    private function encodeFailureDetails(int $generationId, string $error, array $context): string
+    {
+        $payload = $this->buildFailureContext($generationId, $error, $context);
+
+        if (\defined('JSON_THROW_ON_ERROR')) {
+            return (string) json_encode($payload, \constant('JSON_THROW_ON_ERROR'));
+        }
+
+        $encoded = json_encode($payload);
+
+        if ($encoded === false || json_last_error() !== JSON_ERROR_NONE) {
+            throw new RuntimeException('Failed to encode failure details: ' . json_last_error_msg());
+        }
+
+        return $encoded;
     }
 
     /**
