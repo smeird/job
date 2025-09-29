@@ -24,6 +24,7 @@ use function array_values;
 use function implode;
 use function is_array;
 use function json_encode;
+use function mb_substr;
 use function sprintf;
 use function strip_tags;
 use function trim;
@@ -96,7 +97,9 @@ final class TailorCvJobHandler implements JobHandlerInterface
             return;
         }
 
-        $this->updateGenerationStatus($generationId, 'failed', $error);
+        $context = is_array($payload) ? $payload : [];
+
+        $this->updateGenerationStatus($generationId, 'failed', $error, $context);
     }
 
     /**
@@ -259,8 +262,12 @@ final class TailorCvJobHandler implements JobHandlerInterface
      *
      * Documenting this helper clarifies its role within the wider workflow.
      */
-    private function updateGenerationStatus(int $generationId, string $status, ?string $error = null): void
-    {
+    private function updateGenerationStatus(
+        int $generationId,
+        string $status,
+        ?string $error = null,
+        array $context = []
+    ): void {
         try {
             $statement = $this->pdo->prepare(
                 'UPDATE generations SET status = :status, updated_at = :updated_at WHERE id = :id'
@@ -273,7 +280,7 @@ final class TailorCvJobHandler implements JobHandlerInterface
             ]);
 
             if ($error !== null && $status === 'failed') {
-                $this->recordFailure($generationId, $error);
+                $this->recordFailure($generationId, $error, $context);
             }
         } catch (PDOException $exception) {
             throw new RuntimeException('Unable to update generation status.', 0, $exception);
@@ -285,25 +292,84 @@ final class TailorCvJobHandler implements JobHandlerInterface
      *
      * Documenting this helper clarifies its role within the wider workflow.
      */
-    private function recordFailure(int $generationId, string $error): void
+    private function recordFailure(int $generationId, string $error, array $context): void
     {
         try {
             $statement = $this->pdo->prepare(
-                'INSERT INTO audit_logs (user_id, action, details) '
-                . 'SELECT user_id, :action, :details FROM generations WHERE id = :generation_id'
+                'INSERT INTO audit_logs (user_id, ip_address, email, action, user_agent, details, created_at) '
+                . 'SELECT user_id, :ip_address, NULL, :action, :user_agent, :details, :created_at '
+                . 'FROM generations WHERE id = :generation_id'
             );
 
             $statement->execute([
+                ':ip_address' => '127.0.0.1',
                 ':action' => 'generation_failed',
-                ':details' => json_encode([
-                    'generation_id' => $generationId,
-                    'error' => $error,
-                ], JSON_THROW_ON_ERROR),
+                ':user_agent' => 'queue-worker',
+                ':details' => json_encode($this->buildFailureContext($generationId, $error, $context), JSON_THROW_ON_ERROR),
+                ':created_at' => (new DateTimeImmutable('now'))->format('Y-m-d H:i:s'),
                 ':generation_id' => $generationId,
             ]);
         } catch (Throwable $throwable) {
             // Swallow logging errors to avoid masking the original failure.
         }
+    }
+
+    /**
+     * Build a structured failure context payload for auditing.
+     *
+     * Creating a single normaliser keeps log detail consistent and ensures sensitive
+     * document content is trimmed before it is written to the database.
+     *
+     * @param array<string, mixed> $context The raw job payload used when the failure occurred.
+     * @return array<string, mixed> A condensed representation suitable for persistence.
+     */
+    private function buildFailureContext(int $generationId, string $error, array $context): array
+    {
+        return [
+            'generation_id' => $generationId,
+            'error' => $error,
+            'payload' => $this->summarisePayload($context),
+        ];
+    }
+
+    /**
+     * Summarise the payload information for logging purposes.
+     *
+     * The helper trims large fields and only exposes identifying metadata so the
+     * audit trail remains helpful without storing entire documents.
+     *
+     * @param array<string, mixed> $context The raw job payload used when the failure occurred.
+     * @return array<string, mixed> Reduced payload data for diagnostic logging.
+     */
+    private function summarisePayload(array $context): array
+    {
+        $summary = [];
+
+        if (isset($context['job_document_id'])) {
+            $summary['job_document_id'] = (int) $context['job_document_id'];
+        }
+
+        if (isset($context['cv_document_id'])) {
+            $summary['cv_document_id'] = (int) $context['cv_document_id'];
+        }
+
+        if (isset($context['model'])) {
+            $summary['model'] = (string) $context['model'];
+        }
+
+        if (isset($context['thinking_time'])) {
+            $summary['thinking_time'] = (int) $context['thinking_time'];
+        }
+
+        if (isset($context['job_description'])) {
+            $summary['job_description_preview'] = mb_substr((string) $context['job_description'], 0, 200);
+        }
+
+        if (isset($context['cv_markdown'])) {
+            $summary['cv_markdown_preview'] = mb_substr((string) $context['cv_markdown'], 0, 200);
+        }
+
+        return $summary;
     }
 
     /**
