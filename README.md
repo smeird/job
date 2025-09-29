@@ -1,6 +1,6 @@
 # job.smeird.com Application Guide
 
-This repository contains the production code that powers the job.smeird.com workspace. It is a Slim 4/PHP application that provides passcode-based authentication, CV and job description ingestion, AI-assisted drafting, secure download links, usage analytics, and automated retention tooling.
+This repository contains the production code that powers the job.smeird.com workspace. It is a Slim 4/PHP&nbsp;7.4 application that provides passcode-based authentication, CV and job description ingestion, AI-assisted drafting, secure download links, usage analytics, and automated retention tooling.
 
 ## Overview of capabilities
 
@@ -74,7 +74,7 @@ The flowchart shows how validated uploads move through queued generation work, p
 
 ### Server prerequisites
 
-* **PHP 8.0+ CLI** – the codebase uses union/mixed types and other PHP&nbsp;8 language features.【F:bin/verify.helpers.php†L37-L121】
+* **PHP&nbsp;7.4 CLI** – the codebase makes use of typed properties, arrow functions, and other PHP&nbsp;7.4 language features.【F:bin/verify.helpers.php†L37-L121】
 * **Database** – MySQL 8.x (production) or SQLite for local experimentation; configure via DSN/driver variables.【F:src/DB.php†L36-L78】
 * **Composer** – to install PHP dependencies.
 * **Web server** – Apache or Nginx configured to serve the `public/` directory.
@@ -156,7 +156,7 @@ The application also respects `DB_DATABASE=':memory:'` when `DB_DRIVER=sqlite`, 
 * **Static checks** – run `composer test` to execute the bundled PHP lint targets defined in `composer.json`.【F:composer.json†L28-L36】
 * **Smoke test** – execute `php bin/smoke.php` locally; it boots an isolated environment with in-memory dependencies and walks through authentication, document ingestion, AI generation, downloads, and retention purge paths.【F:bin/smoke.php†L594-L729】
 
-Both scripts rely on PHP&nbsp;8 features and expect the same extensions listed in the requirements section.【F:bin/verify.helpers.php†L37-L121】
+Both scripts rely on PHP&nbsp;7.4 features and expect the same extensions listed in the requirements section.【F:bin/verify.helpers.php†L37-L121】
 
 ## Deployment checklist
 
