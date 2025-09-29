@@ -144,14 +144,38 @@ final class OpenAIProvider
         try {
             $result = $this->performChatRequest($payload, 'plan', $streamHandler);
         } catch (RuntimeException $exception) {
-            if (!$this->shouldFallbackToJsonObject($exception)) {
-                throw $exception;
-            }
+            if ($this->shouldFallbackToLegacyResponseFormat($exception)) {
+                $legacyPayload = $payload;
 
-            $payload['response'] = ['format' => ['type' => 'json_object']];
-            error_log('Falling back to json_object response format after plan request failure: ' . $exception->getMessage());
-            $result = $this->performChatRequest($payload, 'plan', $streamHandler);
+                if (isset($legacyPayload['response'])) {
+                    $legacyPayload['response_format'] = $legacyPayload['response']['format'] ?? [];
+                    unset($legacyPayload['response']);
+                }
+
+                error_log('Retrying plan request with legacy response_format parameter: ' . $exception->getMessage());
+
+                try {
+                    $result = $this->performChatRequest($legacyPayload, 'plan', $streamHandler, true);
+                } catch (RuntimeException $legacyException) {
+                    if (!$this->shouldFallbackToJsonObject($legacyException)) {
+                        throw $legacyException;
+                    }
+
+                    $legacyPayload['response_format'] = ['type' => 'json_object'];
+                    error_log('Falling back to json_object legacy response format after plan request failure: ' . $legacyException->getMessage());
+                    $result = $this->performChatRequest($legacyPayload, 'plan', $streamHandler, true);
+                }
+            } else {
+                if (!$this->shouldFallbackToJsonObject($exception)) {
+                    throw $exception;
+                }
+
+                $payload['response'] = ['format' => ['type' => 'json_object']];
+                error_log('Falling back to json_object response format after plan request failure: ' . $exception->getMessage());
+                $result = $this->performChatRequest($payload, 'plan', $streamHandler);
+            }
         }
+
         $content = trim($result['content']);
 
         try {
@@ -205,12 +229,21 @@ final class OpenAIProvider
      * metadata for billing and auditing purposes.
      *
      * @param array<string, mixed> $payload
+     * @param bool $preserveLegacyResponseFormat Indicates whether the payload should be sent without
+     *                                           normalising modern response parameters.
      * @return array{content: string, usage: array<string, int>, response: array<string, mixed>}
      */
-    private function performChatRequest(array $payload, string $operation, ?callable $streamHandler): array
+    private function performChatRequest(
+        array $payload,
+        string $operation,
+        ?callable $streamHandler,
+        bool $preserveLegacyResponseFormat = false
+    ): array
     {
         $isStreaming = $streamHandler !== null;
-        $requestPayload = $this->normaliseRequestPayload($payload);
+        $requestPayload = $preserveLegacyResponseFormat
+            ? $payload
+            : $this->normaliseRequestPayload($payload);
 
         if ($isStreaming) {
             $requestPayload['stream'] = true;
@@ -666,6 +699,54 @@ final class OpenAIProvider
         }
 
         return false;
+    }
+
+    /**
+     * Determine whether the failure indicates that the legacy response_format parameter is required.
+     *
+     * Some OpenAI models continue to expect the historic response_format key rather than the newer
+     * response.format structure. When that situation is detected we retry the request using the legacy
+     * parameter to maintain compatibility.
+     */
+    private function shouldFallbackToLegacyResponseFormat(RuntimeException $exception): bool
+    {
+        $previous = $exception->getPrevious();
+
+        if (!$previous instanceof RequestException) {
+            return false;
+        }
+
+        $response = $previous->getResponse();
+
+        if ($response === null || $response->getStatusCode() !== 400) {
+            return false;
+        }
+
+        $message = strtolower($exception->getMessage());
+
+        if ($message !== '' && $this->mentionsUnknownResponseParameter($message)) {
+            return true;
+        }
+
+        $body = strtolower((string) $response->getBody());
+
+        return $body !== '' && $this->mentionsUnknownResponseParameter($body);
+    }
+
+    /**
+     * Check whether the supplied message references the response parameter as being unsupported.
+     */
+    private function mentionsUnknownResponseParameter(string $message): bool
+    {
+        if (strpos($message, 'unknown parameter') !== false && strpos($message, "'response'") !== false) {
+            return true;
+        }
+
+        if (strpos($message, 'unknown argument') !== false && strpos($message, 'response') !== false) {
+            return true;
+        }
+
+        return strpos($message, 'response is not allowed') !== false;
     }
 
     /**
