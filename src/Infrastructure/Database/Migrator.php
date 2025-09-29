@@ -33,9 +33,9 @@ class Migrator
         $this->createPendingPasscodesTable();
         $this->createSessionsTable();
         $this->createDocumentsTable();
-        $this->createJobApplicationsTable();
         $this->createGenerationsTable();
         $this->createGenerationOutputsTable();
+        $this->createJobApplicationsTable();
         $this->createApiUsageTable();
         $this->createBackupCodesTable();
         $this->createAuditLogsTable();
