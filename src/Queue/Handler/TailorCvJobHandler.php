@@ -301,7 +301,7 @@ final class TailorCvJobHandler implements JobHandlerInterface
                 ], JSON_THROW_ON_ERROR),
                 ':generation_id' => $generationId,
             ]);
-        } catch (Throwable) {
+        } catch (Throwable $throwable) {
             // Swallow logging errors to avoid masking the original failure.
         }
     }
