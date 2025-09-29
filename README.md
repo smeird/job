@@ -137,6 +137,7 @@ The application also respects `DB_DATABASE=':memory:'` when `DB_DRIVER=sqlite`, 
 * The runtime migrator now provisions authentication, document, generation, analytics, retention, and job tables in lock-step with the SQL definitions, adding columns when legacy installs are detected.【F:src/Infrastructure/Database/Migrator.php†L19-L205】
 * SQL migrations mirror the runtime schema so CLI-driven installs and on-request migrations converge on identical structures for analytics, retention, and background jobs.【F:database/migrations/20240326000000_initial.php†L7-L139】【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:database/migrations/20240718000001_add_generation_stream_columns.php†L1-L13】
 * Run the worker under a supervisor (systemd, supervisord, etc.) using `php bin/worker.php` so queued `tailor_cv` jobs are processed continuously.【F:bin/worker.php†L29-L68】
+* Example unit and environment definitions live in `resources/systemd/` to speed up provisioning of a managed worker service.【F:resources/systemd/job-worker.service.example†L1-L20】【F:resources/systemd/job-worker.env.example†L1-L16】
 * Configure a cron entry to execute `php bin/purge.php` daily. It honours the active retention policy and reports how many rows were removed per resource.【F:bin/purge.php†L18-L63】
 
 ## Usage analytics & retention
