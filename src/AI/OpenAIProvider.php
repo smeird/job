@@ -646,6 +646,7 @@ final class OpenAIProvider
     private function mentionsUnsupportedSchema(string $message): bool
     {
         return strpos($message, 'response_format') !== false
+            || strpos($message, 'response.format') !== false
             || strpos($message, 'json_schema') !== false
             || strpos($message, 'structured output') !== false;
     }
