@@ -137,7 +137,9 @@ final class OpenAIProvider
             'input' => $this->formatMessagesForResponses($messages),
             'max_output_tokens' => $this->maxTokens,
             'response' => [
-                'format' => $this->buildPlanJsonSchema(),
+                'text' => [
+                    'format' => $this->buildPlanJsonSchema(),
+                ],
             ],
         ];
 
@@ -148,7 +150,16 @@ final class OpenAIProvider
                 $legacyPayload = $payload;
 
                 if (isset($legacyPayload['response'])) {
-                    $legacyPayload['response_format'] = $legacyPayload['response']['format'] ?? [];
+                    $legacyFormat = [];
+
+                    if (isset($legacyPayload['response']['text'])
+                        && is_array($legacyPayload['response']['text'])
+                        && isset($legacyPayload['response']['text']['format'])
+                    ) {
+                        $legacyFormat = $legacyPayload['response']['text']['format'];
+                    }
+
+                    $legacyPayload['response_format'] = $legacyFormat;
                     unset($legacyPayload['response']);
                 }
 
@@ -170,7 +181,7 @@ final class OpenAIProvider
                     throw $exception;
                 }
 
-                $payload['response'] = ['format' => ['type' => 'json_object']];
+                $payload['response'] = ['text' => ['format' => ['type' => 'json_object']]];
                 error_log('Falling back to json_object response format after plan request failure: ' . $exception->getMessage());
                 $result = $this->performChatRequest($payload, 'plan', $streamHandler);
             }
@@ -346,8 +357,28 @@ final class OpenAIProvider
                 $payload['response'] = [];
             }
 
-            if (!isset($payload['response']['format'])) {
-                $payload['response']['format'] = $format;
+            if (!isset($payload['response']['text']) || !is_array($payload['response']['text'])) {
+                $payload['response']['text'] = [];
+            }
+
+            if (!isset($payload['response']['text']['format'])) {
+                $payload['response']['text']['format'] = $format;
+            }
+        }
+
+        if (isset($payload['response'])
+            && is_array($payload['response'])
+            && isset($payload['response']['format'])
+        ) {
+            $format = $payload['response']['format'];
+            unset($payload['response']['format']);
+
+            if (!isset($payload['response']['text']) || !is_array($payload['response']['text'])) {
+                $payload['response']['text'] = [];
+            }
+
+            if (!isset($payload['response']['text']['format'])) {
+                $payload['response']['text']['format'] = $format;
             }
         }
 
