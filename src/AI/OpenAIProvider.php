@@ -136,7 +136,9 @@ final class OpenAIProvider
             'model' => $this->modelPlan,
             'input' => $this->formatMessagesForResponses($messages),
             'max_output_tokens' => $this->maxTokens,
-            'response_format' => $this->buildPlanJsonSchema(),
+            'response' => [
+                'format' => $this->buildPlanJsonSchema(),
+            ],
         ];
 
         try {
@@ -146,7 +148,7 @@ final class OpenAIProvider
                 throw $exception;
             }
 
-            $payload['response_format'] = ['type' => 'json_object'];
+            $payload['response'] = ['format' => ['type' => 'json_object']];
             error_log('Falling back to json_object response format after plan request failure: ' . $exception->getMessage());
             $result = $this->performChatRequest($payload, 'plan', $streamHandler);
         }
