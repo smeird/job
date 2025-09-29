@@ -159,10 +159,13 @@ namespace Psr\Http\Message {
          */
         public function close(): void;
 
-        /** @return resource|null */
+        /**
          * Handle the detach workflow.
          *
          * This helper keeps the detach logic centralised for clarity and reuse.
+         *
+         * @return resource|null
+         */
         public function detach();
 
         /**
@@ -242,10 +245,14 @@ namespace Psr\Http\Message {
          */
         public function getContents(): string;
 
-        /** @return array<string, mixed>|mixed|null */
+        /**
          * Retrieve the metadata.
          *
          * The helper centralises access to the metadata so callers stay tidy.
+         *
+         * @param string|null $key
+         * @return array<string, mixed>|mixed|null
+         */
         public function getMetadata(?string $key = null);
     }
 
