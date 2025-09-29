@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\AI;
 
 use App\DB;
+use App\Settings\SiteSettingsRepository;
 use GuzzleHttp\Client;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\RequestException;
@@ -41,6 +42,9 @@ final class OpenAIProvider
     /** @var PDO */
     private $pdo;
 
+    /** @var SiteSettingsRepository */
+    private $settingsRepository;
+
     /** @var string */
     private $apiKey;
 
@@ -72,9 +76,18 @@ final class OpenAIProvider
     public function __construct(
         int $userId,
         ?ClientInterface $client = null,
-        ?PDO $pdo = null
+        ?PDO $pdo = null,
+        ?SiteSettingsRepository $settingsRepository = null
     ) {
         $this->userId = $userId;
+
+        try {
+            $this->pdo = $pdo ?? DB::getConnection();
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Unable to obtain a database connection.', 0, $exception);
+        }
+
+        $this->settingsRepository = $settingsRepository ?? new SiteSettingsRepository($this->pdo);
         $this->apiKey = $this->requireEnv('OPENAI_API_KEY');
         $this->baseUrl = rtrim($this->env('OPENAI_BASE_URL') ?? self::DEFAULT_BASE_URL, '/');
         $this->modelPlan = $this->requireEnv('OPENAI_MODEL_PLAN');
@@ -86,12 +99,6 @@ final class OpenAIProvider
             'base_uri' => $this->baseUrl,
             'timeout' => 60,
         ]);
-
-        try {
-            $this->pdo = $pdo ?? DB::getConnection();
-        } catch (PDOException $exception) {
-            throw new RuntimeException('Unable to obtain a database connection.', 0, $exception);
-        }
     }
 
     /**
@@ -305,7 +312,7 @@ final class OpenAIProvider
                 foreach (explode("\n", (string) $segment) as $line) {
                     $line = trim($line);
 
-                    if ($line === '' || !str_starts_with($line, 'data:')) {
+                    if ($line === '' || strncmp($line, 'data:', 5) !== 0) {
                         continue;
                     }
 
@@ -318,7 +325,7 @@ final class OpenAIProvider
                     try {
                         /** @var array<string, mixed> $event */
                         $event = json_decode($payload, true, 512, JSON_THROW_ON_ERROR);
-                    } catch (JsonException) {
+                    } catch (JsonException $exception) {
                         continue;
                     }
 
@@ -554,7 +561,9 @@ final class OpenAIProvider
         $value = $this->env($key);
 
         if ($value === null || $value === '') {
-            throw new RuntimeException(sprintf('Environment variable %s must be set.', $key));
+            throw new RuntimeException(
+                sprintf('Configuration value %s must be set via environment variables or site settings.', $key)
+            );
         }
 
         return $value;
@@ -569,12 +578,33 @@ final class OpenAIProvider
     {
         $value = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
 
-        if ($value === false || $value === null) {
+        if ($value !== false && $value !== null) {
+            $trimmed = trim((string) $value);
+
+            if ($trimmed !== '') {
+                return $trimmed;
+            }
+        }
+
+        $stored = $this->settingsRepository->findValue($this->normaliseSettingKey($key));
+
+        if ($stored === null) {
             return null;
         }
 
-        $trimmed = trim((string) $value);
+        $trimmed = trim($stored);
 
         return $trimmed === '' ? null : $trimmed;
+    }
+
+    /**
+     * Normalise the provided environment key into a site settings identifier.
+     *
+     * Having a consistent mapping allows the worker and web contexts to share
+     * credentials without duplicating configuration logic.
+     */
+    private function normaliseSettingKey(string $key): string
+    {
+        return strtolower($key);
     }
 }

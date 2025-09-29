@@ -40,6 +40,7 @@ class Migrator
         $this->createBackupCodesTable();
         $this->createAuditLogsTable();
         $this->createRetentionSettingsTable();
+        $this->createSiteSettingsTable();
         $this->createJobsTable();
     }
 
@@ -372,6 +373,43 @@ class Migrator
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+        SQL;
+
+        $this->pdo->exec($sql);
+    }
+
+    /**
+     * Create the site settings table instance.
+     *
+     * Centralising configuration storage ensures both web and worker
+     * environments can retrieve shared credentials reliably.
+     */
+    private function createSiteSettingsTable(): void
+    {
+        $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+        if ($driver === 'mysql') {
+            $sql = <<<SQL
+            CREATE TABLE IF NOT EXISTS site_settings (
+                name VARCHAR(191) NOT NULL PRIMARY KEY,
+                value TEXT NULL,
+                created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+            SQL;
+
+            $this->pdo->exec($sql);
+
+            return;
+        }
+
+        $sql = <<<'SQL'
+        CREATE TABLE IF NOT EXISTS site_settings (
+            name TEXT PRIMARY KEY,
+            value TEXT NULL,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
         SQL;
 
         $this->pdo->exec($sql);
