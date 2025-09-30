@@ -16,6 +16,7 @@ use Psr\Http\Message\ResponseInterface;
 use RuntimeException;
 use Throwable;
 
+use function array_key_exists;
 use function is_array;
 use function is_numeric;
 use function is_string;
@@ -136,11 +137,7 @@ final class OpenAIProvider
             'model' => $this->modelPlan,
             'input' => $this->formatMessagesForResponses($messages),
             'max_output_tokens' => $this->maxTokens,
-            'response' => [
-                'text' => [
-                    'format' => $this->buildPlanJsonSchema(),
-                ],
-            ],
+            'response_format' => $this->buildPlanJsonSchema(),
         ];
 
         try {
@@ -148,20 +145,6 @@ final class OpenAIProvider
         } catch (RuntimeException $exception) {
             if ($this->shouldFallbackToLegacyResponseFormat($exception)) {
                 $legacyPayload = $payload;
-
-                if (isset($legacyPayload['response'])) {
-                    $legacyFormat = [];
-
-                    if (isset($legacyPayload['response']['text'])
-                        && is_array($legacyPayload['response']['text'])
-                        && isset($legacyPayload['response']['text']['format'])
-                    ) {
-                        $legacyFormat = $legacyPayload['response']['text']['format'];
-                    }
-
-                    $legacyPayload['response_format'] = $legacyFormat;
-                    unset($legacyPayload['response']);
-                }
 
                 error_log('Retrying plan request with legacy response_format parameter: ' . $exception->getMessage());
 
@@ -173,7 +156,7 @@ final class OpenAIProvider
                     }
 
                     $jsonObjectPayload = $payload;
-                    $jsonObjectPayload['response']['text']['format'] = ['type' => 'json_object'];
+                    $jsonObjectPayload['response_format'] = ['type' => 'json_object'];
                     error_log('Retrying plan request with json_object response format after legacy response_format failure: ' . $legacyException->getMessage());
                     $result = $this->performChatRequest($jsonObjectPayload, 'plan', $streamHandler);
                 }
@@ -182,7 +165,7 @@ final class OpenAIProvider
                     throw $exception;
                 }
 
-                $payload['response'] = ['text' => ['format' => ['type' => 'json_object']]];
+                $payload['response_format'] = ['type' => 'json_object'];
                 error_log('Falling back to json_object response format after plan request failure: ' . $exception->getMessage());
                 $result = $this->performChatRequest($payload, 'plan', $streamHandler);
             }
@@ -342,44 +325,30 @@ final class OpenAIProvider
      * Normalise the outgoing payload to match the latest OpenAI Responses API expectations.
      *
      * This helper safeguards against legacy configuration values that still populate the
-     * deprecated `response_format` key by converting them into the modern `response.format`
-     * structure accepted by the API.
+     * deprecated `response` structure by migrating any provided schema into the supported
+     * top-level `response_format` field while stripping unsupported keys.
      *
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
      */
     private function normaliseRequestPayload(array $payload): array
     {
-        if (isset($payload['response_format'])) {
-            $format = $payload['response_format'];
-            unset($payload['response_format']);
+        if (isset($payload['response']) && is_array($payload['response'])) {
+            $format = null;
 
-            if (!isset($payload['response']) || !is_array($payload['response'])) {
-                $payload['response'] = [];
+            if (isset($payload['response']['text'])
+                && is_array($payload['response']['text'])
+                && array_key_exists('format', $payload['response']['text'])
+            ) {
+                $format = $payload['response']['text']['format'];
+            } elseif (array_key_exists('format', $payload['response'])) {
+                $format = $payload['response']['format'];
             }
 
-            if (!isset($payload['response']['text']) || !is_array($payload['response']['text'])) {
-                $payload['response']['text'] = [];
-            }
+            unset($payload['response']);
 
-            if (!isset($payload['response']['text']['format'])) {
-                $payload['response']['text']['format'] = $format;
-            }
-        }
-
-        if (isset($payload['response'])
-            && is_array($payload['response'])
-            && isset($payload['response']['format'])
-        ) {
-            $format = $payload['response']['format'];
-            unset($payload['response']['format']);
-
-            if (!isset($payload['response']['text']) || !is_array($payload['response']['text'])) {
-                $payload['response']['text'] = [];
-            }
-
-            if (!isset($payload['response']['text']['format'])) {
-                $payload['response']['text']['format'] = $format;
+            if ($format !== null && !array_key_exists('response_format', $payload)) {
+                $payload['response_format'] = $format;
             }
         }
 
