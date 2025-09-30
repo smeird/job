@@ -144,15 +144,7 @@ final class OpenAIProvider
             $result = $this->performChatRequest($payload, 'plan', $streamHandler);
         } catch (RuntimeException $exception) {
             if ($this->shouldFallbackToLegacyResponseFormat($exception)) {
-                $legacyPayload = $payload;
-                if (isset($legacyPayload['response_format'])) {
-                    $legacyPayload['response'] = [
-                        'text' => [
-                            'format' => $legacyPayload['response_format'],
-                        ],
-                    ];
-                    unset($legacyPayload['response_format']);
-                }
+                $legacyPayload = $this->convertResponseFormatToLegacy($payload);
 
                 error_log('Retrying plan request with legacy response_format parameter: ' . $exception->getMessage());
 
@@ -188,6 +180,33 @@ final class OpenAIProvider
         }
 
         return json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Transform the Responses API payload back into the legacy schema when needed.
+     *
+     * Legacy models expect the response schema to live under the nested `response` key,
+     * so this helper reintroduces that structure when retrying without `response_format`.
+     *
+     * @param array<string, mixed> $payload The payload currently targeting the Responses API.
+     *
+     * @return array<string, mixed> The payload adjusted for the legacy completions endpoint.
+     */
+    private function convertResponseFormatToLegacy(array $payload): array
+    {
+        if (!isset($payload['response_format'])) {
+            return $payload;
+        }
+
+        $legacyPayload = $payload;
+        $legacyPayload['response'] = [
+            'text' => [
+                'format' => $legacyPayload['response_format'],
+            ],
+        ];
+        unset($legacyPayload['response_format']);
+
+        return $legacyPayload;
     }
 
     /**
