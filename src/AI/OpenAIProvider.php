@@ -172,9 +172,10 @@ final class OpenAIProvider
                         throw $legacyException;
                     }
 
-                    $legacyPayload['response_format'] = ['type' => 'json_object'];
-                    error_log('Falling back to json_object legacy response format after plan request failure: ' . $legacyException->getMessage());
-                    $result = $this->performChatRequest($legacyPayload, 'plan', $streamHandler, true);
+                    $jsonObjectPayload = $payload;
+                    $jsonObjectPayload['response']['text']['format'] = ['type' => 'json_object'];
+                    error_log('Retrying plan request with json_object response format after legacy response_format failure: ' . $legacyException->getMessage());
+                    $result = $this->performChatRequest($jsonObjectPayload, 'plan', $streamHandler);
                 }
             } else {
                 if (!$this->shouldFallbackToJsonObject($exception)) {
