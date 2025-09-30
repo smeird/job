@@ -642,7 +642,9 @@
                         : [];
 
                     const removedJobs = normaliseNumber(data.removed_jobs, 0);
+
                     const removedFailedGenerations = normaliseNumber(data.removed_failed_generations, 0);
+
                     const clearedLogs = normaliseNumber(data.cleared_logs, 0);
 
                     const parts = [];
@@ -651,9 +653,11 @@
                         parts.push(`${removedJobs} job${removedJobs === 1 ? '' : 's'}`);
                     }
 
+
                     if (removedFailedGenerations > 0) {
                         parts.push(`${removedFailedGenerations} failed generation${removedFailedGenerations === 1 ? '' : 's'}`);
                     }
+
 
                     if (clearedLogs > 0) {
                         parts.push(`${clearedLogs} log${clearedLogs === 1 ? '' : 's'}`);

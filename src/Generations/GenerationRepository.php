@@ -307,6 +307,7 @@ final class GenerationRepository
     }
 
     /**
+
      * Remove failed generations that belong to the specified user.
      *
      * Clearing out failed rows keeps the tailoring dashboard focused on
@@ -334,6 +335,7 @@ final class GenerationRepository
     }
 
     /**
+
      * Handle the normalise row workflow.
      *
      * This helper keeps the normalise row logic centralised for clarity and reuse.
