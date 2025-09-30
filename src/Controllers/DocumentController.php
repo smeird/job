@@ -8,6 +8,10 @@ use App\Documents\DocumentPreviewer;
 use App\Documents\DocumentRepository;
 use App\Documents\DocumentService;
 use App\Documents\DocumentValidationException;
+use App\Generations\GenerationAccessDeniedException;
+use App\Generations\GenerationDownloadService;
+use App\Generations\GenerationNotFoundException;
+use App\Generations\GenerationOutputUnavailableException;
 use App\Generations\GenerationRepository;
 use App\Generations\GenerationTokenService;
 use App\Views\Renderer;
@@ -37,8 +41,10 @@ final class DocumentController
     private $generationRepository;
 
     /** @var GenerationTokenService|null */
-
     private $generationTokenService;
+
+    /** @var GenerationDownloadService */
+    private $generationDownloadService;
 
     /**
      * Construct the object with its required dependencies.
@@ -51,8 +57,8 @@ final class DocumentController
         DocumentService $documentService,
         DocumentPreviewer $documentPreviewer,
         GenerationRepository $generationRepository,
-        ?GenerationTokenService $generationTokenService
-
+        ?GenerationTokenService $generationTokenService,
+        GenerationDownloadService $generationDownloadService
     ) {
         $this->renderer = $renderer;
         $this->documentRepository = $documentRepository;
@@ -60,6 +66,7 @@ final class DocumentController
         $this->documentPreviewer = $documentPreviewer;
         $this->generationRepository = $generationRepository;
         $this->generationTokenService = $generationTokenService;
+        $this->generationDownloadService = $generationDownloadService;
     }
 
     /**
@@ -231,6 +238,120 @@ final class DocumentController
     }
 
     /**
+     * Remove a tailored CV run owned by the authenticated user.
+     *
+     * Exposing deletion within the documents workspace lets users tidy up
+     * historic drafts once they are no longer required.
+     * @param array<string, string> $args
+     */
+    public function deleteGeneration(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if (!is_array($user) || !isset($user['user_id'])) {
+            return $response->withHeader('Location', '/auth/login')->withStatus(302);
+        }
+
+        $userId = (int) $user['user_id'];
+        $generationId = isset($args['id']) ? (int) $args['id'] : 0;
+        $message = 'The tailored CV could not be found.';
+
+        if ($generationId > 0) {
+            try {
+                $deleted = $this->generationRepository->deleteForUser($userId, $generationId);
+                $message = $deleted
+                    ? 'Tailored CV deleted successfully.'
+                    : 'The tailored CV could not be found.';
+            } catch (RuntimeException $exception) {
+                $message = 'We could not delete the tailored CV. Please try again.';
+            }
+        }
+
+        return $response
+            ->withHeader('Location', '/documents?status=' . rawurlencode($message))
+            ->withStatus(302);
+    }
+
+    /**
+     * Promote a completed tailored CV into the primary CV library.
+     *
+     * Saving the generated draft ensures it appears alongside uploaded CVs so
+     * future tailoring runs can reuse the improved version.
+     * @param array<string, string> $args
+     */
+    public function promoteGeneration(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if (!is_array($user) || !isset($user['user_id'])) {
+            return $response->withHeader('Location', '/auth/login')->withStatus(302);
+        }
+
+        $userId = (int) $user['user_id'];
+        $generationId = isset($args['id']) ? (int) $args['id'] : 0;
+
+        if ($generationId <= 0) {
+            return $response
+                ->withHeader('Location', '/documents?status=' . rawurlencode('The tailored CV could not be found.'))
+                ->withStatus(302);
+        }
+
+        $generation = $this->generationRepository->findForUser($userId, $generationId);
+
+        if ($generation === null) {
+            return $response
+                ->withHeader('Location', '/documents?status=' . rawurlencode('The tailored CV could not be found.'))
+                ->withStatus(302);
+        }
+
+        $status = isset($generation['status']) ? (string) $generation['status'] : '';
+
+        if ($status !== 'completed') {
+            return $response
+                ->withHeader('Location', '/documents?status=' . rawurlencode('Only completed tailored CVs can be saved.'))
+                ->withStatus(302);
+        }
+
+        try {
+            $download = $this->generationDownloadService->fetch($generationId, $userId, 'md');
+        } catch (GenerationNotFoundException | GenerationAccessDeniedException $exception) {
+            return $response
+                ->withHeader('Location', '/documents?status=' . rawurlencode('The tailored CV could not be found.'))
+                ->withStatus(302);
+        } catch (GenerationOutputUnavailableException $exception) {
+            return $response
+                ->withHeader('Location', '/documents?status=' . rawurlencode('The tailored CV output is not yet available.'))
+                ->withStatus(302);
+        } catch (RuntimeException $exception) {
+            return $response
+                ->withHeader('Location', '/documents?status=' . rawurlencode('We could not access the tailored CV output.'))
+                ->withStatus(302);
+        }
+
+        $filename = $this->generateTailoredFilename($generation);
+
+        try {
+            $document = $this->documentService->storeDocumentFromContent(
+                $userId,
+                'cv',
+                $filename,
+                (string) $download['content']
+            );
+            $message = sprintf('Saved tailored CV as "%s".', $document->filename());
+        } catch (DocumentValidationException $exception) {
+            $message = $exception->getMessage();
+        } catch (PDOException $exception) {
+            $message = 'We could not save the tailored CV to your library. Please try again.';
+        } catch (RuntimeException $exception) {
+            $message = $exception->getMessage();
+        }
+
+        return $response
+            ->withHeader('Location', '/documents?status=' . rawurlencode($message))
+            ->withStatus(302);
+    }
+
+    /**
      * Map the provided data set into the desired shape.
      *
      * @param array<int, \App\Documents\Document> $documents
@@ -249,6 +370,53 @@ final class DocumentController
                     : null,
             ];
         }, $documents);
+    }
+
+    /**
+     * Build a descriptive filename for promoted tailored CV drafts.
+     *
+     * @param array<string, mixed> $generation
+     */
+    private function generateTailoredFilename(array $generation): string
+    {
+        $jobFilename = '';
+
+        if (isset($generation['job_document']) && is_array($generation['job_document'])) {
+            $job = $generation['job_document'];
+
+            if (isset($job['filename'])) {
+                $jobFilename = (string) $job['filename'];
+            }
+        }
+
+        $base = $jobFilename !== ''
+            ? pathinfo($jobFilename, PATHINFO_FILENAME)
+            : 'tailored-cv';
+
+        $clean = preg_replace('/[^A-Za-z0-9 _-]+/', '', (string) $base);
+
+        if (!is_string($clean) || trim($clean) === '') {
+            $clean = 'tailored-cv';
+        } else {
+            $collapsed = preg_replace('/\s+/', ' ', $clean);
+            $clean = is_string($collapsed) ? trim($collapsed) : trim($clean);
+
+            if ($clean === '') {
+                $clean = 'tailored-cv';
+            }
+        }
+
+        $timestamp = new DateTimeImmutable();
+
+        if (isset($generation['created_at'])) {
+            try {
+                $timestamp = new DateTimeImmutable((string) $generation['created_at']);
+            } catch (Exception $exception) {
+                $timestamp = new DateTimeImmutable();
+            }
+        }
+
+        return sprintf('%s - tailored-%s.md', $clean, $timestamp->format('Ymd-His'));
     }
 
     /**
@@ -319,6 +487,11 @@ final class DocumentController
                     'filename' => (string) $generation['cv_document']['filename'],
                 ],
                 'downloads' => $downloads,
+                'is_completed' => $status === 'completed',
+                'delete_url' => '/documents/tailored/' . rawurlencode((string) $generation['id']) . '/delete',
+                'promote_url' => $status === 'completed'
+                    ? '/documents/tailored/' . rawurlencode((string) $generation['id']) . '/promote'
+                    : null,
             ];
         }
 

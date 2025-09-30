@@ -198,16 +198,32 @@
                                     <p class="font-medium text-white">Job: <?= htmlspecialchars($generation['job_document']['filename'], ENT_QUOTES) ?></p>
                                     <p class="text-xs text-slate-400">Source CV: <?= htmlspecialchars($generation['cv_document']['filename'], ENT_QUOTES) ?></p>
                                 </div>
-                                <?php if ($statusValue === 'completed' && !empty($generation['downloads']['md'])) : ?>
-                                    <div class="flex flex-wrap gap-2">
+                                <div class="flex flex-wrap gap-2">
+                                    <?php if ($statusValue === 'completed' && !empty($generation['downloads']['md'])) : ?>
                                         <a
                                             href="<?= htmlspecialchars($generation['downloads']['md'], ENT_QUOTES) ?>"
                                             class="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100 transition hover:border-emerald-300 hover:text-emerald-50"
                                         >
                                             Download markdown
                                         </a>
-                                    </div>
-                                <?php endif; ?>
+                                    <?php endif; ?>
+                                    <?php if (!empty($generation['promote_url'])) : ?>
+                                        <form method="post" action="<?= htmlspecialchars($generation['promote_url'], ENT_QUOTES) ?>" class="inline">
+                                            <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                                            <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-indigo-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-100 transition hover:border-indigo-300 hover:text-indigo-50">
+                                                Save as CV
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
+                                    <?php if (!empty($generation['delete_url'])) : ?>
+                                        <form method="post" action="<?= htmlspecialchars($generation['delete_url'], ENT_QUOTES) ?>" class="inline">
+                                            <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                                            <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-rose-500/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-100 transition hover:border-rose-300 hover:text-rose-50">
+                                                Delete
+                                            </button>
+                                        </form>
+                                    <?php endif; ?>
+                                </div>
                                 <dl class="grid gap-2 text-xs text-slate-300 sm:grid-cols-3">
                                     <div>
                                         <dt class="font-semibold text-slate-200">Model</dt>

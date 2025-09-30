@@ -98,6 +98,31 @@ class DocumentService
     }
 
     /**
+     * Persist a document sourced from an existing content string.
+     *
+     * Providing a centralised helper keeps tailored draft promotion aligned
+     * with the upload workflow so validation and hashing remain consistent.
+     */
+    public function storeDocumentFromContent(int $userId, string $documentType, string $filename, string $content): Document
+    {
+        $validation = $this->validator->validate($filename, $content, null);
+
+        $document = new Document(
+            null,
+            $userId,
+            $documentType,
+            $filename,
+            $validation['mime'],
+            $validation['size'],
+            hash('sha256', $content),
+            $content,
+            new DateTimeImmutable()
+        );
+
+        return $this->repository->save($document);
+    }
+
+    /**
      * Handle the find operation.
      *
      * Documenting this helper clarifies its role within the wider workflow.
