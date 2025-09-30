@@ -48,9 +48,6 @@ final class DocumentController
     /** @var GenerationTokenService|null */
     private $generationTokenService;
 
-    /** @var GenerationDownloadService */
-    private $generationDownloadService;
-
     /**
      * Construct the object with its required dependencies.
      *
@@ -63,8 +60,7 @@ final class DocumentController
         DocumentPreviewer $documentPreviewer,
         GenerationDownloadService $generationDownloadService,
         GenerationRepository $generationRepository,
-        ?GenerationTokenService $generationTokenService,
-        GenerationDownloadService $generationDownloadService
+        ?GenerationTokenService $generationTokenService
     ) {
         $this->renderer = $renderer;
         $this->documentRepository = $documentRepository;
@@ -73,7 +69,6 @@ final class DocumentController
         $this->generationDownloadService = $generationDownloadService;
         $this->generationRepository = $generationRepository;
         $this->generationTokenService = $generationTokenService;
-        $this->generationDownloadService = $generationDownloadService;
     }
 
     /**
