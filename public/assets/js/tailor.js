@@ -332,6 +332,34 @@
                     && this.promptIsValid;
             },
 
+            /**
+             * Provide a human-readable label for a download format button.
+             *
+             * @param {string} format The download format identifier such as `md` or `pdf`.
+             * @returns {string} The descriptive label rendered in the interface.
+             */
+            downloadLabel(format) {
+                const key = typeof format === 'string' ? format.toLowerCase() : '';
+
+                if (key === 'md') {
+                    return 'Download markdown';
+                }
+
+                if (key === 'pdf') {
+                    return 'Download PDF';
+                }
+
+                if (key === 'docx') {
+                    return 'Download Word';
+                }
+
+                if (key !== '') {
+                    return 'Download ' + key.toUpperCase();
+                }
+
+                return 'Download file';
+            },
+
 
             /**
              * Validate the thinking time slider value.

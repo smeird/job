@@ -31,17 +31,20 @@
         </div>
     </header>
 
-    <section class="overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 shadow-2xl">
-        <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <section class="relative overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6 shadow-2xl">
+        <div class="pointer-events-none absolute inset-0 bg-gradient-to-br from-indigo-950/70 via-slate-900/40 to-slate-950/70 opacity-90"></div>
+        <div class="pointer-events-none absolute -top-24 right-10 h-56 w-56 rounded-full bg-indigo-500/20 blur-3xl"></div>
+        <div class="pointer-events-none absolute -bottom-20 left-0 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl"></div>
+        <header class="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div class="space-y-2">
-                <p class="text-xs font-semibold uppercase tracking-[0.4em] text-indigo-400">Pipeline overview</p>
+                <p class="text-xs font-semibold uppercase tracking-[0.4em] text-indigo-300">Pipeline overview</p>
                 <h3 class="text-2xl font-semibold text-white">Where each application stands today</h3>
-                <p class="max-w-2xl text-sm text-slate-400">
+                <p class="max-w-2xl text-sm text-slate-300">
                     Glance across every stage of your search. Drag-inspired swimlanes spotlight roles you are nurturing,
                     recently submitted, or learning from after a response.
                 </p>
             </div>
-            <div class="flex items-center gap-2 rounded-full border border-indigo-500/40 bg-indigo-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-indigo-200">
+            <div class="flex items-center gap-2 rounded-full border border-indigo-500/50 bg-indigo-500/15 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-indigo-100 shadow-lg shadow-indigo-500/10">
                 <span class="inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
                 <?= count($outstanding) + count($applied) + count($failed) ?> opportunities tracked
             </div>
@@ -80,11 +83,11 @@
             ]
         ];
         ?>
-        <div class="mt-6 overflow-x-auto pb-2">
+        <div class="relative z-10 mt-6 overflow-x-auto pb-2">
             <div class="flex min-w-full snap-x gap-6">
                 <?php foreach ($kanbanColumns as $column) : ?>
-                    <section class="group relative min-w-[280px] flex-1 snap-start overflow-hidden rounded-2xl border <?= htmlspecialchars($column['border_class'], ENT_QUOTES) ?> bg-slate-950/80 p-5 shadow-xl backdrop-blur">
-                        <div class="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br <?= htmlspecialchars($column['accent'], ENT_QUOTES) ?> opacity-80 transition duration-500 group-hover:opacity-100"></div>
+                    <section class="group relative min-w-[280px] flex-1 snap-start overflow-hidden rounded-2xl border <?= htmlspecialchars($column['border_class'], ENT_QUOTES) ?> bg-slate-900/70 p-5 shadow-xl shadow-indigo-900/30 backdrop-blur">
+                        <div class="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br <?= htmlspecialchars($column['accent'], ENT_QUOTES) ?> opacity-70 transition duration-500 group-hover:opacity-100"></div>
                         <header class="relative z-10 flex flex-col gap-3">
                             <div class="flex items-center justify-between gap-3">
                                 <h4 class="text-lg font-semibold text-white">
@@ -100,12 +103,12 @@
                         </header>
                         <div class="relative z-10 mt-4 space-y-3">
                             <?php if (empty($column['items'])) : ?>
-                                <p class="rounded-xl border border-dashed border-slate-800 bg-slate-950/60 px-4 py-6 text-center text-xs text-slate-500">
+                                <p class="rounded-xl border border-dashed border-slate-800 bg-slate-900/60 px-4 py-6 text-center text-xs text-slate-400">
                                     <?= htmlspecialchars($column['empty'], ENT_QUOTES) ?>
                                 </p>
                             <?php else : ?>
                                 <?php foreach ($column['items'] as $kanbanItem) : ?>
-                                    <article class="rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-xs text-slate-200 shadow-inner">
+                                    <article class="rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-xs text-slate-100 shadow-inner shadow-indigo-900/20">
                                         <div class="flex flex-col gap-2">
                                             <h5 class="text-sm font-semibold text-white">
                                                 <?= htmlspecialchars($kanbanItem['title'] ?? 'Untitled role', ENT_QUOTES) ?>

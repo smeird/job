@@ -43,8 +43,8 @@ final class GenerationTokenService
             throw new RuntimeException('Download token secret must be configured.');
         }
 
-        if ($ttlSeconds <= 0) {
-            throw new RuntimeException('Token TTL must be positive.');
+        if ($ttlSeconds < 0) {
+            throw new RuntimeException('Token TTL must be zero or positive.');
         }
 
         $this->secret = $secret;
@@ -71,7 +71,11 @@ final class GenerationTokenService
         if ($now === null) {
             $now = new DateTimeImmutable();
         }
-        $expiresAt = $now->add(new DateInterval(sprintf('PT%dS', $this->ttlSeconds)))->getTimestamp();
+        if ($this->ttlSeconds === 0) {
+            $expiresAt = 0;
+        } else {
+            $expiresAt = $now->add(new DateInterval(sprintf('PT%dS', $this->ttlSeconds)))->getTimestamp();
+        }
 
         $normalizedFormat = strtolower(trim($format));
 

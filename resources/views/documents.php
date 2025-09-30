@@ -198,6 +198,7 @@
                                     <p class="font-medium text-white">Job: <?= htmlspecialchars($generation['job_document']['filename'], ENT_QUOTES) ?></p>
                                     <p class="text-xs text-slate-400">Source CV: <?= htmlspecialchars($generation['cv_document']['filename'], ENT_QUOTES) ?></p>
                                 </div>
+
                                 <div class="flex flex-wrap gap-2">
                                     <?php if ($statusValue === 'completed' && !empty($generation['downloads']['md'])) : ?>
                                         <a
@@ -224,6 +225,7 @@
                                         </form>
                                     <?php endif; ?>
                                 </div>
+
                                 <dl class="grid gap-2 text-xs text-slate-300 sm:grid-cols-3">
                                     <div>
                                         <dt class="font-semibold text-slate-200">Model</dt>

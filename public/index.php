@@ -93,6 +93,7 @@ $container->set(DocumentController::class, static function (Container $c): Docum
         $c->get(DocumentRepository::class),
         $c->get(DocumentService::class),
         $c->get(DocumentPreviewer::class),
+        $c->get(GenerationDownloadService::class),
         $c->get(GenerationRepository::class),
         $c->get(GenerationTokenService::class),
         $c->get(GenerationDownloadService::class)
@@ -173,6 +174,7 @@ $container->set(TailorController::class, static function (Container $c): TailorC
         $c->get(DocumentRepository::class),
         $c->get(GenerationRepository::class),
         $c->get(GenerationLogRepository::class),
+        $c->get(GenerationDownloadService::class),
         $c->get(GenerationTokenService::class)
     );
 });
@@ -235,7 +237,7 @@ $container->set(GenerationTokenService::class, static function (): ?GenerationTo
 
     $ttl = (int) (getenv('DOWNLOAD_TOKEN_TTL') ?: 300);
 
-    if ($ttl <= 0) {
+    if ($ttl < 0) {
         $ttl = 300;
     }
 
