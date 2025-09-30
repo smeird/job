@@ -45,6 +45,10 @@ class Routes
             return $container->get(TailorController::class)->show($request, $response);
         });
 
+        $app->post('/tailor/cleanup', function (Request $request, Response $response) use ($container) {
+            return $container->get(TailorController::class)->cleanup($request, $response);
+        });
+
         $app->get('/documents', function (Request $request, Response $response) use ($container) {
             return $container->get(DocumentController::class)->index($request, $response);
         });

@@ -200,6 +200,7 @@
             successMessage: '',
             isSubmitting: false,
             cancellingGenerations: [],
+            isCleaning: false,
 
             /**
              * Initialise the wizard with default selections and contextual messaging.
@@ -589,6 +590,84 @@
                     this.cancellingGenerations = this.cancellingGenerations.filter(function (value) {
                         return value !== id;
                     });
+                }
+            },
+
+            /**
+             * Remove stored queue jobs and failure logs linked to the workspace.
+             *
+             * Cleaning up keeps the tailoring dashboard focused on fresh runs and
+             * prevents historical noise from lingering in the interface.
+             */
+            async cleanupTailoringData() {
+                if (this.isCleaning) {
+                    return;
+                }
+
+                this.errorMessage = '';
+                this.successMessage = '';
+                this.isCleaning = true;
+
+                try {
+                    const response = await fetch('/tailor/cleanup', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrfToken,
+                        },
+                        credentials: 'same-origin',
+                        body: JSON.stringify({
+                            _token: csrfToken,
+                        }),
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        const message = data && typeof data.error === 'string'
+                            ? data.error
+                            : 'Unable to clean up tailoring data.';
+
+                        this.errorMessage = message;
+
+                        return;
+                    }
+
+                    if (Array.isArray(data.generations)) {
+                        this.generations = data.generations.slice();
+                    }
+
+                    this.processingLogs = Array.isArray(data.generation_logs)
+                        ? data.generation_logs.slice()
+                        : [];
+
+                    const removedJobs = normaliseNumber(data.removed_jobs, 0);
+                    const removedFailedGenerations = normaliseNumber(data.removed_failed_generations, 0);
+                    const clearedLogs = normaliseNumber(data.cleared_logs, 0);
+
+                    const parts = [];
+
+                    if (removedJobs > 0) {
+                        parts.push(`${removedJobs} job${removedJobs === 1 ? '' : 's'}`);
+                    }
+
+                    if (removedFailedGenerations > 0) {
+                        parts.push(`${removedFailedGenerations} failed generation${removedFailedGenerations === 1 ? '' : 's'}`);
+                    }
+
+                    if (clearedLogs > 0) {
+                        parts.push(`${clearedLogs} log${clearedLogs === 1 ? '' : 's'}`);
+                    }
+
+                    if (parts.length === 0) {
+                        this.successMessage = 'Tailoring data already clean.';
+                    } else {
+                        this.successMessage = `Removed ${parts.join(' and ')}.`;
+                    }
+                } catch (error) {
+                    this.errorMessage = 'A network error prevented cleaning up tailoring data.';
+                } finally {
+                    this.isCleaning = false;
                 }
             },
 

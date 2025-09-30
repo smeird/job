@@ -11,7 +11,11 @@ use PDO;
 use RuntimeException;
 use Throwable;
 
+use function array_fill;
+use function array_values;
 use function in_array;
+use function is_array;
+use function is_string;
 use function json_decode;
 use function json_encode;
 use function preg_replace;
@@ -245,6 +249,91 @@ final class GenerationRepository
     }
 
     /**
+     * Remove residual queue jobs associated with the supplied user identifier.
+     *
+     * Cleaning the queue ensures abandoned tailoring runs do not accumulate and
+     * keeps the dashboard in sync with the background worker state.
+     */
+    public function cleanupJobsForUser(int $userId): int
+    {
+        try {
+            $select = $this->pdo->prepare('SELECT id, payload_json FROM jobs WHERE type = :type');
+            $select->execute([':type' => 'tailor_cv']);
+        } catch (Throwable $exception) {
+            throw new RuntimeException('Unable to retrieve tailoring jobs for cleanup.', 0, $exception);
+        }
+
+        try {
+            $delete = $this->pdo->prepare('DELETE FROM jobs WHERE id = :id');
+        } catch (Throwable $exception) {
+            throw new RuntimeException('Unable to prepare job deletion statement.', 0, $exception);
+        }
+
+        $removed = 0;
+        $affectedGenerations = [];
+
+        while ($row = $select->fetch(PDO::FETCH_ASSOC)) {
+            $jobId = isset($row['id']) ? (int) $row['id'] : 0;
+
+            if ($jobId <= 0) {
+                continue;
+            }
+
+            $payload = $this->decodeJobPayload($row['payload_json'] ?? null);
+            $payloadUserId = isset($payload['user_id']) ? (int) $payload['user_id'] : 0;
+
+            if ($payloadUserId !== $userId) {
+                continue;
+            }
+
+            $delete->execute([':id' => $jobId]);
+
+            if ($delete->rowCount() > 0) {
+                $removed++;
+
+                $generationId = isset($payload['generation_id']) ? (int) $payload['generation_id'] : 0;
+
+                if ($generationId > 0) {
+                    $affectedGenerations[] = $generationId;
+                }
+            }
+        }
+
+        if ($removed > 0 && $affectedGenerations !== []) {
+            $this->markGenerationsCancelled($affectedGenerations);
+        }
+
+        return $removed;
+    }
+
+    /**
+     * Remove failed generations that belong to the specified user.
+     *
+     * Clearing out failed rows keeps the tailoring dashboard focused on
+     * actionable items and ensures old errors do not linger indefinitely.
+     */
+    public function cleanupFailedGenerationsForUser(int $userId): int
+    {
+        try {
+            $statement = $this->pdo->prepare(
+                "DELETE FROM generations WHERE user_id = :user_id AND status IN ('failed', 'error')"
+            );
+        } catch (Throwable $exception) {
+            throw new RuntimeException('Unable to prepare failed generation cleanup statement.', 0, $exception);
+        }
+
+        $statement->bindValue(':user_id', $userId, PDO::PARAM_INT);
+
+        try {
+            $statement->execute();
+        } catch (Throwable $exception) {
+            throw new RuntimeException('Unable to remove failed generations for the user.', 0, $exception);
+        }
+
+        return (int) $statement->rowCount();
+    }
+
+    /**
      * Handle the normalise row workflow.
      *
      * This helper keeps the normalise row logic centralised for clarity and reuse.
@@ -268,6 +357,77 @@ final class GenerationRepository
                 'filename' => (string) $row['cv_filename'],
             ],
         ];
+    }
+
+    /**
+     * Update the supplied generations to reflect their removal from the queue.
+     *
+     * Marking affected runs as cancelled prevents the UI from reporting that a
+     * background task is still pending once its job record has been deleted.
+     *
+     * @param array<int, int> $generationIds
+     */
+    private function markGenerationsCancelled(array $generationIds): void
+    {
+        $unique = [];
+
+        foreach ($generationIds as $generationId) {
+            $id = (int) $generationId;
+
+            if ($id > 0) {
+                $unique[$id] = $id;
+            }
+        }
+
+        if ($unique === []) {
+            return;
+        }
+
+        $ids = array_values($unique);
+        $placeholders = implode(', ', array_fill(0, count($ids), '?'));
+
+        $sql = 'UPDATE generations SET status = ?, progress_percent = 0, error_message = NULL, updated_at = ? '
+            . 'WHERE id IN (' . $placeholders . ") AND status IN ('queued', 'processing')";
+
+        try {
+            $statement = $this->pdo->prepare($sql);
+            $parameters = array_merge(
+                ['cancelled', (new DateTimeImmutable('now'))->format('Y-m-d H:i:s')],
+                $ids
+            );
+            $statement->execute($parameters);
+        } catch (Throwable $exception) {
+            throw new RuntimeException('Failed to update generations after queue cleanup.', 0, $exception);
+        }
+    }
+
+    /**
+     * Decode the JSON payload stored alongside a queued job.
+     *
+     * A defensive decoder avoids propagating malformed payloads further into
+     * the cleanup workflow when older jobs contain unexpected structures.
+     *
+     * @return array<string, mixed>
+     */
+    private function decodeJobPayload($payload): array
+    {
+        if (!is_string($payload)) {
+            return [];
+        }
+
+        $trimmed = trim($payload);
+
+        if ($trimmed === '') {
+            return [];
+        }
+
+        try {
+            $decoded = json_decode($trimmed, true, 512, JSON_THROW_ON_ERROR);
+        } catch (Throwable $exception) {
+            return [];
+        }
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     /**
