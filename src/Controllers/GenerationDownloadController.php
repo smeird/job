@@ -33,7 +33,7 @@ final class GenerationDownloadController
     /** @var GenerationDownloadService */
     private $downloadService;
 
-    /** @var GenerationTokenService */
+    /** @var GenerationTokenService|null */
     private $tokenService;
 
     /**
@@ -43,7 +43,7 @@ final class GenerationDownloadController
      */
     public function __construct(
         GenerationDownloadService $downloadService,
-        GenerationTokenService $tokenService
+        ?GenerationTokenService $tokenService
     ) {
         $this->downloadService = $downloadService;
         $this->tokenService = $tokenService;
@@ -53,10 +53,16 @@ final class GenerationDownloadController
      * Orchestrate a download response for the generated artifact.
      *
      * Centralising download logic ensures headers and streaming behaviour remain consistent.
+     * When the token service is not configured a service-unavailable response is
+     * returned so administrators can supply the required secret.
      * @param array<string, string> $args
      */
     public function download(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
     {
+        if ($this->tokenService === null) {
+            return $this->error($response, 503, 'Download service is not configured.');
+        }
+
         $format = strtolower(trim((string) ($request->getQueryParams()['format'] ?? '')));
 
         if ($format === '' || !in_array($format, self::SUPPORTED_FORMATS, true)) {

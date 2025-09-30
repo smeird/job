@@ -36,7 +36,8 @@ final class DocumentController
     /** @var GenerationRepository */
     private $generationRepository;
 
-    /** @var GenerationTokenService */
+    /** @var GenerationTokenService|null */
+
     private $generationTokenService;
 
     /**
@@ -50,7 +51,8 @@ final class DocumentController
         DocumentService $documentService,
         DocumentPreviewer $documentPreviewer,
         GenerationRepository $generationRepository,
-        GenerationTokenService $generationTokenService
+        ?GenerationTokenService $generationTokenService
+
     ) {
         $this->renderer = $renderer;
         $this->documentRepository = $documentRepository;
@@ -320,12 +322,18 @@ final class DocumentController
      *
      * Centralising link creation ensures each page exposes consistent tokenised
      * URLs that respect the per-user security constraints enforced by the
-     * download controller.
+     * download controller. When the token service is disabled the method
+     * returns an empty list so the UI hides download options gracefully.
+
      *
      * @return array<string, string>
      */
     private function buildDownloadLinks(int $userId, int $generationId): array
     {
+        if ($this->generationTokenService === null) {
+            return [];
+        }
+
         $token = $this->generationTokenService->createToken($userId, $generationId, 'md');
 
         return [

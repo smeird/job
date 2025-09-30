@@ -223,11 +223,13 @@ $container->set(GenerationDownloadService::class, static function (Container $c)
     return new GenerationDownloadService($c->get(\PDO::class));
 });
 
-$container->set(GenerationTokenService::class, static function (): GenerationTokenService {
+$container->set(GenerationTokenService::class, static function (): ?GenerationTokenService {
     $secret = getenv('DOWNLOAD_TOKEN_SECRET') ?: getenv('APP_KEY') ?: '';
 
     if ($secret === '') {
-        throw new RuntimeException('DOWNLOAD_TOKEN_SECRET or APP_KEY must be configured.');
+        error_log('Generation downloads disabled: configure DOWNLOAD_TOKEN_SECRET or APP_KEY to enable.');
+
+        return null;
     }
 
     $ttl = (int) (getenv('DOWNLOAD_TOKEN_TTL') ?: 300);
