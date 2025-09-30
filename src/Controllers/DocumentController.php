@@ -8,6 +8,7 @@ use App\Documents\DocumentPreviewer;
 use App\Documents\DocumentRepository;
 use App\Documents\DocumentService;
 use App\Documents\DocumentValidationException;
+use App\Generations\GenerationDownloadService;
 use App\Generations\GenerationRepository;
 use App\Generations\GenerationTokenService;
 use App\Views\Renderer;
@@ -33,11 +34,13 @@ final class DocumentController
     /** @var DocumentPreviewer */
     private $documentPreviewer;
 
+    /** @var GenerationDownloadService */
+    private $generationDownloadService;
+
     /** @var GenerationRepository */
     private $generationRepository;
 
     /** @var GenerationTokenService|null */
-
     private $generationTokenService;
 
     /**
@@ -50,6 +53,7 @@ final class DocumentController
         DocumentRepository $documentRepository,
         DocumentService $documentService,
         DocumentPreviewer $documentPreviewer,
+        GenerationDownloadService $generationDownloadService,
         GenerationRepository $generationRepository,
         ?GenerationTokenService $generationTokenService
 
@@ -58,6 +62,7 @@ final class DocumentController
         $this->documentRepository = $documentRepository;
         $this->documentService = $documentService;
         $this->documentPreviewer = $documentPreviewer;
+        $this->generationDownloadService = $generationDownloadService;
         $this->generationRepository = $generationRepository;
         $this->generationTokenService = $generationTokenService;
     }
@@ -331,7 +336,8 @@ final class DocumentController
      * Centralising link creation ensures each page exposes consistent tokenised
      * URLs that respect the per-user security constraints enforced by the
      * download controller. When the token service is disabled the method
-     * returns an empty list so the UI hides download options gracefully.
+     * returns an empty list so the UI hides download options gracefully while
+     * still surfacing every available format when binary exports are stored.
 
      *
      * @return array<string, string>
@@ -342,15 +348,26 @@ final class DocumentController
             return [];
         }
 
-        $token = $this->generationTokenService->createToken($userId, $generationId, 'md');
+        $availableFormats = $this->generationDownloadService->availableFormats($generationId);
 
-        return [
-            'md' => sprintf(
-                '/generations/%d/download?format=md&token=%s',
+        if ($availableFormats === []) {
+            return [];
+        }
+
+        $downloads = [];
+
+        foreach ($availableFormats as $format) {
+            $token = $this->generationTokenService->createToken($userId, $generationId, $format);
+
+            $downloads[$format] = sprintf(
+                '/generations/%d/download?format=%s&token=%s',
                 $generationId,
+                rawurlencode($format),
                 rawurlencode($token)
-            ),
-        ];
+            );
+        }
+
+        return $downloads;
     }
 
     /**

@@ -89,7 +89,7 @@ final class GenerationDownloadController
 
         $now = time();
 
-        if ($payload['expires_at'] < $now) {
+        if ($payload['expires_at'] !== 0 && $payload['expires_at'] < $now) {
             return $this->error($response, 403, 'Download link has expired.');
         }
 

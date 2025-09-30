@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Documents\DocumentRepository;
+use App\Generations\GenerationDownloadService;
 use App\Generations\GenerationLogRepository;
 use App\Generations\GenerationRepository;
 use App\Generations\GenerationTokenService;
@@ -28,9 +29,10 @@ final class TailorController
     /** @var GenerationLogRepository */
     private $generationLogRepository;
 
+    /** @var GenerationDownloadService */
+    private $generationDownloadService;
 
     /** @var GenerationTokenService|null */
-
     private $generationTokenService;
 
     /**
@@ -43,6 +45,7 @@ final class TailorController
         DocumentRepository $documentRepository,
         GenerationRepository $generationRepository,
         GenerationLogRepository $generationLogRepository,
+        GenerationDownloadService $generationDownloadService,
         ?GenerationTokenService $generationTokenService
 
     ) {
@@ -50,6 +53,7 @@ final class TailorController
         $this->documentRepository = $documentRepository;
         $this->generationRepository = $generationRepository;
         $this->generationLogRepository = $generationLogRepository;
+        $this->generationDownloadService = $generationDownloadService;
         $this->generationTokenService = $generationTokenService;
     }
 
@@ -164,12 +168,17 @@ final class TailorController
                 && $id > 0
                 && $this->generationTokenService !== null
             ) {
-                $token = $this->generationTokenService->createToken($userId, $id, 'md');
-                $downloads['md'] = sprintf(
-                    '/generations/%d/download?format=md&token=%s',
-                    $id,
-                    rawurlencode($token)
-                );
+                $availableFormats = $this->generationDownloadService->availableFormats($id);
+
+                foreach ($availableFormats as $format) {
+                    $token = $this->generationTokenService->createToken($userId, $id, $format);
+                    $downloads[$format] = sprintf(
+                        '/generations/%d/download?format=%s&token=%s',
+                        $id,
+                        rawurlencode($format),
+                        rawurlencode($token)
+                    );
+                }
             }
 
             $generation['status'] = $status;
