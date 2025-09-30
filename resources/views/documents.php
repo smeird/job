@@ -184,7 +184,8 @@
                     <?php else : ?>
                         <?php foreach ($tailoredGenerations as $generation) : ?>
                             <?php
-                                $statusLabel = ucwords(str_replace('_', ' ', (string) $generation['status']));
+                                $statusValue = isset($generation['status']) ? (string) $generation['status'] : '';
+                                $statusLabel = ucwords(str_replace('_', ' ', $statusValue));
                             ?>
                             <article class="flex flex-col gap-3 py-4">
                                 <div class="flex flex-wrap items-center gap-3">
@@ -197,7 +198,7 @@
                                     <p class="font-medium text-white">Job: <?= htmlspecialchars($generation['job_document']['filename'], ENT_QUOTES) ?></p>
                                     <p class="text-xs text-slate-400">Source CV: <?= htmlspecialchars($generation['cv_document']['filename'], ENT_QUOTES) ?></p>
                                 </div>
-                                <?php if (!empty($generation['downloads']['md'])) : ?>
+                                <?php if ($statusValue === 'completed' && !empty($generation['downloads']['md'])) : ?>
                                     <div class="flex flex-wrap gap-2">
                                         <a
                                             href="<?= htmlspecialchars($generation['downloads']['md'], ENT_QUOTES) ?>"
