@@ -137,14 +137,8 @@ final class OpenAIProvider
             'model' => $this->modelPlan,
             'input' => $this->formatMessagesForResponses($messages),
             'max_output_tokens' => $this->maxTokens,
-
             'modalities' => ['text'],
-            'response' => [
-                'text' => [
-                    'responce_format' => $this->buildPlanJsonSchema(),
-                ],
-            ],
-
+            'response_format' => $this->buildPlanJsonSchema(),
         ];
 
         try {
@@ -152,6 +146,14 @@ final class OpenAIProvider
         } catch (RuntimeException $exception) {
             if ($this->shouldFallbackToLegacyResponseFormat($exception)) {
                 $legacyPayload = $payload;
+                if (isset($legacyPayload['response_format'])) {
+                    $legacyPayload['response'] = [
+                        'text' => [
+                            'format' => $legacyPayload['response_format'],
+                        ],
+                    ];
+                    unset($legacyPayload['response_format']);
+                }
 
                 error_log('Retrying plan request with legacy response_format parameter: ' . $exception->getMessage());
 
