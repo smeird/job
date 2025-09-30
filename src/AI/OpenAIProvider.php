@@ -139,6 +139,7 @@ final class OpenAIProvider
             ],
         ];
 
+
         $models = $this->buildModelFallbackSequence($this->modelPlan, 'plan');
         $result = null;
         $lastException = null;
@@ -159,6 +160,7 @@ final class OpenAIProvider
                 $hasNextModel = $index < $count - 1;
 
                 if (!$hasNextModel || !$this->shouldRetryWithAlternativeModel($exception)) {
+
                     throw $exception;
                 }
 
@@ -595,6 +597,7 @@ final class OpenAIProvider
     }
 
     /**
+
      * Build the ordered list of model identifiers to try for the current request.
      *
      * The configured model is always attempted first, followed by predefined fallbacks that
@@ -619,6 +622,7 @@ final class OpenAIProvider
     }
 
     /**
+
      * Provide a short preview of a potentially lengthy text snippet for logging.
      */
     private function truncateForLog(string $text, int $limit = 120): string

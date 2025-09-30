@@ -307,6 +307,35 @@ final class GenerationRepository
     }
 
     /**
+
+     * Remove failed generations that belong to the specified user.
+     *
+     * Clearing out failed rows keeps the tailoring dashboard focused on
+     * actionable items and ensures old errors do not linger indefinitely.
+     */
+    public function cleanupFailedGenerationsForUser(int $userId): int
+    {
+        try {
+            $statement = $this->pdo->prepare(
+                "DELETE FROM generations WHERE user_id = :user_id AND status IN ('failed', 'error')"
+            );
+        } catch (Throwable $exception) {
+            throw new RuntimeException('Unable to prepare failed generation cleanup statement.', 0, $exception);
+        }
+
+        $statement->bindValue(':user_id', $userId, PDO::PARAM_INT);
+
+        try {
+            $statement->execute();
+        } catch (Throwable $exception) {
+            throw new RuntimeException('Unable to remove failed generations for the user.', 0, $exception);
+        }
+
+        return (int) $statement->rowCount();
+    }
+
+    /**
+
      * Handle the normalise row workflow.
      *
      * This helper keeps the normalise row logic centralised for clarity and reuse.

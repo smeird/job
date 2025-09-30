@@ -217,6 +217,7 @@ if (!is_array($decoded) || $decoded['summary'] !== 'Done') {
     throw new RuntimeException('Plan JSON did not decode as expected.');
 }
 
+
 putenv('OPENAI_MODEL_PLAN=missing-model');
 $_ENV['OPENAI_MODEL_PLAN'] = 'missing-model';
 $_SERVER['OPENAI_MODEL_PLAN'] = 'missing-model';
@@ -261,5 +262,6 @@ $fallbackDecoded = json_decode($fallbackPlan, true);
 if (!is_array($fallbackDecoded) || $fallbackDecoded['summary'] !== 'Done') {
     throw new RuntimeException('Fallback plan JSON did not decode as expected.');
 }
+
 
 echo 'OpenAIProviderPlanTest passed' . PHP_EOL;

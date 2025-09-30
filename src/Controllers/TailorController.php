@@ -92,6 +92,9 @@ final class TailorController
 
         try {
             $removedJobs = $this->generationRepository->cleanupJobsForUser($userId);
+
+            $removedFailed = $this->generationRepository->cleanupFailedGenerationsForUser($userId);
+
             $clearedLogs = $this->generationLogRepository->clearForUser($userId);
         } catch (Throwable $exception) {
             return $this->json($response->withStatus(500), ['error' => 'Unable to clean up tailoring data.']);
@@ -99,6 +102,9 @@ final class TailorController
 
         return $this->json($response, [
             'removed_jobs' => $removedJobs,
+
+            'removed_failed_generations' => $removedFailed,
+
             'cleared_logs' => $clearedLogs,
             'generations' => $this->generationRepository->listForUser($userId),
             'generation_logs' => $this->generationLogRepository->listRecentForUser($userId),
