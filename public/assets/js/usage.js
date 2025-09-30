@@ -1,4 +1,18 @@
 (function () {
+    /**
+     * Safely extract the raw value from a potential Tabulator cell argument.
+     *
+     * The guard keeps the formatter callbacks resilient when Tabulator passes
+     * primitive values during lifecycle events instead of full cell objects.
+     */
+    function getCellValue(cell) {
+        if (cell && typeof cell.getValue === 'function') {
+            return cell.getValue();
+        }
+
+        return cell ?? null;
+    }
+
     const numberFormatter = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
     const currencyFormatter = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'GBP' });
     const dateFormatter = new Intl.DateTimeFormat(undefined, {
@@ -135,7 +149,7 @@
                         return new Date(a).getTime() - new Date(b).getTime();
                     },
                     formatter: function (cell) {
-                        return formatDate(cell.getValue());
+                        return formatDate(getCellValue(cell));
                     },
                     width: 180,
                 },
@@ -145,7 +159,7 @@
                     field: 'prompt_tokens',
                     hozAlign: 'right',
                     formatter: function (cell) {
-                        return formatTokens(cell.getValue());
+                        return formatTokens(getCellValue(cell));
                     },
                 },
                 {
@@ -153,7 +167,7 @@
                     field: 'completion_tokens',
                     hozAlign: 'right',
                     formatter: function (cell) {
-                        return formatTokens(cell.getValue());
+                        return formatTokens(getCellValue(cell));
                     },
                 },
                 {
@@ -161,7 +175,7 @@
                     field: 'total_tokens',
                     hozAlign: 'right',
                     formatter: function (cell) {
-                        return formatTokens(cell.getValue());
+                        return formatTokens(getCellValue(cell));
                     },
                 },
                 {
@@ -169,7 +183,7 @@
                     field: 'cost_pence',
                     hozAlign: 'right',
                     formatter: function (cell) {
-                        return formatCostFromPence(cell.getValue());
+                        return formatCostFromPence(getCellValue(cell));
                     },
                 },
             ],
