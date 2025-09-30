@@ -398,13 +398,16 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
                                 ></span>
                             </td>
                             <td class="px-4 py-4 text-right">
-                                <template x-if="item.status === 'completed' && item.downloads && item.downloads.md">
-                                    <a
-                                        :href="item.downloads.md"
-                                        class="inline-flex items-center gap-2 rounded-lg border border-emerald-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100 transition hover:border-emerald-200 hover:text-emerald-50"
-                                    >
-                                        Download markdown
-                                    </a>
+                                <template x-if="item.status === 'completed' && Object.keys(item.downloads || {}).length > 0">
+                                    <div class="inline-flex flex-wrap gap-2 justify-end">
+                                        <template x-for="(link, format) in item.downloads" :key="format">
+                                            <a
+                                                :href="link"
+                                                class="inline-flex items-center gap-2 rounded-lg border border-emerald-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100 transition hover:border-emerald-200 hover:text-emerald-50"
+                                                x-text="downloadLabel(format)"
+                                            ></a>
+                                        </template>
+                                    </div>
                                 </template>
                                 <template x-if="item.status === 'queued'">
                                     <button
