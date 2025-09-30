@@ -17,6 +17,7 @@ use RuntimeException;
 use Throwable;
 
 use function array_key_exists;
+use function in_array;
 use function is_array;
 use function is_numeric;
 use function is_string;
@@ -42,6 +43,9 @@ final class OpenAIProvider
     private const MAX_ATTEMPTS = 5;
     private const INITIAL_BACKOFF_MS = 200;
     private const MAX_BACKOFF_MS = 4000;
+
+    private const PLAN_MODEL_FALLBACKS = ['gpt-4o-mini'];
+    private const DRAFT_MODEL_FALLBACKS = ['gpt-4o-mini'];
 
     /** @var ClientInterface */
     private $client;
@@ -135,42 +139,49 @@ final class OpenAIProvider
             ],
         ];
 
-        $payload = [
-            'model' => $this->modelPlan,
-            'input' => $this->formatMessagesForResponses($messages),
-            'max_output_tokens' => $this->maxTokens,
-            'response_format' => $this->buildPlanJsonSchema(),
-        ];
 
-        try {
-            $result = $this->performChatRequest($payload, 'plan', $streamHandler);
-        } catch (RuntimeException $exception) {
-            if ($this->shouldFallbackToLegacyResponseFormat($exception)) {
-                $strippedPayload = $payload;
-                unset($strippedPayload['response_format']);
-                error_log('Retrying plan request without response_format parameter: ' . $exception->getMessage());
+        $models = $this->buildModelFallbackSequence($this->modelPlan, 'plan');
+        $result = null;
+        $lastException = null;
 
-                try {
-                    $result = $this->performChatRequest($strippedPayload, 'plan', $streamHandler);
-                } catch (RuntimeException $strippedException) {
-                    if (!$this->shouldFallbackToJsonObject($strippedException)) {
-                        throw $strippedException;
-                    }
+        for ($index = 0, $count = count($models); $index < $count; $index++) {
+            $model = $models[$index];
+            $payload = [
+                'model' => $model,
+                'input' => $this->formatMessagesForResponses($messages),
+                'max_output_tokens' => $this->maxTokens,
+                'response_format' => $this->buildPlanJsonSchema(),
+            ];
 
-                    $jsonObjectPayload = $payload;
-                    $jsonObjectPayload['response_format'] = ['type' => 'json_object'];
-                    error_log('Retrying plan request with json_object response format after stripped response_format failure: ' . $strippedException->getMessage());
-                    $result = $this->performChatRequest($jsonObjectPayload, 'plan', $streamHandler);
-                }
-            } else {
-                if (!$this->shouldFallbackToJsonObject($exception)) {
+            try {
+                $result = $this->executePlanRequestWithFormatFallback($payload, $streamHandler);
+                break;
+            } catch (RuntimeException $exception) {
+                $hasNextModel = $index < $count - 1;
+
+                if (!$hasNextModel || !$this->shouldRetryWithAlternativeModel($exception)) {
+
                     throw $exception;
                 }
 
-                $payload['response_format'] = ['type' => 'json_object'];
-                error_log('Falling back to json_object response format after plan request failure: ' . $exception->getMessage());
-                $result = $this->performChatRequest($payload, 'plan', $streamHandler);
+                $nextModel = $models[$index + 1];
+                error_log(sprintf(
+                    'Plan model fallback: %s -> %s due to %s',
+                    $model,
+                    $nextModel,
+                    $exception->getMessage()
+                ));
+
+                $lastException = $exception;
             }
+        }
+
+        if ($result === null) {
+            if ($lastException instanceof RuntimeException) {
+                throw $lastException;
+            }
+
+            throw new RuntimeException('Failed to generate plan using the available OpenAI models.');
         }
 
         $content = trim($result['content']);
@@ -210,15 +221,92 @@ final class OpenAIProvider
             ],
         ];
 
-        $payload = [
-            'model' => $this->modelDraft,
-            'input' => $this->formatMessagesForResponses($messages),
-            'max_output_tokens' => $this->maxTokens,
-        ];
+        $models = $this->buildModelFallbackSequence($this->modelDraft, 'draft');
+        $result = null;
+        $lastException = null;
 
-        $result = $this->performChatRequest($payload, 'draft', $streamHandler);
+        for ($index = 0, $count = count($models); $index < $count; $index++) {
+            $model = $models[$index];
+            $payload = [
+                'model' => $model,
+                'input' => $this->formatMessagesForResponses($messages),
+                'max_output_tokens' => $this->maxTokens,
+            ];
+
+            try {
+                $result = $this->performChatRequest($payload, 'draft', $streamHandler);
+                break;
+            } catch (RuntimeException $exception) {
+                $hasNextModel = $index < $count - 1;
+
+                if (!$hasNextModel || !$this->shouldRetryWithAlternativeModel($exception)) {
+                    throw $exception;
+                }
+
+                $nextModel = $models[$index + 1];
+                error_log(sprintf(
+                    'Draft model fallback: %s -> %s due to %s',
+                    $model,
+                    $nextModel,
+                    $exception->getMessage()
+                ));
+
+                $lastException = $exception;
+            }
+        }
+
+        if ($result === null) {
+            if ($lastException instanceof RuntimeException) {
+                throw $lastException;
+            }
+
+            throw new RuntimeException('Failed to generate draft using the available OpenAI models.');
+        }
 
         return trim($result['content']);
+    }
+
+    /**
+     * Attempt plan generation while gracefully falling back through response_format permutations.
+     *
+     * @param array<string, mixed> $payload
+     * @return array{content: string, usage: array<string, int>, response: array<string, mixed>}
+     */
+    private function executePlanRequestWithFormatFallback(array $payload, ?callable $streamHandler): array
+    {
+        try {
+            return $this->performChatRequest($payload, 'plan', $streamHandler);
+        } catch (RuntimeException $exception) {
+            if ($this->shouldFallbackToLegacyResponseFormat($exception)) {
+                $strippedPayload = $payload;
+                unset($strippedPayload['response_format']);
+                error_log('Retrying plan request without response_format parameter: ' . $exception->getMessage());
+
+                try {
+                    return $this->performChatRequest($strippedPayload, 'plan', $streamHandler);
+                } catch (RuntimeException $strippedException) {
+                    if (!$this->shouldFallbackToJsonObject($strippedException)) {
+                        throw $strippedException;
+                    }
+
+                    $jsonObjectPayload = $payload;
+                    $jsonObjectPayload['response_format'] = ['type' => 'json_object'];
+                    error_log('Retrying plan request with json_object response format after stripped response_format failure: ' . $strippedException->getMessage());
+
+                    return $this->performChatRequest($jsonObjectPayload, 'plan', $streamHandler);
+                }
+            }
+
+            if (!$this->shouldFallbackToJsonObject($exception)) {
+                throw $exception;
+            }
+
+            $jsonObjectPayload = $payload;
+            $jsonObjectPayload['response_format'] = ['type' => 'json_object'];
+            error_log('Falling back to json_object response format after plan request failure: ' . $exception->getMessage());
+
+            return $this->performChatRequest($jsonObjectPayload, 'plan', $streamHandler);
+        }
     }
 
     /**
@@ -509,6 +597,32 @@ final class OpenAIProvider
     }
 
     /**
+
+     * Build the ordered list of model identifiers to try for the current request.
+     *
+     * The configured model is always attempted first, followed by predefined fallbacks that
+     * are known to be available in most environments.
+     *
+     * @return array<int, string>
+     */
+    private function buildModelFallbackSequence(string $configuredModel, string $operation): array
+    {
+        $sequence = [$configuredModel];
+        $fallbacks = $operation === 'plan'
+            ? self::PLAN_MODEL_FALLBACKS
+            : self::DRAFT_MODEL_FALLBACKS;
+
+        foreach ($fallbacks as $fallback) {
+            if (!in_array($fallback, $sequence, true)) {
+                $sequence[] = $fallback;
+            }
+        }
+
+        return $sequence;
+    }
+
+    /**
+
      * Provide a short preview of a potentially lengthy text snippet for logging.
      */
     private function truncateForLog(string $text, int $limit = 120): string
@@ -918,6 +1032,63 @@ final class OpenAIProvider
         }
 
         return false;
+    }
+
+    /**
+     * Decide whether a retry should be attempted using a different model identifier.
+     *
+     * When OpenAI reports that a model does not exist the configured identifier is stale.
+     * Cycling to a known-good fallback keeps plan generation operational without manual
+     * intervention.
+     */
+    private function shouldRetryWithAlternativeModel(RuntimeException $exception): bool
+    {
+        $previous = $exception->getPrevious();
+
+        if (!$previous instanceof RequestException) {
+            return false;
+        }
+
+        $response = $previous->getResponse();
+
+        if ($response !== null) {
+            $status = $response->getStatusCode();
+
+            if ($status !== 400 && $status !== 404) {
+                return false;
+            }
+        }
+
+        $message = strtolower($exception->getMessage());
+
+        if ($message !== '' && $this->mentionsMissingModel($message)) {
+            return true;
+        }
+
+        if ($response !== null) {
+            $body = strtolower((string) $response->getBody());
+
+            if ($body !== '' && $this->mentionsMissingModel($body)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Inspect an error string and decide whether it references an unknown model.
+     */
+    private function mentionsMissingModel(string $message): bool
+    {
+        if (strpos($message, 'model') === false) {
+            return false;
+        }
+
+        return strpos($message, 'does not exist') !== false
+            || strpos($message, 'was not found') !== false
+            || strpos($message, 'doesn\'t exist') !== false
+            || strpos($message, 'unknown model') !== false;
     }
 
     /**

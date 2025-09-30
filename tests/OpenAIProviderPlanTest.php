@@ -217,4 +217,51 @@ if (!is_array($decoded) || $decoded['summary'] !== 'Done') {
     throw new RuntimeException('Plan JSON did not decode as expected.');
 }
 
+
+putenv('OPENAI_MODEL_PLAN=missing-model');
+$_ENV['OPENAI_MODEL_PLAN'] = 'missing-model';
+$_SERVER['OPENAI_MODEL_PLAN'] = 'missing-model';
+
+$missingModelFailure = new RequestException(
+    'model not found',
+    new Request('POST', 'responses'),
+    new Response(
+        400,
+        ['Content-Type' => 'application/json'],
+        json_encode(['error' => ['message' => "The requested model 'missing-model' does not exist."]])
+    )
+);
+
+$fallbackClient = new FakeClient([
+    $missingModelFailure,
+    new Response(200, ['Content-Type' => 'application/json'], json_encode($successPayload)),
+]);
+
+$fallbackProvider = new OpenAIProvider(1, $fallbackClient, $pdo, $settings);
+$fallbackPlan = $fallbackProvider->plan('Job text', 'CV text');
+
+$fallbackRequests = $fallbackClient->recordedRequests();
+
+if (count($fallbackRequests) !== 2) {
+    throw new RuntimeException('Expected two requests during model fallback testing.');
+}
+
+$initialFallbackRequest = json_decode($fallbackRequests[0]['options']['body'], true);
+$secondFallbackRequest = json_decode($fallbackRequests[1]['options']['body'], true);
+
+if (!is_array($initialFallbackRequest) || $initialFallbackRequest['model'] !== 'missing-model') {
+    throw new RuntimeException('Initial plan request did not target the configured missing model.');
+}
+
+if (!is_array($secondFallbackRequest) || $secondFallbackRequest['model'] !== 'gpt-4o-mini') {
+    throw new RuntimeException('Fallback plan request did not target the expected default model.');
+}
+
+$fallbackDecoded = json_decode($fallbackPlan, true);
+
+if (!is_array($fallbackDecoded) || $fallbackDecoded['summary'] !== 'Done') {
+    throw new RuntimeException('Fallback plan JSON did not decode as expected.');
+}
+
+
 echo 'OpenAIProviderPlanTest passed' . PHP_EOL;
