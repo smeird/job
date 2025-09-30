@@ -6,9 +6,7 @@
 /** @var array<int, array<string, mixed>> $applied */
 /** @var array<int, array<string, mixed>> $failed */
 /** @var array<int, array{id: int, label: string}> $generationOptions */
-/** @var array<int, string> $errors */
 /** @var string|null $status */
-/** @var array<string, string> $form */
 /** @var array<string, string> $failureReasons */
 /** @var string|null $csrfToken */
 ?>
@@ -23,9 +21,14 @@
                 submitted an application.
             </p>
         </div>
-        <a href="/" class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800/60">
-            ← Back to dashboard
-        </a>
+        <div class="flex flex-wrap gap-2">
+            <a href="/applications/create" class="inline-flex items-center gap-2 rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">
+                + Add posting
+            </a>
+            <a href="/" class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800/60">
+                ← Back to dashboard
+            </a>
+        </div>
     </header>
 
     <section class="overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 shadow-2xl">
@@ -143,71 +146,8 @@
         </div>
     <?php endif; ?>
 
-    <?php if (!empty($errors)) : ?>
-        <div class="space-y-2">
-            <?php foreach ($errors as $error) : ?>
-                <div class="rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-                    <?= htmlspecialchars($error, ENT_QUOTES) ?>
-                </div>
-            <?php endforeach; ?>
-        </div>
-    <?php endif; ?>
-
-    <section class="grid gap-6 xl:grid-cols-[420px,1fr]">
-        <form method="post" action="/applications" class="space-y-5 rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6 shadow-xl">
-            <div class="space-y-2">
-                <h3 class="text-lg font-semibold text-white">Add a posting</h3>
-                <p class="text-sm text-slate-400">
-                    Paste the full job description text and the URL where you found it. This keeps everything searchable alongside your CVs.
-                </p>
-            </div>
-            <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
-
-            <div class="space-y-2">
-                <label for="title" class="text-sm font-medium text-slate-200">Role title</label>
-                <input
-                    type="text"
-                    id="title"
-                    name="title"
-                    value="<?= htmlspecialchars($form['title'] ?? '', ENT_QUOTES) ?>"
-                    placeholder="e.g. Senior Automation Engineer"
-                    class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                >
-            </div>
-
-            <div class="space-y-2">
-                <label for="source_url" class="text-sm font-medium text-slate-200">Source URL</label>
-                <input
-                    type="url"
-                    id="source_url"
-                    name="source_url"
-                    value="<?= htmlspecialchars($form['source_url'] ?? '', ENT_QUOTES) ?>"
-                    placeholder="https://"
-                    class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                >
-                <p class="text-xs text-slate-500">Storing the URL lets you return to the original listing quickly.</p>
-            </div>
-
-            <div class="space-y-2">
-                <label for="description" class="text-sm font-medium text-slate-200">Job description</label>
-                <textarea
-                    id="description"
-                    name="description"
-                    rows="10"
-                    class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                    placeholder="Paste the role summary, responsibilities, and requirements here"
-                    required
-                ><?= htmlspecialchars($form['description'] ?? '', ENT_QUOTES) ?></textarea>
-                <p class="text-xs text-slate-500">The full text remains editable later through copy and paste.</p>
-            </div>
-
-            <button type="submit" class="w-full rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">
-                Save posting
-            </button>
-        </form>
-
-        <div class="space-y-6">
-            <section class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6 shadow-xl">
+    <section class="space-y-6">
+        <section class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6 shadow-xl">
                 <header class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h3 class="text-lg font-semibold text-white">Outstanding opportunities</h3>
@@ -332,9 +272,9 @@
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
-            </section>
+        </section>
 
-            <section class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6 shadow-xl">
+        <section class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6 shadow-xl">
                 <header class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h3 class="text-lg font-semibold text-white">Submitted applications</h3>
@@ -461,9 +401,9 @@
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
-            </section>
+        </section>
 
-            <section class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6 shadow-xl">
+        <section class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6 shadow-xl">
                 <header class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h3 class="text-lg font-semibold text-white">Rejected applications</h3>
@@ -572,8 +512,7 @@
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
-            </section>
-        </div>
+        </section>
     </section>
 </div>
 <?php $body = ob_get_clean(); ?>
