@@ -277,7 +277,8 @@ final class DocumentController
     /**
      * Map the generation rows into the view-friendly structure.
      *
-     * The helper keeps tailored CV metadata formatting consistent across the documents workspace.
+     * The helper keeps tailored CV metadata formatting consistent across the documents workspace
+     * while avoiding download token creation for generations that are not yet completed.
      * @param array<int, array<string, mixed>> $generations
      * @return array<int, array<string, mixed>>
      */
@@ -296,9 +297,16 @@ final class DocumentController
                 }
             }
 
+            $status = isset($generation['status']) ? (string) $generation['status'] : '';
+            $downloads = [];
+
+            if ($status === 'completed') {
+                $downloads = $this->buildDownloadLinks($userId, (int) $generation['id']);
+            }
+
             $mapped[] = [
                 'id' => (int) $generation['id'],
-                'status' => (string) $generation['status'],
+                'status' => $status,
                 'model' => (string) $generation['model'],
                 'thinking_time' => (int) $generation['thinking_time'],
                 'created_at' => $createdAt->format('Y-m-d H:i'),
@@ -310,7 +318,7 @@ final class DocumentController
                     'id' => (int) $generation['cv_document']['id'],
                     'filename' => (string) $generation['cv_document']['filename'],
                 ],
-                'downloads' => $this->buildDownloadLinks($userId, (int) $generation['id']),
+                'downloads' => $downloads,
             ];
         }
 
