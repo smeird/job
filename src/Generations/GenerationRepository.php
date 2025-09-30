@@ -249,6 +249,76 @@ final class GenerationRepository
     }
 
     /**
+     * Permanently remove a tailored CV run for the supplied user.
+     *
+     * Centralising the deletion flow keeps queue cleanup, ownership checks,
+     * and cascading removal of related data consistent wherever the feature is used.
+     */
+    public function deleteForUser(int $userId, int $generationId): bool
+    {
+        if ($generationId <= 0) {
+            return false;
+        }
+
+        $this->pdo->beginTransaction();
+
+        try {
+            $statement = $this->pdo->prepare(
+                'SELECT status FROM generations WHERE id = :id AND user_id = :user_id LIMIT 1'
+            );
+
+            $statement->execute([
+                ':id' => $generationId,
+                ':user_id' => $userId,
+            ]);
+
+            $row = $statement->fetch(PDO::FETCH_ASSOC);
+
+            if ($row === false) {
+                $this->pdo->rollBack();
+
+                return false;
+            }
+
+            $status = (string) $row['status'];
+
+            if ($status === 'queued') {
+                $jobId = $this->findPendingJobIdForGeneration($generationId);
+
+                if ($jobId !== null) {
+                    $deleteJob = $this->pdo->prepare('DELETE FROM jobs WHERE id = :id');
+                    $deleteJob->execute([':id' => $jobId]);
+                }
+            }
+
+            $deleteGeneration = $this->pdo->prepare(
+                'DELETE FROM generations WHERE id = :id AND user_id = :user_id'
+            );
+
+            $deleteGeneration->execute([
+                ':id' => $generationId,
+                ':user_id' => $userId,
+            ]);
+
+            if ($deleteGeneration->rowCount() === 0) {
+                $this->pdo->rollBack();
+
+                return false;
+            }
+
+            $this->pdo->commit();
+        } catch (Throwable $exception) {
+            if ($this->pdo->inTransaction()) {
+                $this->pdo->rollBack();
+            }
+
+            throw new RuntimeException('Failed to delete the tailored CV.', 0, $exception);
+        }
+
+        return true;
+    }
+
+    /**
      * Remove residual queue jobs associated with the supplied user identifier.
      *
      * Cleaning the queue ensures abandoned tailoring runs do not accumulate and

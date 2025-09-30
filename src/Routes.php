@@ -65,6 +65,14 @@ class Routes
             return $container->get(DocumentController::class)->delete($request, $response, $args);
         });
 
+        $app->post('/documents/tailored/{id}/delete', function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(DocumentController::class)->deleteGeneration($request, $response, $args);
+        });
+
+        $app->post('/documents/tailored/{id}/promote', function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(DocumentController::class)->promoteGeneration($request, $response, $args);
+        });
+
         $app->get('/applications', function (Request $request, Response $response) use ($container) {
             return $container->get(JobApplicationController::class)->index($request, $response);
         });
