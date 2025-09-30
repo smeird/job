@@ -137,7 +137,14 @@ final class OpenAIProvider
             'model' => $this->modelPlan,
             'input' => $this->formatMessagesForResponses($messages),
             'max_output_tokens' => $this->maxTokens,
-            'response_format' => $this->buildPlanJsonSchema(),
+
+            'modalities' => ['text'],
+            'response' => [
+                'text' => [
+                    'responce_format' => $this->buildPlanJsonSchema(),
+                ],
+            ],
+
         ];
 
         try {
@@ -212,6 +219,7 @@ final class OpenAIProvider
             'model' => $this->modelDraft,
             'input' => $this->formatMessagesForResponses($messages),
             'max_output_tokens' => $this->maxTokens,
+            'modalities' => ['text'],
         ];
 
         $result = $this->performChatRequest($payload, 'draft', $streamHandler);
