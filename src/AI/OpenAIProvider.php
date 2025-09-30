@@ -23,6 +23,8 @@ use function is_string;
 use function json_decode;
 use function json_encode;
 use function max;
+use function mb_strlen;
+use function mb_substr;
 use function strpos;
 use function strtolower;
 use function random_int;
@@ -144,20 +146,20 @@ final class OpenAIProvider
             $result = $this->performChatRequest($payload, 'plan', $streamHandler);
         } catch (RuntimeException $exception) {
             if ($this->shouldFallbackToLegacyResponseFormat($exception)) {
-                $legacyPayload = $this->convertResponseFormatToLegacy($payload);
-
-                error_log('Retrying plan request with legacy response_format parameter: ' . $exception->getMessage());
+                $strippedPayload = $payload;
+                unset($strippedPayload['response_format']);
+                error_log('Retrying plan request without response_format parameter: ' . $exception->getMessage());
 
                 try {
-                    $result = $this->performChatRequest($legacyPayload, 'plan', $streamHandler, true);
-                } catch (RuntimeException $legacyException) {
-                    if (!$this->shouldFallbackToJsonObject($legacyException)) {
-                        throw $legacyException;
+                    $result = $this->performChatRequest($strippedPayload, 'plan', $streamHandler);
+                } catch (RuntimeException $strippedException) {
+                    if (!$this->shouldFallbackToJsonObject($strippedException)) {
+                        throw $strippedException;
                     }
 
                     $jsonObjectPayload = $payload;
                     $jsonObjectPayload['response_format'] = ['type' => 'json_object'];
-                    error_log('Retrying plan request with json_object response format after legacy response_format failure: ' . $legacyException->getMessage());
+                    error_log('Retrying plan request with json_object response format after stripped response_format failure: ' . $strippedException->getMessage());
                     $result = $this->performChatRequest($jsonObjectPayload, 'plan', $streamHandler);
                 }
             } else {
@@ -180,33 +182,6 @@ final class OpenAIProvider
         }
 
         return json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    }
-
-    /**
-     * Transform the Responses API payload back into the legacy schema when needed.
-     *
-     * Legacy models expect the response schema to live under the nested `response` key,
-     * so this helper reintroduces that structure when retrying without `response_format`.
-     *
-     * @param array<string, mixed> $payload The payload currently targeting the Responses API.
-     *
-     * @return array<string, mixed> The payload adjusted for the legacy completions endpoint.
-     */
-    private function convertResponseFormatToLegacy(array $payload): array
-    {
-        if (!isset($payload['response_format'])) {
-            return $payload;
-        }
-
-        $legacyPayload = $payload;
-        $legacyPayload['response'] = [
-            'text' => [
-                'format' => $legacyPayload['response_format'],
-            ],
-        ];
-        unset($legacyPayload['response_format']);
-
-        return $legacyPayload;
     }
 
     /**
@@ -277,6 +252,9 @@ final class OpenAIProvider
 
         while (true) {
             try {
+                $currentAttempt = $attempt + 1;
+                $this->logRequestPayload($requestPayload, $operation, $currentAttempt);
+
                 $options = [
                     'headers' => [
                         'Authorization' => 'Bearer ' . $this->apiKey,
@@ -332,6 +310,14 @@ final class OpenAIProvider
 
                 if ($attempt >= self::MAX_ATTEMPTS || !$this->shouldRetry($statusCode)) {
                     $detail = $this->extractRequestErrorDetail($exception);
+                    $this->logRequestFailure(
+                        $operation,
+                        self::ENDPOINT_RESPONSES,
+                        $statusCode,
+                        $detail,
+                        $requestPayload,
+                        $attempt
+                    );
 
                     throw new RuntimeException(
                         $this->buildRequestFailureMessage($statusCode, $detail, $exception),
@@ -346,6 +332,202 @@ final class OpenAIProvider
                 throw new RuntimeException('Unable to encode OpenAI request payload.', 0, $exception);
             }
         }
+    }
+
+    /**
+     * Log the sanitised payload associated with an outgoing OpenAI request.
+     *
+     * Capturing a reduced view of the payload makes it possible to debug request
+     * shape issues without leaking full candidate or job descriptions into logs.
+     */
+    private function logRequestPayload(array $payload, string $operation, int $attempt): void
+    {
+        $sanitised = $this->sanitisePayloadForLog($payload);
+        $message = sprintf(
+            'OpenAI request payload (operation=%s attempt=%d): %s',
+            $operation,
+            $attempt,
+            $this->encodeForLog($sanitised)
+        );
+
+        error_log($message);
+    }
+
+    /**
+     * Log additional context when a request ultimately fails without another retry.
+     *
+     * Including the status code, detail message, and sanitised payload snapshot
+     * narrows down mismatches between what we sent and the API's expectations.
+     */
+    private function logRequestFailure(
+        string $operation,
+        string $endpoint,
+        ?int $statusCode,
+        ?string $detail,
+        array $payload,
+        int $attempt
+    ): void {
+        $sanitised = $this->sanitisePayloadForLog($payload);
+        $status = $statusCode === null ? 'null' : (string) $statusCode;
+        $message = sprintf(
+            'OpenAI request failure (operation=%s endpoint=%s status=%s attempts=%d): %s | payload=%s',
+            $operation,
+            $endpoint,
+            $status,
+            $attempt,
+            $detail === null || $detail === '' ? 'no detail provided' : $detail,
+            $this->encodeForLog($sanitised)
+        );
+
+        error_log($message);
+    }
+
+    /**
+     * Produce a sanitised version of the payload suitable for structured logging.
+     *
+     * Sensitive free-form text fields are reduced to previews and lengths so we
+     * retain insight into payload shape without storing entire documents.
+     *
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function sanitisePayloadForLog(array $payload): array
+    {
+        $sanitised = $payload;
+
+        if (isset($sanitised['input']) && is_array($sanitised['input'])) {
+            $sanitised['input'] = $this->summariseInputForLog($sanitised['input']);
+        }
+
+        if (isset($sanitised['messages']) && is_array($sanitised['messages'])) {
+            $sanitised['messages'] = $this->summariseMessagesForLog($sanitised['messages']);
+        }
+
+        return $sanitised;
+    }
+
+    /**
+     * Reduce the Responses API input array into log-friendly summaries.
+     *
+     * @param array<int, array<string, mixed>> $input
+     * @return array<int, array<string, mixed>>
+     */
+    private function summariseInputForLog(array $input): array
+    {
+        $summary = [];
+
+        foreach ($input as $message) {
+            if (!is_array($message)) {
+                continue;
+            }
+
+            $entry = [
+                'role' => isset($message['role']) ? (string) $message['role'] : 'unknown',
+            ];
+
+            if (isset($message['content']) && is_array($message['content'])) {
+                $parts = [];
+
+                foreach ($message['content'] as $part) {
+                    if (!is_array($part)) {
+                        continue;
+                    }
+
+                    $type = isset($part['type']) ? (string) $part['type'] : 'input_text';
+                    $text = isset($part['text']) ? (string) $part['text'] : '';
+
+                    $parts[] = [
+                        'type' => $type,
+                        'length' => mb_strlen($text),
+                        'preview' => $this->truncateForLog($text),
+                    ];
+                }
+
+                if ($parts !== []) {
+                    $entry['content'] = $parts;
+                }
+            }
+
+            $summary[] = $entry;
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Reduce chat-style messages into summaries that expose only metadata and text previews.
+     *
+     * @param array<int, array<string, mixed>> $messages
+     * @return array<int, array<string, mixed>>
+     */
+    private function summariseMessagesForLog(array $messages): array
+    {
+        $summary = [];
+
+        foreach ($messages as $message) {
+            if (!is_array($message)) {
+                continue;
+            }
+
+            $entry = [
+                'role' => isset($message['role']) ? (string) $message['role'] : 'unknown',
+            ];
+
+            if (isset($message['content']) && is_string($message['content'])) {
+                $text = (string) $message['content'];
+                $entry['content'] = [
+                    'length' => mb_strlen($text),
+                    'preview' => $this->truncateForLog($text),
+                ];
+            } elseif (isset($message['content']) && is_array($message['content'])) {
+                $parts = [];
+
+                foreach ($message['content'] as $part) {
+                    if (!is_array($part)) {
+                        continue;
+                    }
+
+                    $type = isset($part['type']) ? (string) $part['type'] : 'text';
+                    $text = isset($part['text']) ? (string) $part['text'] : '';
+
+                    $parts[] = [
+                        'type' => $type,
+                        'length' => mb_strlen($text),
+                        'preview' => $this->truncateForLog($text),
+                    ];
+                }
+
+                if ($parts !== []) {
+                    $entry['content'] = $parts;
+                }
+            }
+
+            $summary[] = $entry;
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Provide a short preview of a potentially lengthy text snippet for logging.
+     */
+    private function truncateForLog(string $text, int $limit = 120): string
+    {
+        if (mb_strlen($text) <= $limit) {
+            return $text;
+        }
+
+        return mb_substr($text, 0, $limit) . '…';
+    }
+
+    /**
+     * Encode the supplied array for logging without triggering JSON exceptions.
+     */
+    private function encodeForLog(array $data): string
+    {
+        $encoded = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return $encoded === false ? '[unserialisable payload]' : $encoded;
     }
 
     /**
