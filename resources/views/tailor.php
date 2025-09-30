@@ -429,12 +429,29 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
                 <h3 class="text-xl font-semibold text-white">Processing logs</h3>
                 <p class="text-sm text-slate-400">Review recent failures recorded while tailoring CVs.</p>
             </div>
-            <template x-if="processingLogs.length">
-                <span class="rounded-full border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-200">
-                    <span x-text="processingLogs.length"></span>
-                    <span class="ml-1">issue<span x-text="processingLogs.length === 1 ? '' : 's'"></span></span>
-                </span>
-            </template>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <template x-if="processingLogs.length">
+                    <span class="rounded-full border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-rose-200">
+                        <span x-text="processingLogs.length"></span>
+                        <span class="ml-1">issue<span x-text="processingLogs.length === 1 ? '' : 's'"></span></span>
+                    </span>
+                </template>
+                <button
+                    type="button"
+                    class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-indigo-400/40 hover:bg-indigo-500/10 hover:text-indigo-100"
+                    @click="cleanupTailoringData()"
+                    :disabled="isCleaning"
+                    :class="isCleaning ? 'cursor-not-allowed opacity-60' : ''"
+                >
+                    <span x-show="!isCleaning">Clean up logs &amp; jobs</span>
+                    <span x-show="isCleaning" class="inline-flex items-center gap-2">
+                        <svg class="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <path d="M12 4v2m4.24.76l-1.42 1.42M20 12h-2m-.76 4.24l-1.42-1.42M12 20v-2m-4.24-.76l1.42-1.42M4 12h2m.76-4.24l1.42 1.42" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                        Cleaning…
+                    </span>
+                </button>
+            </div>
         </div>
         <div class="mt-6 space-y-4">
             <template x-if="processingLogs.length === 0">
