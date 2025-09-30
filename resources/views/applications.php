@@ -55,7 +55,8 @@
                 'badge_class' => 'border-amber-400/40 bg-amber-500/10 text-amber-200',
                 'items' => $outstanding,
                 'empty' => 'Nothing is queued right now. Add a posting to keep the momentum going.',
-                'accent' => 'from-amber-500/30 via-amber-500/5 to-transparent'
+                'accent' => 'from-amber-500/30 via-amber-500/5 to-transparent',
+                'border_class' => 'border-amber-500/40'
             ],
             [
                 'title' => 'Submitted',
@@ -64,7 +65,8 @@
                 'badge_class' => 'border-indigo-400/40 bg-indigo-500/10 text-indigo-200',
                 'items' => $applied,
                 'empty' => 'Once you mark an application as applied it will appear here.',
-                'accent' => 'from-indigo-500/30 via-indigo-500/5 to-transparent'
+                'accent' => 'from-indigo-500/30 via-indigo-500/5 to-transparent',
+                'border_class' => 'border-indigo-500/40'
             ],
             [
                 'title' => 'Learnings',
@@ -73,16 +75,17 @@
                 'badge_class' => 'border-rose-400/40 bg-rose-500/10 text-rose-200',
                 'items' => $failed,
                 'empty' => 'Celebrate the wins—no rejections logged yet.',
-                'accent' => 'from-rose-500/30 via-rose-500/5 to-transparent'
+                'accent' => 'from-rose-500/30 via-rose-500/5 to-transparent',
+                'border_class' => 'border-rose-500/40'
             ]
         ];
         ?>
         <div class="mt-6 overflow-x-auto pb-2">
             <div class="flex min-w-full snap-x gap-6">
                 <?php foreach ($kanbanColumns as $column) : ?>
-                    <section class="group relative min-w-[280px] flex-1 snap-start rounded-2xl border border-slate-800/60 bg-slate-900/60 p-5 shadow-xl backdrop-blur">
-                        <div class="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br <?= htmlspecialchars($column['accent'], ENT_QUOTES) ?> opacity-0 transition duration-500 group-hover:opacity-100"></div>
-                        <header class="relative flex flex-col gap-3">
+                    <section class="group relative min-w-[280px] flex-1 snap-start overflow-hidden rounded-2xl border <?= htmlspecialchars($column['border_class'], ENT_QUOTES) ?> bg-slate-950/80 p-5 shadow-xl backdrop-blur">
+                        <div class="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br <?= htmlspecialchars($column['accent'], ENT_QUOTES) ?> opacity-80 transition duration-500 group-hover:opacity-100"></div>
+                        <header class="relative z-10 flex flex-col gap-3">
                             <div class="flex items-center justify-between gap-3">
                                 <h4 class="text-lg font-semibold text-white">
                                     <?= htmlspecialchars($column['title'], ENT_QUOTES) ?>
@@ -95,7 +98,7 @@
                                 <?= htmlspecialchars($column['description'], ENT_QUOTES) ?>
                             </p>
                         </header>
-                        <div class="relative mt-4 space-y-3">
+                        <div class="relative z-10 mt-4 space-y-3">
                             <?php if (empty($column['items'])) : ?>
                                 <p class="rounded-xl border border-dashed border-slate-800 bg-slate-950/60 px-4 py-6 text-center text-xs text-slate-500">
                                     <?= htmlspecialchars($column['empty'], ENT_QUOTES) ?>
