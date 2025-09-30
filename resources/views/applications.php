@@ -28,6 +28,115 @@
         </a>
     </header>
 
+    <section class="overflow-hidden rounded-3xl border border-slate-800/80 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 p-6 shadow-2xl">
+        <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div class="space-y-2">
+                <p class="text-xs font-semibold uppercase tracking-[0.4em] text-indigo-400">Pipeline overview</p>
+                <h3 class="text-2xl font-semibold text-white">Where each application stands today</h3>
+                <p class="max-w-2xl text-sm text-slate-400">
+                    Glance across every stage of your search. Drag-inspired swimlanes spotlight roles you are nurturing,
+                    recently submitted, or learning from after a response.
+                </p>
+            </div>
+            <div class="flex items-center gap-2 rounded-full border border-indigo-500/40 bg-indigo-500/10 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-indigo-200">
+                <span class="inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
+                <?= count($outstanding) + count($applied) + count($failed) ?> opportunities tracked
+            </div>
+        </header>
+        <?php
+        $kanbanColumns = [
+            [
+                'title' => 'Queued',
+                'description' => 'Roles waiting on materials or next steps.',
+                'badge' => count($outstanding) . ' queued',
+                'badge_class' => 'border-amber-400/40 bg-amber-500/10 text-amber-200',
+                'items' => $outstanding,
+                'empty' => 'Nothing is queued right now. Add a posting to keep the momentum going.',
+                'accent' => 'from-amber-500/30 via-amber-500/5 to-transparent'
+            ],
+            [
+                'title' => 'Submitted',
+                'description' => 'Applications that are out the door and awaiting replies.',
+                'badge' => count($applied) . ' sent',
+                'badge_class' => 'border-indigo-400/40 bg-indigo-500/10 text-indigo-200',
+                'items' => $applied,
+                'empty' => 'Once you mark an application as applied it will appear here.',
+                'accent' => 'from-indigo-500/30 via-indigo-500/5 to-transparent'
+            ],
+            [
+                'title' => 'Learnings',
+                'description' => 'Rejections captured with the reason so you can refine your approach.',
+                'badge' => count($failed) . ' recorded',
+                'badge_class' => 'border-rose-400/40 bg-rose-500/10 text-rose-200',
+                'items' => $failed,
+                'empty' => 'Celebrate the wins—no rejections logged yet.',
+                'accent' => 'from-rose-500/30 via-rose-500/5 to-transparent'
+            ]
+        ];
+        ?>
+        <div class="mt-6 overflow-x-auto pb-2">
+            <div class="flex min-w-full snap-x gap-6">
+                <?php foreach ($kanbanColumns as $column) : ?>
+                    <section class="group relative min-w-[280px] flex-1 snap-start rounded-2xl border border-slate-800/60 bg-slate-900/60 p-5 shadow-xl backdrop-blur">
+                        <div class="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br <?= htmlspecialchars($column['accent'], ENT_QUOTES) ?> opacity-0 transition duration-500 group-hover:opacity-100"></div>
+                        <header class="relative flex flex-col gap-3">
+                            <div class="flex items-center justify-between gap-3">
+                                <h4 class="text-lg font-semibold text-white">
+                                    <?= htmlspecialchars($column['title'], ENT_QUOTES) ?>
+                                </h4>
+                                <span class="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-[0.7rem] font-semibold uppercase tracking-wide <?= htmlspecialchars($column['badge_class'], ENT_QUOTES) ?>">
+                                    <?= htmlspecialchars($column['badge'], ENT_QUOTES) ?>
+                                </span>
+                            </div>
+                            <p class="text-xs text-slate-400">
+                                <?= htmlspecialchars($column['description'], ENT_QUOTES) ?>
+                            </p>
+                        </header>
+                        <div class="relative mt-4 space-y-3">
+                            <?php if (empty($column['items'])) : ?>
+                                <p class="rounded-xl border border-dashed border-slate-800 bg-slate-950/60 px-4 py-6 text-center text-xs text-slate-500">
+                                    <?= htmlspecialchars($column['empty'], ENT_QUOTES) ?>
+                                </p>
+                            <?php else : ?>
+                                <?php foreach ($column['items'] as $kanbanItem) : ?>
+                                    <article class="rounded-xl border border-slate-800 bg-slate-950/80 p-4 text-xs text-slate-200 shadow-inner">
+                                        <div class="flex flex-col gap-2">
+                                            <h5 class="text-sm font-semibold text-white">
+                                                <?= htmlspecialchars($kanbanItem['title'] ?? 'Untitled role', ENT_QUOTES) ?>
+                                            </h5>
+                                            <p class="text-[0.7rem] text-slate-500">
+                                                <?= htmlspecialchars($kanbanItem['created_at'] ?? $kanbanItem['applied_at'] ?? $kanbanItem['updated_at'] ?? '', ENT_QUOTES) ?>
+                                            </p>
+                                            <?php if (!empty($kanbanItem['source_url'])) : ?>
+                                                <a href="<?= htmlspecialchars($kanbanItem['source_url'], ENT_QUOTES) ?>" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-[0.7rem] text-indigo-300 transition hover:text-indigo-200">
+                                                    View listing
+                                                    <svg aria-hidden="true" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                                        <path d="M7 17L17 7M7 7h10v10" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                    </svg>
+                                                </a>
+                                            <?php endif; ?>
+                                            <p class="line-clamp-4 text-[0.7rem] text-slate-300">
+                                                <?= htmlspecialchars($kanbanItem['description_preview'] ?? ($kanbanItem['description'] ?? ''), ENT_QUOTES) ?>
+                                            </p>
+                                            <?php if (!empty($kanbanItem['reason_code'] ?? null)) : ?>
+                                                <?php $kanbanReason = $failureReasons[$kanbanItem['reason_code']] ?? null; ?>
+                                                <?php if (!empty($kanbanReason)) : ?>
+                                                    <span class="inline-flex w-fit items-center gap-2 rounded-full border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-rose-100">
+                                                        <?= htmlspecialchars($kanbanReason, ENT_QUOTES) ?>
+                                                    </span>
+                                                <?php endif; ?>
+                                            <?php endif; ?>
+                                        </div>
+                                    </article>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                    </section>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+
     <?php if (!empty($status)) : ?>
         <div class="rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
             <?= htmlspecialchars($status, ENT_QUOTES) ?>
