@@ -69,6 +69,14 @@ final class TailorCvJobHandler implements JobHandlerInterface
         $jobDescription = $this->extractString($payload, 'job_description');
         $cvMarkdown = $this->extractString($payload, 'cv_markdown');
 
+        error_log(sprintf(
+            'TailorCvJobHandler starting generation %d for user %d (job_description=%s, cv_markdown=%s)',
+            $generationId,
+            $userId,
+            $jobDescription === '' ? 'empty' : 'present',
+            $cvMarkdown === '' ? 'empty' : 'present'
+        ));
+
         $this->updateGenerationStatus($generationId, 'processing');
 
         $provider = new OpenAIProvider($userId, null, $this->pdo, $this->settingsRepository);

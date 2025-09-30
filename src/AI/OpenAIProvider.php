@@ -17,12 +17,15 @@ use RuntimeException;
 use Throwable;
 
 use function array_key_exists;
+use function in_array;
 use function is_array;
 use function is_numeric;
 use function is_string;
 use function json_decode;
 use function json_encode;
 use function max;
+use function mb_strlen;
+use function mb_substr;
 use function strpos;
 use function strtolower;
 use function random_int;
@@ -40,6 +43,9 @@ final class OpenAIProvider
     private const MAX_ATTEMPTS = 5;
     private const INITIAL_BACKOFF_MS = 200;
     private const MAX_BACKOFF_MS = 4000;
+
+    private const PLAN_MODEL_FALLBACKS = ['gpt-4o-mini'];
+    private const DRAFT_MODEL_FALLBACKS = ['gpt-4o-mini'];
 
     /** @var ClientInterface */
     private $client;
@@ -133,42 +139,47 @@ final class OpenAIProvider
             ],
         ];
 
-        $payload = [
-            'model' => $this->modelPlan,
-            'input' => $this->formatMessagesForResponses($messages),
-            'max_output_tokens' => $this->maxTokens,
-            'response_format' => $this->buildPlanJsonSchema(),
-        ];
+        $models = $this->buildModelFallbackSequence($this->modelPlan, 'plan');
+        $result = null;
+        $lastException = null;
 
-        try {
-            $result = $this->performChatRequest($payload, 'plan', $streamHandler);
-        } catch (RuntimeException $exception) {
-            if ($this->shouldFallbackToLegacyResponseFormat($exception)) {
-                $legacyPayload = $this->convertResponseFormatToLegacy($payload);
+        for ($index = 0, $count = count($models); $index < $count; $index++) {
+            $model = $models[$index];
+            $payload = [
+                'model' => $model,
+                'input' => $this->formatMessagesForResponses($messages),
+                'max_output_tokens' => $this->maxTokens,
+                'response_format' => $this->buildPlanJsonSchema(),
+            ];
 
-                error_log('Retrying plan request with legacy response_format parameter: ' . $exception->getMessage());
+            try {
+                $result = $this->executePlanRequestWithFormatFallback($payload, $streamHandler);
+                break;
+            } catch (RuntimeException $exception) {
+                $hasNextModel = $index < $count - 1;
 
-                try {
-                    $result = $this->performChatRequest($legacyPayload, 'plan', $streamHandler, true);
-                } catch (RuntimeException $legacyException) {
-                    if (!$this->shouldFallbackToJsonObject($legacyException)) {
-                        throw $legacyException;
-                    }
-
-                    $jsonObjectPayload = $payload;
-                    $jsonObjectPayload['response_format'] = ['type' => 'json_object'];
-                    error_log('Retrying plan request with json_object response format after legacy response_format failure: ' . $legacyException->getMessage());
-                    $result = $this->performChatRequest($jsonObjectPayload, 'plan', $streamHandler);
-                }
-            } else {
-                if (!$this->shouldFallbackToJsonObject($exception)) {
+                if (!$hasNextModel || !$this->shouldRetryWithAlternativeModel($exception)) {
                     throw $exception;
                 }
 
-                $payload['response_format'] = ['type' => 'json_object'];
-                error_log('Falling back to json_object response format after plan request failure: ' . $exception->getMessage());
-                $result = $this->performChatRequest($payload, 'plan', $streamHandler);
+                $nextModel = $models[$index + 1];
+                error_log(sprintf(
+                    'Plan model fallback: %s -> %s due to %s',
+                    $model,
+                    $nextModel,
+                    $exception->getMessage()
+                ));
+
+                $lastException = $exception;
             }
+        }
+
+        if ($result === null) {
+            if ($lastException instanceof RuntimeException) {
+                throw $lastException;
+            }
+
+            throw new RuntimeException('Failed to generate plan using the available OpenAI models.');
         }
 
         $content = trim($result['content']);
@@ -180,33 +191,6 @@ final class OpenAIProvider
         }
 
         return json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    }
-
-    /**
-     * Transform the Responses API payload back into the legacy schema when needed.
-     *
-     * Legacy models expect the response schema to live under the nested `response` key,
-     * so this helper reintroduces that structure when retrying without `response_format`.
-     *
-     * @param array<string, mixed> $payload The payload currently targeting the Responses API.
-     *
-     * @return array<string, mixed> The payload adjusted for the legacy completions endpoint.
-     */
-    private function convertResponseFormatToLegacy(array $payload): array
-    {
-        if (!isset($payload['response_format'])) {
-            return $payload;
-        }
-
-        $legacyPayload = $payload;
-        $legacyPayload['response'] = [
-            'text' => [
-                'format' => $legacyPayload['response_format'],
-            ],
-        ];
-        unset($legacyPayload['response_format']);
-
-        return $legacyPayload;
     }
 
     /**
@@ -235,15 +219,92 @@ final class OpenAIProvider
             ],
         ];
 
-        $payload = [
-            'model' => $this->modelDraft,
-            'input' => $this->formatMessagesForResponses($messages),
-            'max_output_tokens' => $this->maxTokens,
-        ];
+        $models = $this->buildModelFallbackSequence($this->modelDraft, 'draft');
+        $result = null;
+        $lastException = null;
 
-        $result = $this->performChatRequest($payload, 'draft', $streamHandler);
+        for ($index = 0, $count = count($models); $index < $count; $index++) {
+            $model = $models[$index];
+            $payload = [
+                'model' => $model,
+                'input' => $this->formatMessagesForResponses($messages),
+                'max_output_tokens' => $this->maxTokens,
+            ];
+
+            try {
+                $result = $this->performChatRequest($payload, 'draft', $streamHandler);
+                break;
+            } catch (RuntimeException $exception) {
+                $hasNextModel = $index < $count - 1;
+
+                if (!$hasNextModel || !$this->shouldRetryWithAlternativeModel($exception)) {
+                    throw $exception;
+                }
+
+                $nextModel = $models[$index + 1];
+                error_log(sprintf(
+                    'Draft model fallback: %s -> %s due to %s',
+                    $model,
+                    $nextModel,
+                    $exception->getMessage()
+                ));
+
+                $lastException = $exception;
+            }
+        }
+
+        if ($result === null) {
+            if ($lastException instanceof RuntimeException) {
+                throw $lastException;
+            }
+
+            throw new RuntimeException('Failed to generate draft using the available OpenAI models.');
+        }
 
         return trim($result['content']);
+    }
+
+    /**
+     * Attempt plan generation while gracefully falling back through response_format permutations.
+     *
+     * @param array<string, mixed> $payload
+     * @return array{content: string, usage: array<string, int>, response: array<string, mixed>}
+     */
+    private function executePlanRequestWithFormatFallback(array $payload, ?callable $streamHandler): array
+    {
+        try {
+            return $this->performChatRequest($payload, 'plan', $streamHandler);
+        } catch (RuntimeException $exception) {
+            if ($this->shouldFallbackToLegacyResponseFormat($exception)) {
+                $strippedPayload = $payload;
+                unset($strippedPayload['response_format']);
+                error_log('Retrying plan request without response_format parameter: ' . $exception->getMessage());
+
+                try {
+                    return $this->performChatRequest($strippedPayload, 'plan', $streamHandler);
+                } catch (RuntimeException $strippedException) {
+                    if (!$this->shouldFallbackToJsonObject($strippedException)) {
+                        throw $strippedException;
+                    }
+
+                    $jsonObjectPayload = $payload;
+                    $jsonObjectPayload['response_format'] = ['type' => 'json_object'];
+                    error_log('Retrying plan request with json_object response format after stripped response_format failure: ' . $strippedException->getMessage());
+
+                    return $this->performChatRequest($jsonObjectPayload, 'plan', $streamHandler);
+                }
+            }
+
+            if (!$this->shouldFallbackToJsonObject($exception)) {
+                throw $exception;
+            }
+
+            $jsonObjectPayload = $payload;
+            $jsonObjectPayload['response_format'] = ['type' => 'json_object'];
+            error_log('Falling back to json_object response format after plan request failure: ' . $exception->getMessage());
+
+            return $this->performChatRequest($jsonObjectPayload, 'plan', $streamHandler);
+        }
     }
 
     /**
@@ -277,6 +338,9 @@ final class OpenAIProvider
 
         while (true) {
             try {
+                $currentAttempt = $attempt + 1;
+                $this->logRequestPayload($requestPayload, $operation, $currentAttempt);
+
                 $options = [
                     'headers' => [
                         'Authorization' => 'Bearer ' . $this->apiKey,
@@ -332,6 +396,14 @@ final class OpenAIProvider
 
                 if ($attempt >= self::MAX_ATTEMPTS || !$this->shouldRetry($statusCode)) {
                     $detail = $this->extractRequestErrorDetail($exception);
+                    $this->logRequestFailure(
+                        $operation,
+                        self::ENDPOINT_RESPONSES,
+                        $statusCode,
+                        $detail,
+                        $requestPayload,
+                        $attempt
+                    );
 
                     throw new RuntimeException(
                         $this->buildRequestFailureMessage($statusCode, $detail, $exception),
@@ -346,6 +418,226 @@ final class OpenAIProvider
                 throw new RuntimeException('Unable to encode OpenAI request payload.', 0, $exception);
             }
         }
+    }
+
+    /**
+     * Log the sanitised payload associated with an outgoing OpenAI request.
+     *
+     * Capturing a reduced view of the payload makes it possible to debug request
+     * shape issues without leaking full candidate or job descriptions into logs.
+     */
+    private function logRequestPayload(array $payload, string $operation, int $attempt): void
+    {
+        $sanitised = $this->sanitisePayloadForLog($payload);
+        $message = sprintf(
+            'OpenAI request payload (operation=%s attempt=%d): %s',
+            $operation,
+            $attempt,
+            $this->encodeForLog($sanitised)
+        );
+
+        error_log($message);
+    }
+
+    /**
+     * Log additional context when a request ultimately fails without another retry.
+     *
+     * Including the status code, detail message, and sanitised payload snapshot
+     * narrows down mismatches between what we sent and the API's expectations.
+     */
+    private function logRequestFailure(
+        string $operation,
+        string $endpoint,
+        ?int $statusCode,
+        ?string $detail,
+        array $payload,
+        int $attempt
+    ): void {
+        $sanitised = $this->sanitisePayloadForLog($payload);
+        $status = $statusCode === null ? 'null' : (string) $statusCode;
+        $message = sprintf(
+            'OpenAI request failure (operation=%s endpoint=%s status=%s attempts=%d): %s | payload=%s',
+            $operation,
+            $endpoint,
+            $status,
+            $attempt,
+            $detail === null || $detail === '' ? 'no detail provided' : $detail,
+            $this->encodeForLog($sanitised)
+        );
+
+        error_log($message);
+    }
+
+    /**
+     * Produce a sanitised version of the payload suitable for structured logging.
+     *
+     * Sensitive free-form text fields are reduced to previews and lengths so we
+     * retain insight into payload shape without storing entire documents.
+     *
+     * @param array<string, mixed> $payload
+     * @return array<string, mixed>
+     */
+    private function sanitisePayloadForLog(array $payload): array
+    {
+        $sanitised = $payload;
+
+        if (isset($sanitised['input']) && is_array($sanitised['input'])) {
+            $sanitised['input'] = $this->summariseInputForLog($sanitised['input']);
+        }
+
+        if (isset($sanitised['messages']) && is_array($sanitised['messages'])) {
+            $sanitised['messages'] = $this->summariseMessagesForLog($sanitised['messages']);
+        }
+
+        return $sanitised;
+    }
+
+    /**
+     * Reduce the Responses API input array into log-friendly summaries.
+     *
+     * @param array<int, array<string, mixed>> $input
+     * @return array<int, array<string, mixed>>
+     */
+    private function summariseInputForLog(array $input): array
+    {
+        $summary = [];
+
+        foreach ($input as $message) {
+            if (!is_array($message)) {
+                continue;
+            }
+
+            $entry = [
+                'role' => isset($message['role']) ? (string) $message['role'] : 'unknown',
+            ];
+
+            if (isset($message['content']) && is_array($message['content'])) {
+                $parts = [];
+
+                foreach ($message['content'] as $part) {
+                    if (!is_array($part)) {
+                        continue;
+                    }
+
+                    $type = isset($part['type']) ? (string) $part['type'] : 'input_text';
+                    $text = isset($part['text']) ? (string) $part['text'] : '';
+
+                    $parts[] = [
+                        'type' => $type,
+                        'length' => mb_strlen($text),
+                        'preview' => $this->truncateForLog($text),
+                    ];
+                }
+
+                if ($parts !== []) {
+                    $entry['content'] = $parts;
+                }
+            }
+
+            $summary[] = $entry;
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Reduce chat-style messages into summaries that expose only metadata and text previews.
+     *
+     * @param array<int, array<string, mixed>> $messages
+     * @return array<int, array<string, mixed>>
+     */
+    private function summariseMessagesForLog(array $messages): array
+    {
+        $summary = [];
+
+        foreach ($messages as $message) {
+            if (!is_array($message)) {
+                continue;
+            }
+
+            $entry = [
+                'role' => isset($message['role']) ? (string) $message['role'] : 'unknown',
+            ];
+
+            if (isset($message['content']) && is_string($message['content'])) {
+                $text = (string) $message['content'];
+                $entry['content'] = [
+                    'length' => mb_strlen($text),
+                    'preview' => $this->truncateForLog($text),
+                ];
+            } elseif (isset($message['content']) && is_array($message['content'])) {
+                $parts = [];
+
+                foreach ($message['content'] as $part) {
+                    if (!is_array($part)) {
+                        continue;
+                    }
+
+                    $type = isset($part['type']) ? (string) $part['type'] : 'text';
+                    $text = isset($part['text']) ? (string) $part['text'] : '';
+
+                    $parts[] = [
+                        'type' => $type,
+                        'length' => mb_strlen($text),
+                        'preview' => $this->truncateForLog($text),
+                    ];
+                }
+
+                if ($parts !== []) {
+                    $entry['content'] = $parts;
+                }
+            }
+
+            $summary[] = $entry;
+        }
+
+        return $summary;
+    }
+
+    /**
+     * Build the ordered list of model identifiers to try for the current request.
+     *
+     * The configured model is always attempted first, followed by predefined fallbacks that
+     * are known to be available in most environments.
+     *
+     * @return array<int, string>
+     */
+    private function buildModelFallbackSequence(string $configuredModel, string $operation): array
+    {
+        $sequence = [$configuredModel];
+        $fallbacks = $operation === 'plan'
+            ? self::PLAN_MODEL_FALLBACKS
+            : self::DRAFT_MODEL_FALLBACKS;
+
+        foreach ($fallbacks as $fallback) {
+            if (!in_array($fallback, $sequence, true)) {
+                $sequence[] = $fallback;
+            }
+        }
+
+        return $sequence;
+    }
+
+    /**
+     * Provide a short preview of a potentially lengthy text snippet for logging.
+     */
+    private function truncateForLog(string $text, int $limit = 120): string
+    {
+        if (mb_strlen($text) <= $limit) {
+            return $text;
+        }
+
+        return mb_substr($text, 0, $limit) . '…';
+    }
+
+    /**
+     * Encode the supplied array for logging without triggering JSON exceptions.
+     */
+    private function encodeForLog(array $data): string
+    {
+        $encoded = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+
+        return $encoded === false ? '[unserialisable payload]' : $encoded;
     }
 
     /**
@@ -736,6 +1028,63 @@ final class OpenAIProvider
         }
 
         return false;
+    }
+
+    /**
+     * Decide whether a retry should be attempted using a different model identifier.
+     *
+     * When OpenAI reports that a model does not exist the configured identifier is stale.
+     * Cycling to a known-good fallback keeps plan generation operational without manual
+     * intervention.
+     */
+    private function shouldRetryWithAlternativeModel(RuntimeException $exception): bool
+    {
+        $previous = $exception->getPrevious();
+
+        if (!$previous instanceof RequestException) {
+            return false;
+        }
+
+        $response = $previous->getResponse();
+
+        if ($response !== null) {
+            $status = $response->getStatusCode();
+
+            if ($status !== 400 && $status !== 404) {
+                return false;
+            }
+        }
+
+        $message = strtolower($exception->getMessage());
+
+        if ($message !== '' && $this->mentionsMissingModel($message)) {
+            return true;
+        }
+
+        if ($response !== null) {
+            $body = strtolower((string) $response->getBody());
+
+            if ($body !== '' && $this->mentionsMissingModel($body)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Inspect an error string and decide whether it references an unknown model.
+     */
+    private function mentionsMissingModel(string $message): bool
+    {
+        if (strpos($message, 'model') === false) {
+            return false;
+        }
+
+        return strpos($message, 'does not exist') !== false
+            || strpos($message, 'was not found') !== false
+            || strpos($message, 'doesn\'t exist') !== false
+            || strpos($message, 'unknown model') !== false;
     }
 
     /**
