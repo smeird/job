@@ -7,6 +7,7 @@ namespace App\Generations;
 use JsonException;
 use PDO;
 use PDOException;
+use RuntimeException;
 
 use function is_array;
 use function is_string;
@@ -67,6 +68,28 @@ final class GenerationLogRepository
         }
 
         return $logs;
+    }
+
+    /**
+     * Remove stored tailoring failure logs for the supplied user identifier.
+     *
+     * Clearing processed failures keeps the workspace tidy after resolving
+     * historical issues that are no longer relevant to the user.
+     */
+    public function clearForUser(int $userId): int
+    {
+        try {
+            $statement = $this->pdo->prepare(
+                'DELETE FROM audit_logs WHERE user_id = :user_id AND action = "generation_failed"'
+            );
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Unable to clear generation logs.', 0, $exception);
+        }
+
+        $statement->bindValue(':user_id', $userId, PDO::PARAM_INT);
+        $statement->execute();
+
+        return (int) $statement->rowCount();
     }
 
     /**

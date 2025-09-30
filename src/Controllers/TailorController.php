@@ -11,6 +11,7 @@ use App\Prompts\PromptLibrary;
 use App\Views\Renderer;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Throwable;
 
 final class TailorController
 {
@@ -74,6 +75,37 @@ final class TailorController
     }
 
     /**
+     * Handle the cleanup workflow for tailoring jobs and logs.
+     *
+     * Providing an explicit endpoint keeps the queue and audit trail tidy when
+     * users experiment heavily with the tailoring workspace.
+     */
+    public function cleanup(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if (!is_array($user) || !isset($user['user_id'])) {
+            return $this->json($response->withStatus(401), ['error' => 'Authentication required.']);
+        }
+
+        $userId = (int) $user['user_id'];
+
+        try {
+            $removedJobs = $this->generationRepository->cleanupJobsForUser($userId);
+            $clearedLogs = $this->generationLogRepository->clearForUser($userId);
+        } catch (Throwable $exception) {
+            return $this->json($response->withStatus(500), ['error' => 'Unable to clean up tailoring data.']);
+        }
+
+        return $this->json($response, [
+            'removed_jobs' => $removedJobs,
+            'cleared_logs' => $clearedLogs,
+            'generations' => $this->generationRepository->listForUser($userId),
+            'generation_logs' => $this->generationLogRepository->listRecentForUser($userId),
+        ]);
+    }
+
+    /**
      * Map the provided documents into the structure expected by the wizard.
      *
      * @param array<int, \App\Documents\Document> $documents
@@ -114,5 +146,18 @@ final class TailorController
                 'current' => $key === $current,
             ];
         }, array_keys($links), $links);
+    }
+
+    /**
+     * Emit a JSON response payload for asynchronous tailoring requests.
+     *
+     * Centralising the encoding logic keeps the controller methods concise and
+     * ensures consistent headers across each JSON response.
+     */
+    private function json(ResponseInterface $response, array $payload): ResponseInterface
+    {
+        $response->getBody()->write((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+
+        return $response->withHeader('Content-Type', 'application/json');
     }
 }
