@@ -93,7 +93,8 @@ $container->set(DocumentController::class, static function (Container $c): Docum
         $c->get(DocumentRepository::class),
         $c->get(DocumentService::class),
         $c->get(DocumentPreviewer::class),
-        $c->get(GenerationRepository::class)
+        $c->get(GenerationRepository::class),
+        $c->get(GenerationTokenService::class)
     );
 });
 
@@ -170,7 +171,8 @@ $container->set(TailorController::class, static function (Container $c): TailorC
         $c->get(Renderer::class),
         $c->get(DocumentRepository::class),
         $c->get(GenerationRepository::class),
-        $c->get(GenerationLogRepository::class)
+        $c->get(GenerationLogRepository::class),
+        $c->get(GenerationTokenService::class)
     );
 });
 

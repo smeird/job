@@ -197,6 +197,16 @@
                                     <p class="font-medium text-white">Job: <?= htmlspecialchars($generation['job_document']['filename'], ENT_QUOTES) ?></p>
                                     <p class="text-xs text-slate-400">Source CV: <?= htmlspecialchars($generation['cv_document']['filename'], ENT_QUOTES) ?></p>
                                 </div>
+                                <?php if (!empty($generation['downloads']['md'])) : ?>
+                                    <div class="flex flex-wrap gap-2">
+                                        <a
+                                            href="<?= htmlspecialchars($generation['downloads']['md'], ENT_QUOTES) ?>"
+                                            class="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100 transition hover:border-emerald-300 hover:text-emerald-50"
+                                        >
+                                            Download markdown
+                                        </a>
+                                    </div>
+                                <?php endif; ?>
                                 <dl class="grid gap-2 text-xs text-slate-300 sm:grid-cols-3">
                                     <div>
                                         <dt class="font-semibold text-slate-200">Model</dt>
