@@ -114,6 +114,10 @@ html[data-theme='light'] .bg-slate-900\/60 {
     background-color: rgba(241, 245, 249, 0.78) !important;
 }
 
+html[data-theme='light'] .bg-slate-800 {
+    background-color: #e2e8f0 !important;
+}
+
 html[data-theme='light'] .border-slate-800,
 html[data-theme='light'] .border-slate-800\/80 {
     border-color: rgba(148, 163, 184, 0.45) !important;
@@ -189,6 +193,10 @@ html[data-theme='light'] .text-amber-200 {
 
 html[data-theme='light'] .text-amber-300 {
     color: #d97706 !important;
+}
+
+html[data-theme='light'] .hover\:bg-slate-700:hover {
+    background-color: #cbd5f5 !important;
 }
 
 .min-h-screen {
