@@ -9,6 +9,7 @@ use App\Documents\DocumentRepository;
 use App\Documents\DocumentService;
 use App\Documents\DocumentValidationException;
 use App\Generations\GenerationRepository;
+use App\Generations\GenerationTokenService;
 use App\Views\Renderer;
 use DateTimeImmutable;
 use Exception;
@@ -35,6 +36,9 @@ final class DocumentController
     /** @var GenerationRepository */
     private $generationRepository;
 
+    /** @var GenerationTokenService */
+    private $generationTokenService;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -45,13 +49,15 @@ final class DocumentController
         DocumentRepository $documentRepository,
         DocumentService $documentService,
         DocumentPreviewer $documentPreviewer,
-        GenerationRepository $generationRepository
+        GenerationRepository $generationRepository,
+        GenerationTokenService $generationTokenService
     ) {
         $this->renderer = $renderer;
         $this->documentRepository = $documentRepository;
         $this->documentService = $documentService;
         $this->documentPreviewer = $documentPreviewer;
         $this->generationRepository = $generationRepository;
+        $this->generationTokenService = $generationTokenService;
     }
 
     /**
@@ -77,7 +83,7 @@ final class DocumentController
             'navLinks' => $this->navLinks('documents'),
             'jobDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'job_description')),
             'cvDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'cv')),
-            'tailoredGenerations' => $this->mapGenerations($this->generationRepository->listForUser($userId)),
+            'tailoredGenerations' => $this->mapGenerations($userId, $this->generationRepository->listForUser($userId)),
             'errors' => [],
             'status' => $status,
         ]);
@@ -142,7 +148,7 @@ final class DocumentController
             'navLinks' => $this->navLinks('documents'),
             'jobDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'job_description')),
             'cvDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'cv')),
-            'tailoredGenerations' => $this->mapGenerations($this->generationRepository->listForUser($userId)),
+            'tailoredGenerations' => $this->mapGenerations($userId, $this->generationRepository->listForUser($userId)),
             'errors' => $errors,
             'status' => null,
         ]);
@@ -273,7 +279,7 @@ final class DocumentController
      * @param array<int, array<string, mixed>> $generations
      * @return array<int, array<string, mixed>>
      */
-    private function mapGenerations(array $generations): array
+    private function mapGenerations(int $userId, array $generations): array
     {
         $mapped = [];
 
@@ -302,10 +308,33 @@ final class DocumentController
                     'id' => (int) $generation['cv_document']['id'],
                     'filename' => (string) $generation['cv_document']['filename'],
                 ],
+                'downloads' => $this->buildDownloadLinks($userId, (int) $generation['id']),
             ];
         }
 
         return $mapped;
+    }
+
+    /**
+     * Build the signed download URLs for the provided generation.
+     *
+     * Centralising link creation ensures each page exposes consistent tokenised
+     * URLs that respect the per-user security constraints enforced by the
+     * download controller.
+     *
+     * @return array<string, string>
+     */
+    private function buildDownloadLinks(int $userId, int $generationId): array
+    {
+        $token = $this->generationTokenService->createToken($userId, $generationId, 'md');
+
+        return [
+            'md' => sprintf(
+                '/generations/%d/download?format=md&token=%s',
+                $generationId,
+                rawurlencode($token)
+            ),
+        ];
     }
 
     /**
