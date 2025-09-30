@@ -41,7 +41,7 @@ final class JobApplicationController
     /**
      * Display the job application tracker overview.
      *
-     * Keeping listing concerns together ensures consistent rendering of overview screens.
+     * Keeping the kanban board isolated on this screen clarifies the separation from data entry.
      */
     public function index(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
     {
@@ -65,10 +65,32 @@ final class JobApplicationController
             'outstanding' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'outstanding'), $generationIndex),
             'applied' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'applied'), $generationIndex),
             'failed' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'failed'), $generationIndex),
-            'errors' => [],
             'status' => $statusMessage,
             'failureReasons' => $failureReasons,
             'generationOptions' => $this->mapGenerationOptions($generations),
+        ]);
+    }
+
+    /**
+     * Display the standalone job application creation form.
+     *
+     * Separating data entry ensures the kanban overview stays focused on tracking progress.
+     */
+    public function create(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if ($user === null) {
+            return $response->withHeader('Location', '/auth/login')->withStatus(302);
+        }
+
+        return $this->renderer->render($response, 'applications-create', [
+            'title' => 'Add job posting',
+            'subtitle' => 'Store a new opportunity before tailoring your CV.',
+            'fullWidth' => true,
+            'navLinks' => $this->navLinks('applications'),
+            'status' => null,
+            'errors' => [],
             'form' => [
                 'title' => '',
                 'source_url' => '',
@@ -94,10 +116,6 @@ final class JobApplicationController
         $data = $request->getParsedBody();
         $formInput = is_array($data) ? $data : [];
 
-        $failureReasons = $this->service->failureReasons();
-        $generations = $this->service->generationsForUser($userId);
-        $generationIndex = $this->indexGenerations($generations);
-
         $result = $this->service->createFromSubmission($userId, $formInput);
 
         if ($result['errors'] === []) {
@@ -106,18 +124,13 @@ final class JobApplicationController
                 ->withStatus(302);
         }
 
-        return $this->renderer->render($response->withStatus(422), 'applications', [
-            'title' => 'Job tracker',
-            'subtitle' => 'Capture postings, track applications, and mark outcomes.',
+        return $this->renderer->render($response->withStatus(422), 'applications-create', [
+            'title' => 'Add job posting',
+            'subtitle' => 'Store a new opportunity before tailoring your CV.',
             'fullWidth' => true,
             'navLinks' => $this->navLinks('applications'),
-            'outstanding' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'outstanding'), $generationIndex),
-            'applied' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'applied'), $generationIndex),
-            'failed' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'failed'), $generationIndex),
             'errors' => $result['errors'],
             'status' => null,
-            'failureReasons' => $failureReasons,
-            'generationOptions' => $this->mapGenerationOptions($generations),
             'form' => [
                 'title' => isset($formInput['title']) ? (string) $formInput['title'] : '',
                 'source_url' => isset($formInput['source_url']) ? (string) $formInput['source_url'] : '',

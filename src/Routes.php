@@ -69,6 +69,10 @@ class Routes
             return $container->get(JobApplicationController::class)->index($request, $response);
         });
 
+        $app->get('/applications/create', function (Request $request, Response $response) use ($container) {
+            return $container->get(JobApplicationController::class)->create($request, $response);
+        });
+
         $app->post('/applications', function (Request $request, Response $response) use ($container) {
             return $container->get(JobApplicationController::class)->store($request, $response);
         });
