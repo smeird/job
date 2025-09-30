@@ -37,6 +37,7 @@ final class DocumentController
     private $generationRepository;
 
     /** @var GenerationTokenService|null */
+
     private $generationTokenService;
 
     /**
@@ -51,6 +52,7 @@ final class DocumentController
         DocumentPreviewer $documentPreviewer,
         GenerationRepository $generationRepository,
         ?GenerationTokenService $generationTokenService
+
     ) {
         $this->renderer = $renderer;
         $this->documentRepository = $documentRepository;
@@ -322,6 +324,7 @@ final class DocumentController
      * URLs that respect the per-user security constraints enforced by the
      * download controller. When the token service is disabled the method
      * returns an empty list so the UI hides download options gracefully.
+
      *
      * @return array<string, string>
      */
