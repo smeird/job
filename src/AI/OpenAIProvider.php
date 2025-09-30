@@ -746,7 +746,7 @@ final class OpenAIProvider
 
         if ($message !== '') {
             if ($this->mentionsUnsupportedLegacyResponseFormat($message)) {
-                return false;
+                return true;
             }
 
             if ($this->mentionsUnknownResponseParameter($message)) {
@@ -758,7 +758,7 @@ final class OpenAIProvider
 
         if ($body !== '') {
             if ($this->mentionsUnsupportedLegacyResponseFormat($body)) {
-                return false;
+                return true;
             }
 
             if ($this->mentionsUnknownResponseParameter($body)) {
@@ -786,12 +786,26 @@ final class OpenAIProvider
     }
 
     /**
-     * Detect whether the message indicates the legacy response_format parameter is unsupported.
+     * Detect whether the message indicates the modern response_format parameter is unsupported or has moved.
      */
     private function mentionsUnsupportedLegacyResponseFormat(string $message): bool
     {
-        return strpos($message, "unsupported parameter") !== false
-            && strpos($message, "'response_format'") !== false;
+        $mentionsResponseFormat = strpos($message, 'response_format') !== false;
+        $mentionsUnsupported = strpos($message, 'unsupported parameter') !== false
+            || strpos($message, 'is unsupported') !== false
+            || strpos($message, 'not supported') !== false;
+
+        if ($mentionsResponseFormat && $mentionsUnsupported) {
+            return true;
+        }
+
+        if (strpos($message, 'moved to') !== false) {
+            if (strpos($message, 'text.format') !== false || strpos($message, 'response.format') !== false) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
