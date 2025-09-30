@@ -136,6 +136,49 @@
         };
 
         /**
+         * Normalise the downloads object to contain only non-empty URLs.
+         *
+         * @param {*} value The value potentially describing download links.
+         * @returns {object} A shallow object of valid download URLs keyed by format.
+         */
+        const normaliseDownloads = function (value) {
+            if (!value || typeof value !== 'object') {
+                return {};
+            }
+
+            const formats = ['md', 'docx', 'pdf'];
+            const result = {};
+
+            for (let index = 0; index < formats.length; index += 1) {
+                const format = formats[index];
+                const link = value[format];
+
+                if (typeof link === 'string' && link.trim() !== '') {
+                    result[format] = link;
+                }
+            }
+
+            return result;
+        };
+
+        /**
+         * Normalise a generation record for template rendering.
+         *
+         * @param {*} value The potential generation data.
+         * @returns {object} A safe object with a downloads property.
+         */
+        const normaliseGeneration = function (value) {
+            if (!value || typeof value !== 'object') {
+                return { downloads: {} };
+            }
+
+            const clone = Object.assign({}, value);
+            clone.downloads = normaliseDownloads(value.downloads);
+
+            return clone;
+        };
+
+        /**
          * Locate a document within a collection by its identifier.
          *
          * @param {Array} collection The list of documents to search.
@@ -185,7 +228,7 @@
             jobDocuments: toArray(config && config.jobDocuments),
             cvDocuments: toArray(config && config.cvDocuments),
             models: toArray(config && config.models),
-            generations: toArray(config && config.generations),
+            generations: toArray(config && config.generations).map(normaliseGeneration),
             processingLogs: toArray(config && config.logs),
             defaultThinkingTime: defaultThinkingTime,
             defaultPrompt: defaultPrompt,
@@ -495,8 +538,7 @@
                     }
 
                     const list = this.generations.slice();
-
-                    list.unshift({
+                    const generation = normaliseGeneration({
                         ...data,
                         job_document: this.selectedJob,
                         cv_document: this.selectedCv,
@@ -504,6 +546,8 @@
                             ? data.thinking_time
                             : this.form.thinking_time,
                     });
+
+                    list.unshift(generation);
 
                     this.generations = list;
                     this.successMessage = 'Generation queued successfully.';
@@ -577,10 +621,12 @@
                     });
 
                     if (index !== -1) {
-                        this.generations.splice(index, 1, data);
+                        const generation = normaliseGeneration(data);
+                        this.generations.splice(index, 1, generation);
                         this.generations = this.generations.slice();
                     } else if (data && typeof data === 'object') {
-                        this.generations = [data].concat(this.generations);
+                        const generation = normaliseGeneration(data);
+                        this.generations = [generation].concat(this.generations);
                     }
 
                     this.successMessage = 'Generation removed from queue.';
@@ -634,7 +680,9 @@
                     }
 
                     if (Array.isArray(data.generations)) {
-                        this.generations = data.generations.slice();
+                        this.generations = data.generations.map(function (item) {
+                            return normaliseGeneration(item);
+                        });
                     }
 
                     this.processingLogs = Array.isArray(data.generation_logs)

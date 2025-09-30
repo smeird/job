@@ -93,7 +93,8 @@ $container->set(DocumentController::class, static function (Container $c): Docum
         $c->get(DocumentRepository::class),
         $c->get(DocumentService::class),
         $c->get(DocumentPreviewer::class),
-        $c->get(GenerationRepository::class)
+        $c->get(GenerationRepository::class),
+        $c->get(GenerationTokenService::class)
     );
 });
 
@@ -170,7 +171,8 @@ $container->set(TailorController::class, static function (Container $c): TailorC
         $c->get(Renderer::class),
         $c->get(DocumentRepository::class),
         $c->get(GenerationRepository::class),
-        $c->get(GenerationLogRepository::class)
+        $c->get(GenerationLogRepository::class),
+        $c->get(GenerationTokenService::class)
     );
 });
 
@@ -221,11 +223,13 @@ $container->set(GenerationDownloadService::class, static function (Container $c)
     return new GenerationDownloadService($c->get(\PDO::class));
 });
 
-$container->set(GenerationTokenService::class, static function (): GenerationTokenService {
+$container->set(GenerationTokenService::class, static function (): ?GenerationTokenService {
     $secret = getenv('DOWNLOAD_TOKEN_SECRET') ?: getenv('APP_KEY') ?: '';
 
     if ($secret === '') {
-        throw new RuntimeException('DOWNLOAD_TOKEN_SECRET or APP_KEY must be configured.');
+        error_log('Generation downloads disabled: configure DOWNLOAD_TOKEN_SECRET or APP_KEY to enable.');
+
+        return null;
     }
 
     $ttl = (int) (getenv('DOWNLOAD_TOKEN_TTL') ?: 300);
