@@ -227,7 +227,36 @@ $container->set(GenerationDownloadService::class, static function (Container $c)
 });
 
 $container->set(GenerationTokenService::class, static function (): ?GenerationTokenService {
-    $secret = getenv('DOWNLOAD_TOKEN_SECRET') ?: getenv('APP_KEY') ?: '';
+    /**
+     * Resolve the requested environment key from any available source.
+     *
+     * Reading from getenv(), $_ENV, and $_SERVER guarantees the application
+     * honours configuration loaded via vlucas/phpdotenv which avoids populating
+     * PHP's process environment when using the immutable loader.
+     */
+    $resolveEnv = static function (string $key): string {
+        $value = getenv($key);
+
+        if ($value === false || $value === '') {
+            if (isset($_ENV[$key]) && $_ENV[$key] !== '') {
+                return (string) $_ENV[$key];
+            }
+
+            if (isset($_SERVER[$key]) && $_SERVER[$key] !== '') {
+                return (string) $_SERVER[$key];
+            }
+
+            return '';
+        }
+
+        return (string) $value;
+    };
+
+    $secret = $resolveEnv('DOWNLOAD_TOKEN_SECRET');
+
+    if ($secret === '') {
+        $secret = $resolveEnv('APP_KEY');
+    }
 
     if ($secret === '') {
         error_log('Generation downloads disabled: configure DOWNLOAD_TOKEN_SECRET or APP_KEY to enable.');
@@ -235,7 +264,8 @@ $container->set(GenerationTokenService::class, static function (): ?GenerationTo
         return null;
     }
 
-    $ttl = (int) (getenv('DOWNLOAD_TOKEN_TTL') ?: 300);
+    $ttlValue = $resolveEnv('DOWNLOAD_TOKEN_TTL');
+    $ttl = $ttlValue !== '' ? (int) $ttlValue : 300;
 
     if ($ttl < 0) {
         $ttl = 300;
