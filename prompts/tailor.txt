@@ -9,10 +9,12 @@ Tasks:
 1. Draft a role-specific summary that links the candidate's experience to the job title and company.
 2. Reorder or trim the supplied CV sections so the most relevant accomplishments for the listed competencies appear first.
 3. Only quantify achievements when the original CV already provides the numbers.
-4. For any employment or education gap you notice, create an "Optional evidence to add" note with appropriate supporting material.
+4. For any employment or education gap you notice, create an "Optional evidence to add" note with appropriate supporting material immediately after the gap's related section.
 5. Never introduce employers or qualifications that are absent from the source CV.
+6. Do not append a standalone suggestions section at the end of the tailored CV.
 
 Output:
 - Return the tailored CV as valid Markdown.
 - Use British English throughout.
 - Preserve factual accuracy and clearly flag any gaps.
+- Ensure every "Optional evidence to add" note sits beside its relevant section rather than at the bottom of the document.
