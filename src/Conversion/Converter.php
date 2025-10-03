@@ -100,9 +100,29 @@ class Converter
     public function renderFormats(string $markdown): array
     {
         return [
-            'docx' => $this->convertMarkdownToDocx($markdown),
-            'pdf' => $this->convertMarkdownToPdf($markdown),
+            'docx' => $this->renderFormat($markdown, 'docx'),
+            'pdf' => $this->renderFormat($markdown, 'pdf'),
         ];
+    }
+
+    /**
+     * Render the markdown into a single requested format.
+     *
+     * Centralising this helper ensures controllers can request specific binaries without converting unused formats.
+     */
+    public function renderFormat(string $markdown, string $format): string
+    {
+        $normalizedFormat = strtolower($format);
+
+        if ($normalizedFormat === 'docx') {
+            return $this->convertMarkdownToDocx($markdown);
+        }
+
+        if ($normalizedFormat === 'pdf') {
+            return $this->convertMarkdownToPdf($markdown);
+        }
+
+        throw new RuntimeException('Unsupported format requested for rendering.');
     }
 
     /**

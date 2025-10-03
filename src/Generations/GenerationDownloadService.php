@@ -133,7 +133,7 @@ final class GenerationDownloadService
         $markdown = $this->loadMarkdown($generationId, $artifact);
 
         try {
-            $rendered = $this->converter->renderFormats($markdown);
+            $binary = $this->converter->renderFormat($markdown, $extension);
         } catch (Throwable $exception) {
             error_log(
                 sprintf(
@@ -146,12 +146,6 @@ final class GenerationDownloadService
 
             throw new GenerationOutputUnavailableException('Failed to convert markdown into the requested format.');
         }
-
-        if (!isset($rendered[$extension])) {
-            throw new GenerationOutputUnavailableException('Requested format is not available for this generation.');
-        }
-
-        $binary = (string) $rendered[$extension];
 
         if ($binary === '') {
             throw new GenerationOutputUnavailableException('Requested format is not available for this generation.');
