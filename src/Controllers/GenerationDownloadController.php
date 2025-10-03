@@ -79,10 +79,13 @@ final class GenerationDownloadController
         $userId = (int) $user['user_id'];
 
         try {
+
+          
             $download = $this->downloadService->fetch($generationId, $userId, $artifact, $format);
-        } catch (GenerationNotFoundException) {
+        } catch (GenerationNotFoundException $exception) {
+
             return $this->error($response, 404, 'Generation not found.');
-        } catch (GenerationAccessDeniedException) {
+        } catch (GenerationAccessDeniedException $exception) {
             return $this->error($response, 403, 'You do not have access to this generation.');
         } catch (GenerationOutputUnavailableException $exception) {
             return $this->error($response, 409, $exception->getMessage());
