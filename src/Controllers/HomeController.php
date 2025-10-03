@@ -82,7 +82,7 @@ class HomeController
     {
         $links = [
             'dashboard' => ['href' => '/', 'label' => 'Dashboard'],
-            'tailor' => ['href' => '/tailor', 'label' => 'Tailor CV'],
+            'tailor' => ['href' => '/tailor', 'label' => 'Tailor CV & letter'],
             'documents' => ['href' => '/documents', 'label' => 'Documents'],
             'applications' => ['href' => '/applications', 'label' => 'Applications'],
             'usage' => ['href' => '/usage', 'label' => 'Usage'],

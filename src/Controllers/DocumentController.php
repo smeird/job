@@ -23,6 +23,8 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
+use function strtolower;
+use function strtoupper;
 
 final class DocumentController
 {
@@ -501,7 +503,7 @@ final class DocumentController
      * while still surfacing every available format when binary exports are stored.
 
      *
-     * @return array<string, string>
+     * @return array<int, array{artifact: string, label: string, links: array<int, array{format: string, url: string, label: string}>}>
      */
     private function buildDownloadLinks(int $generationId): array
     {
@@ -513,15 +515,74 @@ final class DocumentController
 
         $downloads = [];
 
-        foreach ($availableFormats as $format) {
-            $downloads[$format] = sprintf(
-                '/generations/%d/download?format=%s',
-                $generationId,
-                rawurlencode($format)
-            );
+        foreach ($availableFormats as $artifact => $formats) {
+            if (!is_array($formats) || $formats === []) {
+                continue;
+            }
+
+            $links = [];
+
+            foreach ($formats as $format) {
+                $links[] = [
+                    'format' => (string) $format,
+                    'url' => sprintf(
+                        '/generations/%d/download?artifact=%s&format=%s',
+                        $generationId,
+                        rawurlencode((string) $artifact),
+                        rawurlencode((string) $format)
+                    ),
+                    'label' => $this->downloadLabel((string) $format),
+                ];
+            }
+
+            if ($links !== []) {
+                $downloads[] = [
+                    'artifact' => (string) $artifact,
+                    'label' => $this->artifactLabel((string) $artifact),
+                    'links' => $links,
+                ];
+            }
         }
 
         return $downloads;
+    }
+
+    /**
+     * Produce a human-friendly label for a stored artifact identifier.
+     */
+    private function artifactLabel(string $artifact): string
+    {
+        if ($artifact === 'cover_letter') {
+            return 'Cover letter';
+        }
+
+        return 'Tailored CV';
+    }
+
+    /**
+     * Provide a readable label for download buttons rendered in the documents view.
+     */
+    private function downloadLabel(string $format): string
+    {
+        $key = strtolower($format);
+
+        if ($key === 'md') {
+            return 'Download markdown';
+        }
+
+        if ($key === 'pdf') {
+            return 'Download PDF';
+        }
+
+        if ($key === 'docx') {
+            return 'Download Word';
+        }
+
+        if ($key !== '') {
+            return 'Download ' . strtoupper($key);
+        }
+
+        return 'Download file';
     }
 
     /**
@@ -534,7 +595,7 @@ final class DocumentController
     {
         $links = [
             'dashboard' => ['href' => '/', 'label' => 'Dashboard'],
-            'tailor' => ['href' => '/tailor', 'label' => 'Tailor CV'],
+            'tailor' => ['href' => '/tailor', 'label' => 'Tailor CV & letter'],
             'documents' => ['href' => '/documents', 'label' => 'Documents'],
             'applications' => ['href' => '/applications', 'label' => 'Applications'],
             'usage' => ['href' => '/usage', 'label' => 'Usage'],

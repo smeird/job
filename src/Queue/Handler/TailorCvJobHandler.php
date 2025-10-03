@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Queue\Handler;
 
 use App\AI\OpenAIProvider;
+use App\Conversion\Converter;
 use App\Prompts\PromptLibrary;
 use App\Queue\Job;
 use App\Queue\JobHandlerInterface;
@@ -18,6 +19,7 @@ use RuntimeException;
 use Throwable;
 
 use function array_filter;
+use function array_merge;
 use function array_map;
 use function array_values;
 use function implode;
@@ -25,6 +27,7 @@ use function is_array;
 use function json_encode;
 use function json_last_error;
 use function json_last_error_msg;
+use function mb_strlen;
 use function mb_substr;
 use function sprintf;
 use function strip_tags;
@@ -86,7 +89,28 @@ final class TailorCvJobHandler implements JobHandlerInterface
         $draft = $this->generateDraft($provider, $plan, $constraints);
         $converted = $this->convertDraft($draft);
 
-        $this->persistOutputs($generationId, $plan, $draft, $converted['html'], $converted['text']);
+        $coverLetterPrompt = $this->buildCoverLetterPrompt($payload, $plan, $jobDescription, $cvMarkdown);
+        $coverLetterDraft = $this->generateCoverLetterDraft($provider, $coverLetterPrompt);
+        $coverLetterConverted = $this->convertDraft($coverLetterDraft);
+
+        $converter = new Converter($this->markdownConverter);
+        $cvBinaries = $this->generateBinaryVariants($converter, $draft);
+        $coverLetterBinaries = $this->generateBinaryVariants($converter, $coverLetterDraft);
+
+        $records = array_merge(
+            [$this->buildTextOutput($generationId, 'cv_plan', 'application/json', $plan)],
+            $this->createDocumentOutputs($generationId, 'cv', $draft, $converted['html'], $converted['text'], $cvBinaries),
+            $this->createDocumentOutputs(
+                $generationId,
+                'cover_letter',
+                $coverLetterDraft,
+                $coverLetterConverted['html'],
+                $coverLetterConverted['text'],
+                $coverLetterBinaries
+            )
+        );
+
+        $this->persistOutputs($generationId, $records);
         $this->updateGenerationStatus($generationId, 'completed');
     }
 
@@ -144,6 +168,21 @@ final class TailorCvJobHandler implements JobHandlerInterface
     }
 
     /**
+     * Generate the cover letter draft using the specialised OpenAI prompt.
+     *
+     * Separating this call keeps the cover letter lifecycle distinct from the CV while sharing
+     * the provider dependency and retry behaviour.
+     */
+    private function generateCoverLetterDraft(OpenAIProvider $provider, string $instructions): string
+    {
+        try {
+            return $provider->draftCoverLetter($instructions);
+        } catch (Throwable $exception) {
+            throw new TransientJobException('Failed to generate cover letter draft: ' . $exception->getMessage(), 0, $exception);
+        }
+    }
+
+    /**
      * Convert the draft into the desired format.
      *
      * Having a dedicated converter isolates formatting concerns.
@@ -173,11 +212,104 @@ final class TailorCvJobHandler implements JobHandlerInterface
     }
 
     /**
+     * Generate DOCX and PDF binaries for the supplied markdown document.
+     *
+     * Having a shared helper keeps binary conversion consistent across CV and cover letter outputs.
+     *
+     * @return array<string, string>
+     */
+    private function generateBinaryVariants(Converter $converter, string $markdown): array
+    {
+        try {
+            return $converter->renderFormats($markdown);
+        } catch (Throwable $exception) {
+            throw new RuntimeException('Failed to convert markdown into binary formats.', 0, $exception);
+        }
+    }
+
+    /**
+     * Build the output rows associated with a specific document artifact.
+     *
+     * Centralising the mapping keeps persistence logic compact and avoids duplicating MIME strings.
+     *
+     * @param array<string, string> $binaries
+     * @return array<int, array<string, mixed>>
+     */
+    private function createDocumentOutputs(
+        int $generationId,
+        string $artifact,
+        string $markdown,
+        string $html,
+        string $plainText,
+        array $binaries
+    ): array {
+        $outputs = [];
+
+        $outputs[] = $this->buildTextOutput($generationId, $artifact, 'text/markdown', $markdown);
+        $outputs[] = $this->buildTextOutput($generationId, $artifact, 'text/html', $html);
+        $outputs[] = $this->buildTextOutput($generationId, $artifact, 'text/plain', $plainText);
+
+        if (isset($binaries['docx']) && $binaries['docx'] !== '') {
+            $outputs[] = $this->buildBinaryOutput(
+                $generationId,
+                $artifact,
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                $binaries['docx']
+            );
+        }
+
+        if (isset($binaries['pdf']) && $binaries['pdf'] !== '') {
+            $outputs[] = $this->buildBinaryOutput(
+                $generationId,
+                $artifact,
+                'application/pdf',
+                $binaries['pdf']
+            );
+        }
+
+        return $outputs;
+    }
+
+    /**
+     * Create a text-based generation output payload ready for persistence.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildTextOutput(int $generationId, string $artifact, string $mimeType, string $content): array
+    {
+        return [
+            'generation_id' => $generationId,
+            'artifact' => $artifact,
+            'mime_type' => $mimeType,
+            'content' => null,
+            'output_text' => $content,
+            'tokens_used' => null,
+        ];
+    }
+
+    /**
+     * Create a binary generation output payload ready for persistence.
+     *
+     * @return array<string, mixed>
+     */
+    private function buildBinaryOutput(int $generationId, string $artifact, string $mimeType, string $binary): array
+    {
+        return [
+            'generation_id' => $generationId,
+            'artifact' => $artifact,
+            'mime_type' => $mimeType,
+            'content' => $binary,
+            'output_text' => null,
+            'tokens_used' => null,
+        ];
+    }
+
+    /**
      * Handle the persist outputs operation.
      *
      * Documenting this helper clarifies its role within the wider workflow.
      */
-    private function persistOutputs(int $generationId, string $plan, string $draft, string $html, string $plainText): void
+    private function persistOutputs(int $generationId, array $records): void
     {
         try {
             $this->pdo->beginTransaction();
@@ -186,37 +318,20 @@ final class TailorCvJobHandler implements JobHandlerInterface
             $delete->execute([':generation_id' => $generationId]);
 
             $insert = $this->pdo->prepare(
-                'INSERT INTO generation_outputs (generation_id, mime_type, content, output_text) '
-                . 'VALUES (:generation_id, :mime_type, :content, :output_text)'
+                'INSERT INTO generation_outputs (generation_id, artifact, mime_type, content, output_text, tokens_used) '
+                . 'VALUES (:generation_id, :artifact, :mime_type, :content, :output_text, :tokens_used)'
             );
 
-            $insert->execute([
-                ':generation_id' => $generationId,
-                ':mime_type' => 'application/json',
-                ':content' => null,
-                ':output_text' => $plan,
-            ]);
-
-            $insert->execute([
-                ':generation_id' => $generationId,
-                ':mime_type' => 'text/markdown',
-                ':content' => null,
-                ':output_text' => $draft,
-            ]);
-
-            $insert->execute([
-                ':generation_id' => $generationId,
-                ':mime_type' => 'text/html',
-                ':content' => null,
-                ':output_text' => $html,
-            ]);
-
-            $insert->execute([
-                ':generation_id' => $generationId,
-                ':mime_type' => 'text/plain',
-                ':content' => null,
-                ':output_text' => $plainText,
-            ]);
+            foreach ($records as $record) {
+                $insert->execute([
+                    ':generation_id' => $record['generation_id'],
+                    ':artifact' => $record['artifact'],
+                    ':mime_type' => $record['mime_type'],
+                    ':content' => $record['content'],
+                    ':output_text' => $record['output_text'],
+                    ':tokens_used' => $record['tokens_used'],
+                ]);
+            }
 
             $this->pdo->commit();
         } catch (Throwable $exception) {
@@ -239,6 +354,52 @@ final class TailorCvJobHandler implements JobHandlerInterface
         $template = $templateValue !== '' ? $templateValue : PromptLibrary::tailorPrompt();
         $jobTitle = $this->optionalString($payload, 'job_title');
         $company = $this->optionalString($payload, 'company');
+        $competencyList = $this->prepareCompetencyList($payload);
+
+        $cvSections = $this->optionalString($payload, 'cv_sections');
+        $cvSections = $cvSections !== '' ? $cvSections : $cvMarkdown;
+
+        return strtr($template, [
+            '{{title}}' => $jobTitle !== '' ? $jobTitle : 'Not specified',
+            '{{company}}' => $company !== '' ? $company : 'Not specified',
+            '{{competencies}}' => $competencyList !== '' ? $competencyList : 'Not specified',
+            '{{cv_sections}}' => $cvSections,
+        ]);
+    }
+
+    /**
+     * Build the cover letter instructions using the dedicated template and contextual data.
+     *
+     * Producing a rich prompt here keeps the AI call focused on the relevant accomplishments and tone.
+     */
+    private function buildCoverLetterPrompt(
+        array $payload,
+        string $plan,
+        string $jobDescription,
+        string $cvMarkdown
+    ): string {
+        $template = PromptLibrary::coverLetterPrompt();
+        $jobTitle = $this->optionalString($payload, 'job_title');
+        $company = $this->optionalString($payload, 'company');
+        $competencyList = $this->prepareCompetencyList($payload);
+        $jobExcerpt = $this->truncateContent($jobDescription, 2000);
+        $cvExcerpt = $this->truncateContent($cvMarkdown, 2000);
+
+        return strtr($template, [
+            '{{title}}' => $jobTitle !== '' ? $jobTitle : 'Not specified',
+            '{{company}}' => $company !== '' ? $company : 'Not specified',
+            '{{competencies}}' => $competencyList !== '' ? $competencyList : 'Not specified',
+            '{{job_description}}' => $jobExcerpt,
+            '{{cv_sections}}' => $cvExcerpt,
+            '{{plan}}' => trim($plan),
+        ]);
+    }
+
+    /**
+     * Normalise the competencies payload into a readable comma-separated string.
+     */
+    private function prepareCompetencyList(array $payload): string
+    {
         $competencies = $payload['competencies'] ?? [];
 
         if (is_array($competencies)) {
@@ -254,20 +415,27 @@ final class TailorCvJobHandler implements JobHandlerInterface
                     return $value !== '';
                 }
             ));
-            $competencyList = implode(', ', $cleaned);
-        } else {
-            $competencyList = trim((string) $competencies);
+
+            return implode(', ', $cleaned);
         }
 
-        $cvSections = $this->optionalString($payload, 'cv_sections');
-        $cvSections = $cvSections !== '' ? $cvSections : $cvMarkdown;
+        return trim((string) $competencies);
+    }
 
-        return strtr($template, [
-            '{{title}}' => $jobTitle !== '' ? $jobTitle : 'Not specified',
-            '{{company}}' => $company !== '' ? $company : 'Not specified',
-            '{{competencies}}' => $competencyList !== '' ? $competencyList : 'Not specified',
-            '{{cv_sections}}' => $cvSections,
-        ]);
+    /**
+     * Trim long-form content to keep prompts within manageable limits for the model.
+     */
+    private function truncateContent(string $content, int $limit): string
+    {
+        if ($limit <= 0) {
+            return $content;
+        }
+
+        if (mb_strlen($content) <= $limit) {
+            return $content;
+        }
+
+        return mb_substr($content, 0, $limit) . '…';
     }
 
     /**

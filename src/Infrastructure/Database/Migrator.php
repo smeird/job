@@ -118,6 +118,24 @@ class Migrator
         SQL;
 
         $this->pdo->exec($sql);
+        $this->ensureGenerationOutputsArtifactColumn();
+    }
+
+    /**
+     * Ensure the generation outputs table exposes the artifact discriminator column.
+     *
+     * Adding the column in place allows existing installs to persist multiple artifacts per
+     * generation without requiring a manual migration during the next request cycle.
+     */
+    private function ensureGenerationOutputsArtifactColumn(): void
+    {
+        $statement = $this->pdo->query("SHOW COLUMNS FROM generation_outputs LIKE 'artifact'");
+
+        if ($statement === false || $statement->fetch() === false) {
+            $this->pdo->exec(
+                "ALTER TABLE generation_outputs ADD COLUMN artifact VARCHAR(64) NOT NULL DEFAULT 'cv' AFTER generation_id"
+            );
+        }
     }
 
     /**
@@ -271,6 +289,7 @@ class Migrator
         CREATE TABLE IF NOT EXISTS generation_outputs (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             generation_id BIGINT UNSIGNED NOT NULL,
+            artifact VARCHAR(64) NOT NULL DEFAULT 'cv',
             mime_type VARCHAR(191) NULL,
             content LONGBLOB NULL,
             output_text LONGTEXT NULL,

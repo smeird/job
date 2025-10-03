@@ -67,8 +67,8 @@ final class TailorController
         $userId = (int) $user['user_id'];
 
         return $this->renderer->render($response, 'tailor', [
-            'title' => 'Tailor your CV',
-            'subtitle' => 'Pair your CV with a job description and queue a generation.',
+            'title' => 'Tailor your application',
+            'subtitle' => 'Pair your CV with a job description to create a tailored CV and cover letter.',
             'fullWidth' => true,
             'navLinks' => $this->navLinks('tailor'),
             'email' => $user['email'],
@@ -139,7 +139,7 @@ final class TailorController
      * Map the provided generation rows into the structure expected by the wizard.
      *
      * Centralising this logic ensures every view receives consistent download
-     * links that now remain permanently accessible once a run is complete.
+     * groups that now remain permanently accessible once a run is complete.
 
      *
      * @param array<int, array<string, mixed>> $generations
@@ -157,12 +157,29 @@ final class TailorController
             if ($status === 'completed' && $id > 0) {
                 $availableFormats = $this->generationDownloadService->availableFormats($id);
 
-                foreach ($availableFormats as $format) {
-                    $downloads[$format] = sprintf(
-                        '/generations/%d/download?format=%s',
-                        $id,
-                        rawurlencode($format)
-                    );
+                foreach ($availableFormats as $artifact => $formats) {
+                    if (!is_array($formats) || $formats === []) {
+                        continue;
+                    }
+
+                    $links = [];
+
+                    foreach ($formats as $format) {
+                        $links[$format] = sprintf(
+                            '/generations/%d/download?artifact=%s&format=%s',
+                            $id,
+                            rawurlencode((string) $artifact),
+                            rawurlencode((string) $format)
+                        );
+                    }
+
+                    if ($links !== []) {
+                        $downloads[] = [
+                            'artifact' => (string) $artifact,
+                            'label' => $this->artifactLabel((string) $artifact),
+                            'links' => $links,
+                        ];
+                    }
                 }
             }
 
@@ -184,7 +201,7 @@ final class TailorController
     {
         $links = [
             'dashboard' => ['href' => '/', 'label' => 'Dashboard'],
-            'tailor' => ['href' => '/tailor', 'label' => 'Tailor CV'],
+            'tailor' => ['href' => '/tailor', 'label' => 'Tailor CV & letter'],
             'documents' => ['href' => '/documents', 'label' => 'Documents'],
             'applications' => ['href' => '/applications', 'label' => 'Applications'],
             'usage' => ['href' => '/usage', 'label' => 'Usage'],
@@ -198,6 +215,18 @@ final class TailorController
                 'current' => $key === $current,
             ];
         }, array_keys($links), $links);
+    }
+
+    /**
+     * Produce a human-friendly label for the supplied artifact identifier.
+     */
+    private function artifactLabel(string $artifact): string
+    {
+        if ($artifact === 'cover_letter') {
+            return 'Cover letter';
+        }
+
+        return 'Tailored CV';
     }
 
     /**
