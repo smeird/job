@@ -282,8 +282,93 @@ class Converter
         $options = new Options();
         $options->set('isRemoteEnabled', false);
 
+        $styles = <<<'CSS'
+@page {
+    margin: 2.5cm;
+}
+
+body {
+    margin: 0;
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-size: 11pt;
+    line-height: 1.5;
+    color: #111827;
+}
+
+p {
+    margin: 0 0 12pt;
+}
+
+p:last-child {
+    margin-bottom: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: 'Calibri', 'Arial', sans-serif;
+    font-weight: bold;
+    color: #111827;
+    margin: 0;
+}
+
+h1 {
+    font-size: 20pt;
+    margin-bottom: 12pt;
+}
+
+h2 {
+    font-size: 16pt;
+    margin-bottom: 8pt;
+}
+
+h3,
+h4,
+h5,
+h6 {
+    font-size: 13pt;
+    margin-bottom: 6pt;
+}
+
+ul,
+ol {
+    margin: 0 0 6pt 0;
+    padding-left: 0.7cm;
+}
+
+li {
+    margin: 0 0 6pt;
+}
+
+li:last-child {
+    margin-bottom: 0;
+}
+
+li p {
+    margin: 0;
+}
+CSS;
+
+        $template = <<<HTML
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+{$styles}
+</style>
+</head>
+<body>
+{$html}
+</body>
+</html>
+HTML;
+
         $dompdf = new Dompdf($options);
-        $dompdf->loadHtml($html);
+        $dompdf->loadHtml($template);
         $dompdf->setPaper('A4', 'portrait');
         $dompdf->render();
 
