@@ -74,13 +74,13 @@ class UsageService
             $completionTokens = (int) ($metadata['completion_tokens'] ?? 0);
             $totalTokens = (int) ($metadata['total_tokens'] ?? $row['tokens_used'] ?? 0);
             $costPence = (int) ($row['cost_pence'] ?? 0);
-            $model = (string) ($metadata['model'] ?? 'unknown');
+            $model = $this->resolveModelFromMetadata($metadata);
 
             $entry = [
                 'id' => (int) ($row['id'] ?? 0),
                 'provider' => (string) ($row['provider'] ?? ''),
                 'endpoint' => (string) ($row['endpoint'] ?? ''),
-                'model' => $model !== '' ? $model : 'unknown',
+                'model' => $model,
                 'prompt_tokens' => $promptTokens,
                 'completion_tokens' => $completionTokens,
                 'total_tokens' => $totalTokens,
@@ -114,6 +114,38 @@ class UsageService
                 'lifetime' => $lifetimeTotals,
             ],
         ];
+    }
+
+    /**
+     * Resolve the most accurate model identifier from stored metadata.
+     *
+     * The method prefers the requested model so fallback runs reflect the configuration the
+     * application actually attempted before considering legacy metadata fields. This keeps the
+     * usage table consistent even when providers echo unexpected model names in their responses.
+     *
+     * @param array<string, mixed> $metadata Usage metadata captured at request time.
+     */
+    private function resolveModelFromMetadata(array $metadata): string
+    {
+        $requested = isset($metadata['model_requested']) ? (string) $metadata['model_requested'] : '';
+
+        if ($requested !== '') {
+            return $requested;
+        }
+
+        $primary = isset($metadata['model']) ? (string) $metadata['model'] : '';
+
+        if ($primary !== '') {
+            return $primary;
+        }
+
+        $reported = isset($metadata['model_reported']) ? (string) $metadata['model_reported'] : '';
+
+        if ($reported !== '') {
+            return $reported;
+        }
+
+        return 'unknown';
     }
 
     /**
