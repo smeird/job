@@ -85,6 +85,7 @@ class HomeController
             'tailor' => ['href' => '/tailor', 'label' => 'Tailor CV & letter'],
             'documents' => ['href' => '/documents', 'label' => 'Documents'],
             'applications' => ['href' => '/applications', 'label' => 'Applications'],
+            'contact' => ['href' => '/profile/contact-details', 'label' => 'Contact details'],
             'usage' => ['href' => '/usage', 'label' => 'Usage'],
             'retention' => ['href' => '/retention', 'label' => 'Retention'],
         ];

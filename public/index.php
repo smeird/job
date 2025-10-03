@@ -6,12 +6,15 @@ use App\Bootstrap;
 use App\Controllers\AuthController;
 use App\Applications\JobApplicationRepository;
 use App\Applications\JobApplicationService;
+use App\Contacts\ContactDetailsRepository;
+use App\Contacts\ContactDetailsService;
 use App\Controllers\DocumentController;
 use App\Controllers\JobApplicationController;
 use App\Controllers\GenerationController;
 use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
 use App\Controllers\TailorController;
+use App\Controllers\ContactDetailsController;
 use App\Controllers\RetentionController;
 use App\Documents\DocumentPreviewer;
 use App\Documents\DocumentRepository;
@@ -117,8 +120,20 @@ $container->set(JobApplicationController::class, static function (Container $c):
     );
 });
 
+$container->set(ContactDetailsRepository::class, static function (Container $c): ContactDetailsRepository {
+    return new ContactDetailsRepository($c->get(\PDO::class));
+});
+
+$container->set(ContactDetailsService::class, static function (Container $c): ContactDetailsService {
+    return new ContactDetailsService($c->get(ContactDetailsRepository::class));
+});
+
 $container->set(GenerationRepository::class, static function (Container $c): GenerationRepository {
-    return new GenerationRepository($c->get(\PDO::class), $c->get(DocumentPreviewer::class));
+    return new GenerationRepository(
+        $c->get(\PDO::class),
+        $c->get(DocumentPreviewer::class),
+        $c->get(ContactDetailsRepository::class)
+    );
 });
 
 $container->set(GenerationLogRepository::class, static function (Container $c): GenerationLogRepository {
@@ -172,6 +187,13 @@ $container->set(TailorController::class, static function (Container $c): TailorC
         $c->get(GenerationRepository::class),
         $c->get(GenerationLogRepository::class),
         $c->get(GenerationDownloadService::class)
+    );
+});
+
+$container->set(ContactDetailsController::class, static function (Container $c): ContactDetailsController {
+    return new ContactDetailsController(
+        $c->get(Renderer::class),
+        $c->get(ContactDetailsService::class)
     );
 });
 

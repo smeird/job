@@ -8,6 +8,7 @@ $navLinks = [
     ['href' => '/tailor', 'label' => 'Tailor CV & letter', 'current' => false],
     ['href' => '/documents', 'label' => 'Documents', 'current' => false],
     ['href' => '/applications', 'label' => 'Applications', 'current' => false],
+    ['href' => '/profile/contact-details', 'label' => 'Contact details', 'current' => false],
     ['href' => '/usage', 'label' => 'Usage', 'current' => true],
     ['href' => '/retention', 'label' => 'Retention', 'current' => false],
 ];
