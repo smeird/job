@@ -1,5 +1,5 @@
 <?php
-/** @var array{filename: string, created_at: string, size: string, mime_type: string, type_label: string, preview: string, id: int|null} $document */
+/** @var array{filename: string, created_at: string, size: string, mime_type: string, type_label: string, preview: string, id: int|null, download_url: string|null} $document */
 /** @var string $title */
 /** @var string $subtitle */
 /** @var array<int, array{href: string, label: string, current: bool}> $navLinks */
@@ -63,6 +63,11 @@
                     <h3 class="text-lg font-semibold text-white">Contents</h3>
                     <p class="text-sm text-slate-400">Plain text preview extracted for quick review.</p>
                 </div>
+                <?php if (!empty($document['download_url'])) : ?>
+                    <a href="<?= htmlspecialchars($document['download_url'], ENT_QUOTES) ?>" class="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-100 transition hover:border-emerald-300 hover:text-emerald-50">
+                        Download original
+                    </a>
+                <?php endif; ?>
             </header>
             <div class="mt-4 max-h-[540px] overflow-auto rounded-xl border border-slate-800/60 bg-slate-950/60 p-4 text-sm leading-relaxed text-slate-200">
                 <?php if ($document['preview'] === '') : ?>
