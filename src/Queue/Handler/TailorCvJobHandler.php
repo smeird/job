@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Queue\Handler;
 
 use App\AI\OpenAIProvider;
-use App\Conversion\Converter;
 use App\Prompts\PromptLibrary;
 use App\Queue\Job;
 use App\Queue\JobHandlerInterface;
@@ -93,20 +92,15 @@ final class TailorCvJobHandler implements JobHandlerInterface
         $coverLetterDraft = $this->generateCoverLetterDraft($provider, $coverLetterPrompt);
         $coverLetterConverted = $this->convertDraft($coverLetterDraft);
 
-        $converter = new Converter($this->markdownConverter);
-        $cvBinaries = $this->generateBinaryVariants($converter, $draft);
-        $coverLetterBinaries = $this->generateBinaryVariants($converter, $coverLetterDraft);
-
         $records = array_merge(
             [$this->buildTextOutput($generationId, 'cv_plan', 'application/json', $plan)],
-            $this->createDocumentOutputs($generationId, 'cv', $draft, $converted['html'], $converted['text'], $cvBinaries),
+            $this->createDocumentOutputs($generationId, 'cv', $draft, $converted['html'], $converted['text']),
             $this->createDocumentOutputs(
                 $generationId,
                 'cover_letter',
                 $coverLetterDraft,
                 $coverLetterConverted['html'],
-                $coverLetterConverted['text'],
-                $coverLetterBinaries
+                $coverLetterConverted['text']
             )
         );
 
@@ -212,27 +206,11 @@ final class TailorCvJobHandler implements JobHandlerInterface
     }
 
     /**
-     * Generate DOCX and PDF binaries for the supplied markdown document.
-     *
-     * Having a shared helper keeps binary conversion consistent across CV and cover letter outputs.
-     *
-     * @return array<string, string>
-     */
-    private function generateBinaryVariants(Converter $converter, string $markdown): array
-    {
-        try {
-            return $converter->renderFormats($markdown);
-        } catch (Throwable $exception) {
-            throw new RuntimeException('Failed to convert markdown into binary formats.', 0, $exception);
-        }
-    }
-
-    /**
      * Build the output rows associated with a specific document artifact.
      *
-     * Centralising the mapping keeps persistence logic compact and avoids duplicating MIME strings.
+     * Centralising the mapping keeps persistence logic compact, storing the markdown and rendered
+     * text variants while binary conversions occur at download time.
      *
-     * @param array<string, string> $binaries
      * @return array<int, array<string, mixed>>
      */
     private function createDocumentOutputs(
@@ -240,32 +218,13 @@ final class TailorCvJobHandler implements JobHandlerInterface
         string $artifact,
         string $markdown,
         string $html,
-        string $plainText,
-        array $binaries
+        string $plainText
     ): array {
         $outputs = [];
 
         $outputs[] = $this->buildTextOutput($generationId, $artifact, 'text/markdown', $markdown);
         $outputs[] = $this->buildTextOutput($generationId, $artifact, 'text/html', $html);
         $outputs[] = $this->buildTextOutput($generationId, $artifact, 'text/plain', $plainText);
-
-        if (isset($binaries['docx']) && $binaries['docx'] !== '') {
-            $outputs[] = $this->buildBinaryOutput(
-                $generationId,
-                $artifact,
-                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                $binaries['docx']
-            );
-        }
-
-        if (isset($binaries['pdf']) && $binaries['pdf'] !== '') {
-            $outputs[] = $this->buildBinaryOutput(
-                $generationId,
-                $artifact,
-                'application/pdf',
-                $binaries['pdf']
-            );
-        }
 
         return $outputs;
     }
@@ -283,23 +242,6 @@ final class TailorCvJobHandler implements JobHandlerInterface
             'mime_type' => $mimeType,
             'content' => null,
             'output_text' => $content,
-            'tokens_used' => null,
-        ];
-    }
-
-    /**
-     * Create a binary generation output payload ready for persistence.
-     *
-     * @return array<string, mixed>
-     */
-    private function buildBinaryOutput(int $generationId, string $artifact, string $mimeType, string $binary): array
-    {
-        return [
-            'generation_id' => $generationId,
-            'artifact' => $artifact,
-            'mime_type' => $mimeType,
-            'content' => $binary,
-            'output_text' => null,
             'tokens_used' => null,
         ];
     }

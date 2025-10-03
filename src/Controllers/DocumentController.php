@@ -23,6 +23,12 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
+use Slim\Psr7\Stream;
+use function fopen;
+use function fwrite;
+use function rewind;
+use function strlen;
+use function str_replace;
 use function strtolower;
 use function strtoupper;
 
@@ -201,9 +207,60 @@ final class DocumentController
                 'size' => $this->formatBytes($document->sizeBytes()),
                 'mime_type' => $document->mimeType(),
                 'type_label' => $documentType,
+                'download_url' => $document->id() !== null
+                    ? '/documents/' . rawurlencode((string) $document->id()) . '/download'
+                    : null,
                 'preview' => $preview,
             ],
         ]);
+    }
+
+    /**
+     * Stream the requested document to the browser as a download.
+     *
+     * Exposing a download endpoint keeps uploaded files accessible in their original format.
+     * @param array<string, string> $args
+     */
+    public function download(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if (!is_array($user) || !isset($user['user_id'])) {
+            return $response->withHeader('Location', '/auth/login')->withStatus(302);
+        }
+
+        $userId = (int) $user['user_id'];
+        $documentId = isset($args['id']) ? (int) $args['id'] : 0;
+
+        try {
+            $document = $this->documentService->getForUser($userId, $documentId);
+        } catch (RuntimeException $exception) {
+            return $response
+                ->withHeader('Location', '/documents?status=' . rawurlencode('The requested document could not be found.'))
+                ->withStatus(302);
+        }
+
+        $resource = fopen('php://temp', 'wb+');
+
+        if ($resource === false) {
+            return $response
+                ->withHeader('Location', '/documents?status=' . rawurlencode('We could not prepare the download stream.'))
+                ->withStatus(302);
+        }
+
+        $content = $document->content();
+        fwrite($resource, $content);
+        rewind($resource);
+
+        $stream = new Stream($resource);
+        $disposition = sprintf('attachment; filename="%s"', $this->sanitizeFilename($document->filename()));
+
+        return $response
+            ->withBody($stream)
+            ->withHeader('Content-Type', $document->mimeType())
+            ->withHeader('Content-Disposition', $disposition)
+            ->withHeader('Cache-Control', 'no-store')
+            ->withHeader('Content-Length', (string) strlen($content));
     }
 
     /**
@@ -311,7 +368,7 @@ final class DocumentController
         }
 
         try {
-            $download = $this->generationDownloadService->fetch($generationId, $userId, 'md');
+            $download = $this->generationDownloadService->fetch($generationId, $userId, 'cv', 'md');
         } catch (GenerationNotFoundException | GenerationAccessDeniedException $exception) {
             return $response
                 ->withHeader('Location', '/documents?status=' . rawurlencode('The tailored CV could not be found.'))
@@ -353,7 +410,7 @@ final class DocumentController
      * Map the provided data set into the desired shape.
      *
      * @param array<int, \App\Documents\Document> $documents
-     * @return array<int, array{id: int|null, filename: string, created_at: string, size: string, view_url: string|null}>
+     * @return array<int, array{id: int|null, filename: string, created_at: string, size: string, view_url: string|null, download_url: string|null}>
      */
     private function mapDocuments(array $documents): array
     {
@@ -365,6 +422,9 @@ final class DocumentController
                 'size' => $this->formatBytes($document->sizeBytes()),
                 'view_url' => $document->id() !== null
                     ? '/documents/' . rawurlencode((string) $document->id())
+                    : null,
+                'download_url' => $document->id() !== null
+                    ? '/documents/' . rawurlencode((string) $document->id()) . '/download'
                     : null,
             ];
         }, $documents);
@@ -583,6 +643,14 @@ final class DocumentController
         }
 
         return 'Download file';
+    }
+
+    /**
+     * Remove characters that could interfere with HTTP headers when streaming files.
+     */
+    private function sanitizeFilename(string $filename): string
+    {
+        return str_replace(['"', '\\', "\r", "\n"], '', $filename);
     }
 
     /**

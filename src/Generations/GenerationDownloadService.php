@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace App\Generations;
 
+use App\Conversion\Converter;
 use PDO;
 use PDOException;
 use RuntimeException;
+use Throwable;
 
+use function error_log;
 use function in_array;
-use function is_resource;
 use function sprintf;
-use function stream_get_contents;
 use function str_replace;
 use function strtolower;
+use function strtoupper;
 use function trim;
 
 final class GenerationDownloadService
@@ -26,6 +28,9 @@ final class GenerationDownloadService
     /** @var PDO */
     private $pdo;
 
+    /** @var Converter */
+    private $converter;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -34,6 +39,7 @@ final class GenerationDownloadService
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
+        $this->converter = new Converter();
     }
 
     /**
@@ -64,9 +70,9 @@ final class GenerationDownloadService
             case 'md':
                 return $this->fetchMarkdown($generationId, $artifactKey);
             case 'docx':
-                return $this->fetchBinary($generationId, $artifactKey, 'docx', self::FORMAT_DOCX_MIME);
+                return $this->fetchConverted($generationId, $artifactKey, 'docx', self::FORMAT_DOCX_MIME);
             case 'pdf':
-                return $this->fetchBinary($generationId, $artifactKey, 'pdf', self::FORMAT_PDF_MIME);
+                return $this->fetchConverted($generationId, $artifactKey, 'pdf', self::FORMAT_PDF_MIME);
             default:
                 throw new RuntimeException('Unsupported format requested.');
         }
@@ -76,7 +82,8 @@ final class GenerationDownloadService
      * Determine which output formats are available for the supplied generation.
      *
      * Centralising the lookup keeps controllers from duplicating database checks
-     * while ensuring the UI only exposes download links that will succeed.
+     * while ensuring the UI only exposes download links that can be rendered from
+     * the stored markdown when a user requests a download.
      *
      * @return array<string, array<int, string>> Map of artifact to list of formats.
      */
@@ -86,23 +93,11 @@ final class GenerationDownloadService
         $artifacts = [self::ARTIFACT_CV, self::ARTIFACT_COVER_LETTER];
 
         foreach ($artifacts as $artifact) {
-            $formats = [];
-
-            if ($this->hasMarkdownOutput($generationId, $artifact)) {
-                $formats[] = 'md';
+            if (!$this->hasMarkdownOutput($generationId, $artifact)) {
+                continue;
             }
 
-            if ($this->hasBinaryOutput($generationId, $artifact, self::FORMAT_DOCX_MIME)) {
-                $formats[] = 'docx';
-            }
-
-            if ($this->hasBinaryOutput($generationId, $artifact, self::FORMAT_PDF_MIME)) {
-                $formats[] = 'pdf';
-            }
-
-            if ($formats !== []) {
-                $availability[$artifact] = $formats;
-            }
+            $availability[$artifact] = ['md', 'docx', 'pdf'];
         }
 
         return $availability;
@@ -115,6 +110,84 @@ final class GenerationDownloadService
      * @return array{filename: string, mime_type: string, content: string}
      */
     private function fetchMarkdown(int $generationId, string $artifact): array
+    {
+        $markdown = $this->loadMarkdown($generationId, $artifact);
+
+        return [
+            'filename' => $this->buildFilename($generationId, $artifact, 'md'),
+            'mime_type' => 'text/markdown; charset=utf-8',
+            'content' => $markdown,
+        ];
+    }
+
+    /**
+     * Convert the stored markdown into the requested binary format during download.
+     *
+     * Converting on demand removes the need for the queue worker to persist large binaries
+     * while still ensuring the user can fetch DOCX and PDF variants when required.
+     *
+     * @return array{filename: string, mime_type: string, content: string}
+     */
+    private function fetchConverted(int $generationId, string $artifact, string $extension, string $mimeType): array
+    {
+        $markdown = $this->loadMarkdown($generationId, $artifact);
+
+        try {
+            $rendered = $this->converter->renderFormats($markdown);
+        } catch (Throwable $exception) {
+            error_log(
+                sprintf(
+                    'GenerationDownloadService failed to convert %s for generation %d: %s',
+                    strtoupper($extension),
+                    $generationId,
+                    $exception->getMessage()
+                )
+            );
+
+            throw new GenerationOutputUnavailableException('Failed to convert markdown into the requested format.');
+        }
+
+        if (!isset($rendered[$extension])) {
+            throw new GenerationOutputUnavailableException('Requested format is not available for this generation.');
+        }
+
+        $binary = (string) $rendered[$extension];
+
+        if ($binary === '') {
+            throw new GenerationOutputUnavailableException('Requested format is not available for this generation.');
+        }
+
+        return [
+            'filename' => $this->buildFilename($generationId, $artifact, $extension),
+            'mime_type' => $mimeType,
+            'content' => $binary,
+        ];
+    }
+
+    /**
+     * Confirm whether the generation stores a markdown variant.
+     *
+     * The helper mirrors fetchMarkdown without streaming the content so we can
+     * expose download buttons only when the stored draft is usable.
+     */
+    private function hasMarkdownOutput(int $generationId, string $artifact): bool
+    {
+        try {
+            $this->loadMarkdown($generationId, $artifact);
+
+            return true;
+        } catch (GenerationOutputUnavailableException $exception) {
+            return false;
+        }
+    }
+
+    /**
+     * Retrieve the stored markdown body for the requested artifact.
+     *
+     * Centralising the lookup keeps data access consistent across markdown downloads
+     * and on-demand binary conversions, ensuring both flows share validation.
+     */
+    private function loadMarkdown(int $generationId, string $artifact): string
     {
         $statement = $this->pdo->prepare(
             'SELECT output_text FROM generation_outputs WHERE generation_id = :generation_id '
@@ -138,106 +211,7 @@ final class GenerationDownloadService
             throw new GenerationOutputUnavailableException('Markdown output is empty for this generation.');
         }
 
-        return [
-            'filename' => $this->buildFilename($generationId, $artifact, 'md'),
-            'mime_type' => 'text/markdown; charset=utf-8',
-            'content' => $markdown,
-        ];
-    }
-
-    /**
-     * Fetch the binary from its provider.
-     *
-     * Centralised fetching makes upstream integrations easier to evolve.
-     * @return array{filename: string, mime_type: string, content: string}
-     */
-    private function fetchBinary(int $generationId, string $artifact, string $extension, string $expectedMime): array
-    {
-        $statement = $this->pdo->prepare(
-            'SELECT mime_type, content FROM generation_outputs WHERE generation_id = :generation_id '
-            . 'AND artifact = :artifact AND mime_type = :mime_type AND content IS NOT NULL '
-            . 'ORDER BY created_at DESC, id DESC LIMIT 1'
-        );
-        $statement->bindValue(':generation_id', $generationId, PDO::PARAM_INT);
-        $statement->bindValue(':artifact', $artifact);
-        $statement->bindValue(':mime_type', $expectedMime);
-        $statement->execute();
-
-        $row = $statement->fetch();
-
-        if ($row === false) {
-            throw new GenerationOutputUnavailableException('Requested format is not available for this generation.');
-        }
-
-        $rawContent = $row['content'];
-
-        if (is_resource($rawContent)) {
-            $content = stream_get_contents($rawContent);
-        } else {
-            $content = (string) $rawContent;
-        }
-
-        if ($content === '' || $content === false) {
-            throw new GenerationOutputUnavailableException('Stored file content is empty.');
-        }
-
-        return [
-            'filename' => $this->buildFilename($generationId, $artifact, $extension),
-            'mime_type' => $row['mime_type'] ?? $expectedMime,
-            'content' => (string) $content,
-        ];
-    }
-
-    /**
-     * Confirm whether the generation stores a markdown variant.
-     *
-     * The helper mirrors fetchMarkdown without streaming the content so we can
-     * expose download buttons only when the stored draft is usable.
-     */
-    private function hasMarkdownOutput(int $generationId, string $artifact): bool
-    {
-        $statement = $this->pdo->prepare(
-            'SELECT output_text FROM generation_outputs WHERE generation_id = :generation_id '
-            . 'AND artifact = :artifact AND mime_type = :mime_type AND output_text IS NOT NULL '
-            . 'ORDER BY created_at DESC, id DESC LIMIT 1'
-        );
-        $statement->bindValue(':generation_id', $generationId, PDO::PARAM_INT);
-        $statement->bindValue(':artifact', $artifact);
-        $statement->bindValue(':mime_type', 'text/markdown');
-        $statement->execute();
-
-        $row = $statement->fetch();
-
-        if ($row === false) {
-            return false;
-        }
-
-        $markdown = trim((string) $row['output_text']);
-
-        return $markdown !== '';
-    }
-
-    /**
-     * Confirm whether the generation stores the desired binary variant.
-     *
-     * Checking availability up-front avoids triggering download errors when the
-     * requested format has not been generated by the background worker.
-     */
-    private function hasBinaryOutput(int $generationId, string $artifact, string $expectedMime): bool
-    {
-        $statement = $this->pdo->prepare(
-            'SELECT 1 FROM generation_outputs WHERE generation_id = :generation_id '
-            . 'AND artifact = :artifact AND mime_type = :mime_type AND content IS NOT NULL '
-            . 'ORDER BY created_at DESC, id DESC LIMIT 1'
-        );
-        $statement->bindValue(':generation_id', $generationId, PDO::PARAM_INT);
-        $statement->bindValue(':artifact', $artifact);
-        $statement->bindValue(':mime_type', $expectedMime);
-        $statement->execute();
-
-        $row = $statement->fetch();
-
-        return $row !== false;
+        return $markdown;
     }
 
     /**
