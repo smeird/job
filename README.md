@@ -6,13 +6,13 @@ This repository contains the production code that powers the job.smeird.com work
 
 * **Passwordless authentication and recovery.** Registration and login rely on short-lived QR-delivered passcodes, are rate-limited, and produce sessions plus downloadable backup codes for break-glass access.【F:src/Services/AuthService.php†L39-L205】【F:resources/views/auth/qr.php†L1-L78】
 * **Safe document handling.** Uploads are capped at 1&nbsp;MiB, are limited to DOCX/PDF/Markdown/Text formats, and undergo structure checks (e.g. macro detection) before storage.【F:src/Documents/DocumentValidator.php†L11-L154】
-* **Generation workflow with guarded downloads.** Tailored artefacts are produced through queued jobs and exposed through HMAC-protected links that honour per-user tokens, format scopes, and expirations.【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:src/Controllers/GenerationDownloadController.php†L29-L137】
+* **Generation workflow with permanent downloads.** Tailored artefacts are produced through queued jobs and exposed through authenticated links that remain available for the owning user across all generated formats.【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:src/Controllers/GenerationDownloadController.php†L29-L119】【F:src/Controllers/DocumentController.php†L446-L517】
 * **Spend and token insight.** A Tailwind/Tabulator/Highcharts dashboard visualises per-call usage, running totals, and monthly aggregates sourced from the `api_usage` table.【F:resources/views/usage.php†L10-L112】【F:src/Services/UsageService.php†L20-L134】【F:src/Routes.php†L153-L154】
 * **Retention governance.** A dedicated `retention_settings` table captures purge policy state and drives the CLI purge utility that clears documents, generation outputs, usage rows, and audit logs after the configured number of days.【F:src/Services/RetentionPolicyService.php†L13-L182】【F:bin/purge.php†L18-L63】
 
 ## Architecture at a glance
 
-* A PHP-DI container wires controllers, services, repositories, and middleware inside `public/index.php`, including QR passcode provisioning, rate limiters, and download token services.【F:public/index.php†L53-L167】
+* A PHP-DI container wires controllers, services, repositories, and middleware inside `public/index.php`, including QR passcode provisioning and rate limiters for protected areas of the site.【F:public/index.php†L53-L159】
 * Runtime bootstrap loads environment variables and normalises the application URL for downstream consumers.【F:src/Bootstrap.php†L12-L43】
 * Every HTTP request runs lightweight database migrations so runtime tables (users, pending passcodes, sessions, documents, generations, generation_outputs, api_usage, backup codes, audit logs, retention settings, jobs) exist before handling traffic.【F:public/index.php†L181-L186】【F:src/Infrastructure/Database/Migrator.php†L19-L205】
 * Additional SQL migrations live in `database/migrations` and can be applied out-of-band through the `bin/migrate.php` helper, which tracks state via the `schema_migrations` table.【F:bin/migrate.php†L21-L76】
@@ -60,15 +60,14 @@ flowchart LR
 
     subgraph Delivery
         G --> H[(generation_outputs table)]
-        H --> I[Signed download token]
-        I --> J[GenerationDownloadController]
-        J --> K[Secure link to user]
+        H --> I[GenerationDownloadController]
+        I --> J[Permanent link to user]
     end
 
-    K --> L[UsageService aggregates analytics]
+    J --> K[UsageService aggregates analytics]
 ```
 
-The flowchart shows how validated uploads move through queued generation work, produce signed download artefacts, and feed analytics summarised for the dashboard.【F:src/Documents/DocumentValidator.php†L11-L154】【F:bin/worker.php†L1-L68】【F:src/AI/OpenAIProvider.php†L52-L117】【F:src/Controllers/GenerationDownloadController.php†L29-L137】【F:src/Services/UsageService.php†L20-L134】
+The flowchart shows how validated uploads move through queued generation work, surface permanent download artefacts, and feed analytics summarised for the dashboard.【F:src/Documents/DocumentValidator.php†L11-L154】【F:bin/worker.php†L1-L68】【F:src/AI/OpenAIProvider.php†L52-L117】【F:src/Controllers/GenerationDownloadController.php†L29-L119】【F:src/Services/UsageService.php†L20-L134】
 
 ## Requirements
 
@@ -125,8 +124,6 @@ After these steps, point your virtual host at `public/index.php` and restart PHP
 | `APP_ENV`, `APP_DEBUG` | Standard Slim environment flags. | 【F:src/Bootstrap.php†L12-L43】 |
 | `APP_URL` | Canonical URL used in redirects and CSPs. | 【F:src/Bootstrap.php†L35-L43】 |
 | `APP_COOKIE_DOMAIN` | Domain used when setting secure session cookies. | 【F:public/index.php†L40-L47】 |
-| `APP_KEY` / `DOWNLOAD_TOKEN_SECRET` | Secret used to sign download tokens (set at least one). | 【F:public/index.php†L158-L171】 |
-| `DOWNLOAD_TOKEN_TTL` | Lifetime (seconds) for download URLs; defaults to 300. | 【F:public/index.php†L165-L169】 |
 | `DB_DSN` or `DB_DRIVER` + `DB_HOST`/`DB_PORT`/`DB_DATABASE`/`DB_SOCKET`/`DB_CHARSET`/`DB_USERNAME`/`DB_PASSWORD` | Database connection settings. | 【F:src/DB.php†L36-L78】 |
 | `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL_PLAN`, `OPENAI_MODEL_DRAFT`, `OPENAI_TARIFF_JSON`, `OPENAI_MAX_TOKENS` | OpenAI credentials, endpoints, tariff data, and token ceilings. | 【F:src/AI/OpenAIProvider.php†L52-L117】 |
 
@@ -149,7 +146,7 @@ The application also respects `DB_DATABASE=':memory:'` when `DB_DRIVER=sqlite`, 
 ## Document workflow highlights
 
 * Authenticated uploads are throttled at the middleware layer and validated server-side to ensure content integrity before insertion into the `documents` table.【F:src/Middleware/PathThrottleMiddleware.php†L49-L107】【F:src/Documents/DocumentValidator.php†L11-L154】
-* Generation downloads require a signed token that must match both the requested format and the owning user, and links expire automatically to prevent replay.【F:src/Controllers/GenerationDownloadController.php†L29-L116】
+* Generation downloads rely on session authentication and per-user database checks so completed outputs stay permanently available across markdown, DOCX, and PDF variants.【F:src/Controllers/GenerationDownloadController.php†L29-L119】【F:src/Generations/GenerationDownloadService.php†L32-L71】
 
 ## Testing & verification
 
