@@ -144,6 +144,8 @@ class Converter
      */
     private function convertMarkdownToDocx(string $markdown): string
     {
+        $this->assertDocxDependencies();
+
         $phpWord = new PhpWord();
         $phpWord->setDefaultFontName('Calibri');
         $phpWord->setDefaultFontSize(11);
@@ -217,6 +219,8 @@ class Converter
             if ($contents === false) {
                 throw new RuntimeException('Unable to read generated DOCX content.');
             }
+
+            $this->assertValidDocxBinary($contents);
         } finally {
             if (file_exists($tempPath)) {
                 @unlink($tempPath);
@@ -224,6 +228,41 @@ class Converter
         }
 
         return $contents;
+    }
+
+    /**
+     * Ensure the environment can generate DOCX files using PhpWord.
+     *
+     * Centralising the dependency check guarantees downloads fail fast when the
+     * required library or extensions are unavailable, preventing the delivery of
+     * corrupt Word documents to end users.
+     */
+    private function assertDocxDependencies(): void
+    {
+        if (!class_exists(PhpWord::class) || !class_exists(IOFactory::class)) {
+            throw new RuntimeException('DOCX generation requires the PhpWord library.');
+        }
+
+        if (!class_exists('ZipArchive') && !extension_loaded('zip')) {
+            throw new RuntimeException('DOCX generation requires the PHP zip extension.');
+        }
+    }
+
+    /**
+     * Confirm the generated binary resembles a valid DOCX archive.
+     *
+     * Verifying the ZIP signature protects downstream workflows from serving
+     * malformed files that Microsoft Word cannot open.
+     */
+    private function assertValidDocxBinary(string $binary): void
+    {
+        if ($binary === '') {
+            throw new RuntimeException('Generated DOCX file is empty.');
+        }
+
+        if (substr($binary, 0, 2) !== 'PK') {
+            throw new RuntimeException('Generated DOCX content is not a valid archive.');
+        }
     }
 
     /**
