@@ -356,88 +356,152 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
                 <p class="text-sm text-slate-400">Track each request from submission through completion.</p>
             </div>
         </div>
-        <div class="mt-6 overflow-hidden rounded-xl border border-slate-800/80">
-            <table class="min-w-full divide-y divide-slate-800 text-left text-sm text-slate-300">
-                <thead class="bg-slate-900/80 text-xs uppercase tracking-wide text-slate-500">
-                    <tr>
-                        <th class="px-4 py-3">Requested</th>
-                        <th class="px-4 py-3">Job description</th>
-                        <th class="px-4 py-3">CV</th>
-                        <th class="px-4 py-3">Model</th>
-                        <th class="px-4 py-3">Thinking time</th>
-                        <th class="px-4 py-3">Status</th>
-                        <th class="px-4 py-3 text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-800/60">
-                    <template x-if="generations.length === 0">
-                        <tr>
-                            <td colspan="7" class="px-4 py-5 text-center text-sm text-slate-400">
-                                No generations yet. Your queued requests will appear here.
-                            </td>
-                        </tr>
-                    </template>
-                    <template x-for="item in generations" :key="item.id">
-                        <tr class="hover:bg-slate-800/40">
-                            <td class="px-4 py-4 text-slate-300" x-text="formatDateTime(item.created_at)"></td>
-                            <td class="px-4 py-4 font-medium text-slate-200" x-text="item.job_document && item.job_document.filename ? item.job_document.filename : ''"></td>
-                            <td class="px-4 py-4" x-text="item.cv_document && item.cv_document.filename ? item.cv_document.filename : ''"></td>
-                            <td class="px-4 py-4" x-text="item.model"></td>
-                            <td class="px-4 py-4" x-text="(item.thinking_time || 0) + 's'"></td>
-                            <td class="px-4 py-4">
+        <div class="mt-6 space-y-4">
+            <template x-if="generations.length === 0">
+                <p class="rounded-xl border border-slate-800 bg-slate-900/60 p-5 text-sm text-slate-400">
+                    No generations yet. Your queued requests will appear here.
+                </p>
+            </template>
+            <template x-for="item in generations" :key="item.id">
+                <article class="rounded-xl border border-slate-800/80 bg-slate-900/60 p-4 text-sm text-slate-300">
+                    <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                        <div class="flex flex-1 items-start gap-3">
+                            <span
+                                class="flex h-10 w-10 items-center justify-center rounded-full border"
+                                :class="item.status === 'queued'
+                                    ? 'border-amber-400/40 bg-amber-500/10 text-amber-200'
+                                    : (item.status === 'failed'
+                                        ? 'border-rose-400/40 bg-rose-500/10 text-rose-200'
+                                        : (item.status === 'cancelled'
+                                            ? 'border-slate-600/60 bg-slate-800/60 text-slate-200'
+                                            : 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200'))"
+                                aria-hidden="true"
+                            >
+                                <template x-if="item.status === 'completed'">
+                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    </svg>
+                                </template>
+                                <template x-if="item.status === 'queued'">
+                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <path d="M12 6v6l3 3" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    </svg>
+                                </template>
+                                <template x-if="item.status === 'failed'">
+                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <path d="M6 6l12 12M6 18 18 6" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    </svg>
+                                </template>
+                                <template x-if="item.status === 'cancelled'">
+                                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                        <path d="m7 7 10 10M7 17 17 7" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    </svg>
+                                </template>
+                            </span>
+                            <div class="space-y-2">
                                 <span
-                                    class="inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-wide"
+                                    class="inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide"
                                     :class="item.status === 'queued'
                                         ? 'text-amber-200 border-amber-400/30 bg-amber-500/10'
                                         : (item.status === 'failed'
                                             ? 'text-rose-200 border-rose-400/40 bg-rose-500/10'
                                             : (item.status === 'cancelled'
-                                                ? 'text-slate-200 border-slate-500/40 bg-slate-800/40'
+                                                ? 'text-slate-200 border-slate-500/40 bg-slate-800/50'
                                                 : 'text-emerald-200 border-emerald-400/30 bg-emerald-500/10'))"
-                                    x-text="item.status"
-                                ></span>
-                            </td>
-                            <td class="px-4 py-4 text-right">
-                                <template x-if="item.status === 'completed' && Array.isArray(item.downloads) && item.downloads.length > 0">
-                                    <div class="flex flex-col items-end gap-3">
-                                        <template x-for="group in item.downloads" :key="group.artifact">
-                                            <div class="flex flex-col items-end gap-2">
-                                                <p class="text-[10px] font-semibold uppercase tracking-wide text-emerald-300" x-text="group.label"></p>
-                                                <div class="inline-flex flex-wrap justify-end gap-2">
-                                                    <template x-for="(link, format) in group.links" :key="format">
-                                                        <a
-                                                            :href="link"
-                                                            class="inline-flex items-center gap-2 rounded-lg border border-emerald-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100 transition hover:border-emerald-200 hover:text-emerald-50"
-                                                            x-text="downloadLabel(format)"
-                                                        ></a>
-                                                    </template>
-                                                </div>
-                                            </div>
-                                        </template>
-                                    </div>
-                                </template>
-                                <template x-if="item.status === 'queued'">
-                                    <button
-                                        type="button"
-                                        class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-rose-400/40 hover:bg-rose-500/10 hover:text-rose-100"
-                                        @click="cancelGeneration(item.id)"
-                                        :disabled="isCancellingGeneration(item.id)"
-                                        :class="isCancellingGeneration(item.id) ? 'cursor-not-allowed opacity-60' : ''"
-                                    >
-                                        <span x-show="!isCancellingGeneration(item.id)">Cancel</span>
-                                        <span x-show="isCancellingGeneration(item.id)" class="inline-flex items-center gap-2">
-                                            <svg class="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                                                <path d="M12 4v2m4.24.76l-1.42 1.42M20 12h-2m-.76 4.24l-1.42-1.42M12 20v-2m-4.24-.76l1.42-1.42M4 12h2m.76-4.24l1.42 1.42" stroke-linecap="round" stroke-linejoin="round"></path>
+                                >
+                                    <svg class="h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                        <circle cx="12" cy="12" r="6"></circle>
+                                    </svg>
+                                    <span x-text="item.status"></span>
+                                </span>
+                                <h4 class="text-sm font-semibold text-white">
+                                    <span x-text="item.job_document && item.job_document.filename ? item.job_document.filename : 'Manual submission'"></span>
+                                </h4>
+                                <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-400">
+                                    <span class="inline-flex items-center gap-1">
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                            <path d="M8 7V5a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            <path d="M5 11h14" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            <path d="M6 9h12v10a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V9Z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        </svg>
+                                        <span x-text="formatDateTime(item.created_at)"></span>
+                                    </span>
+                                    <template x-if="item.cv_document && item.cv_document.filename">
+                                        <span class="inline-flex items-center gap-1">
+                                            <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                                <path d="M4 4h9l5 5v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1Z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                <path d="M13 4v5h5" stroke-linecap="round" stroke-linejoin="round"></path>
                                             </svg>
-                                            Removing…
+                                            <span x-text="item.cv_document.filename"></span>
                                         </span>
-                                    </button>
-                                </template>
-                            </td>
-                        </tr>
-                    </template>
-                </tbody>
-            </table>
+                                    </template>
+                                    <span class="inline-flex items-center gap-1">
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                            <path d="M7 4h10l3 6-8 10-8-10 3-6Z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        </svg>
+                                        <span x-text="item.model"></span>
+                                    </span>
+                                    <span class="inline-flex items-center gap-1">
+                                        <svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                            <path d="M12 6v6l2.5 2.5" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            <circle cx="12" cy="12" r="9" stroke-linecap="round" stroke-linejoin="round"></circle>
+                                        </svg>
+                                        <span x-text="(item.thinking_time || 0) + 's'"></span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col items-stretch justify-end gap-3 md:items-end">
+                            <template x-if="item.status === 'completed' && Array.isArray(item.downloads) && item.downloads.length > 0">
+                                <div class="flex flex-col items-stretch gap-2 md:items-end">
+                                    <template x-for="group in item.downloads" :key="group.artifact">
+                                        <div class="flex flex-col items-stretch gap-1 md:items-end">
+                                            <p class="text-[10px] font-semibold uppercase tracking-wide text-emerald-300" x-text="group.label"></p>
+                                            <div class="flex flex-wrap justify-start gap-1 md:justify-end">
+                                                <template x-for="(link, format) in group.links" :key="format">
+                                                    <a
+                                                        :href="link"
+                                                        class="inline-flex items-center gap-1 rounded-lg border border-emerald-400/40 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-100 transition hover:border-emerald-200 hover:text-emerald-50"
+                                                    >
+                                                        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                                            <path d="M12 4v12" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                            <path d="m8 12 4 4 4-4" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                            <path d="M6 18h12" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                        </svg>
+                                                        <span x-text="downloadLabel(format)"></span>
+                                                    </a>
+                                                </template>
+                                            </div>
+                                        </div>
+                                    </template>
+                                </div>
+                            </template>
+                            <template x-if="item.status === 'queued'">
+                                <button
+                                    type="button"
+                                    class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200 transition hover:border-rose-400/40 hover:bg-rose-500/10 hover:text-rose-100"
+                                    @click="cancelGeneration(item.id)"
+                                    :disabled="isCancellingGeneration(item.id)"
+                                    :class="isCancellingGeneration(item.id) ? 'cursor-not-allowed opacity-60' : ''"
+                                >
+                                    <span x-show="!isCancellingGeneration(item.id)" class="inline-flex items-center gap-1">
+                                        <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+                                            <path d="m6 6 12 12M6 18 18 6" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        </svg>
+                                        Cancel
+                                    </span>
+                                    <span x-show="isCancellingGeneration(item.id)" class="inline-flex items-center gap-2">
+                                        <svg class="h-3 w-3 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                            <path d="M12 4v2m4.24.76l-1.42 1.42M20 12h-2m-.76 4.24l-1.42-1.42M12 20v-2m-4.24-.76l1.42-1.42M4 12h2m.76-4.24l1.42 1.42" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        </svg>
+                                        Removing…
+                                    </span>
+                                </button>
+                            </template>
+                        </div>
+                    </div>
+                </article>
+            </template>
         </div>
     </section>
 
