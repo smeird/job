@@ -233,8 +233,12 @@ class Converter
      */
     private function convertMarkdownToPdf(string $markdown): string
     {
-        $converted = $this->markdownConverter->convert($markdown);
-        $html = $converted instanceof RenderedContentInterface ? $converted->getContent() : (string) $converted;
+        if (method_exists($this->markdownConverter, 'convertToHtml')) {
+            $html = (string) $this->markdownConverter->convertToHtml($markdown);
+        } else {
+            $converted = $this->markdownConverter->convert($markdown);
+            $html = $converted instanceof RenderedContentInterface ? $converted->getContent() : (string) $converted;
+        }
 
         $options = new Options();
         $options->set('isRemoteEnabled', false);
