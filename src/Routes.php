@@ -14,6 +14,7 @@ use App\Controllers\JobApplicationController;
 use App\Controllers\RetentionController;
 use App\Controllers\UsageController;
 use App\Controllers\ContactDetailsController;
+use App\Controllers\SchemaTestController;
 use App\Prompts\PromptLibrary;
 use App\Validation\DraftValidator;
 use InvalidArgumentException;
@@ -236,6 +237,10 @@ class Routes
 
         $app->get('/retention', function (Request $request, Response $response) use ($container) {
             return $container->get(RetentionController::class)->show($request, $response);
+        });
+
+        $app->get('/settings/schema-test', function (Request $request, Response $response) use ($container) {
+            return $container->get(SchemaTestController::class)->show($request, $response);
         });
 
         $app->post('/retention', function (Request $request, Response $response) use ($container) {

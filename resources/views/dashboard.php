@@ -51,6 +51,20 @@ $fullWidth = true;
                         Retention settings
                         <span class="mt-1 block text-xs text-slate-400">Adjust data governance and purge rules.</span>
                     </a>
+                    <a href="/settings/schema-test" class="mt-1 block rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800/80 hover:text-indigo-100">
+                        <span class="flex items-start gap-3">
+                            <span class="mt-0.5 inline-flex rounded-lg bg-indigo-500/20 p-1 text-indigo-200">
+                                <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <path d="M9 12l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    <path d="M12 21a9 9 0 110-18 9 9 0 010 18z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                </svg>
+                            </span>
+                            <span>
+                                <span class="block font-medium text-slate-100">Schema test</span>
+                                <span class="mt-1 block text-xs text-slate-400">Run the production database table check.</span>
+                            </span>
+                        </span>
+                    </a>
                 </div>
             </div>
             <form method="post" action="/auth/logout" class="md:self-end">

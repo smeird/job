@@ -16,6 +16,7 @@ use App\Controllers\HomeController;
 use App\Controllers\TailorController;
 use App\Controllers\ContactDetailsController;
 use App\Controllers\RetentionController;
+use App\Controllers\SchemaTestController;
 use App\Documents\DocumentPreviewer;
 use App\Documents\DocumentRepository;
 use App\Documents\DocumentService;
@@ -30,6 +31,7 @@ use App\Middleware\SessionMiddleware;
 use App\Routes;
 use App\Services\AuthService;
 use App\Services\AuditLogger;
+use App\Services\DatabaseSchemaVerifier;
 use App\Services\RateLimiter;
 use App\Services\RetentionPolicyService;
 use App\Services\UsageService;
@@ -223,6 +225,17 @@ $container->set(UsageService::class, static function (Container $c): UsageServic
 $container->set(UsageController::class, static function (Container $c): UsageController {
     return new UsageController($c->get(UsageService::class), $c->get(Renderer::class));
 
+});
+
+$container->set(DatabaseSchemaVerifier::class, static function (Container $c): DatabaseSchemaVerifier {
+    return new DatabaseSchemaVerifier($c->get(\PDO::class));
+});
+
+$container->set(SchemaTestController::class, static function (Container $c): SchemaTestController {
+    return new SchemaTestController(
+        $c->get(Renderer::class),
+        $c->get(DatabaseSchemaVerifier::class)
+    );
 });
 
 $container->set(RetentionPolicyService::class, static function (Container $c): RetentionPolicyService {
