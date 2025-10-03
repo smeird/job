@@ -108,33 +108,76 @@
                                 </p>
                             <?php else : ?>
                                 <?php foreach ($column['items'] as $kanbanItem) : ?>
+                                    <?php
+                                    $generation = isset($kanbanItem['generation']) && is_array($kanbanItem['generation'])
+                                        ? $kanbanItem['generation']
+                                        : null;
+                                    $submittedAt = isset($kanbanItem['applied_at']) && $kanbanItem['applied_at'] !== null && $kanbanItem['applied_at'] !== ''
+                                        ? 'Submitted ' . $kanbanItem['applied_at']
+                                        : 'Not submitted yet';
+                                    ?>
                                     <article class="rounded-xl border border-slate-800 bg-slate-900/70 p-4 text-xs text-slate-100 shadow-inner shadow-indigo-900/20">
-                                        <div class="flex flex-col gap-2">
-                                            <h5 class="text-sm font-semibold text-white">
-                                                <?= htmlspecialchars($kanbanItem['title'] ?? 'Untitled role', ENT_QUOTES) ?>
-                                            </h5>
-                                            <p class="text-[0.7rem] text-slate-500">
-                                                <?= htmlspecialchars($kanbanItem['created_at'] ?? $kanbanItem['applied_at'] ?? $kanbanItem['updated_at'] ?? '', ENT_QUOTES) ?>
-                                            </p>
-                                            <?php if (!empty($kanbanItem['source_url'])) : ?>
-                                                <a href="<?= htmlspecialchars($kanbanItem['source_url'], ENT_QUOTES) ?>" target="_blank" rel="noopener" class="inline-flex items-center gap-1 text-[0.7rem] text-indigo-300 transition hover:text-indigo-200">
-                                                    View listing
-                                                    <svg aria-hidden="true" class="h-3 w-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-                                                        <path d="M7 17L17 7M7 7h10v10" stroke-linecap="round" stroke-linejoin="round"></path>
-                                                    </svg>
-                                                </a>
-                                            <?php endif; ?>
-                                            <p class="line-clamp-4 text-[0.7rem] text-slate-300">
-                                                <?= htmlspecialchars($kanbanItem['description_preview'] ?? ($kanbanItem['description'] ?? ''), ENT_QUOTES) ?>
-                                            </p>
-                                            <?php if (!empty($kanbanItem['reason_code'] ?? null)) : ?>
-                                                <?php $kanbanReason = $failureReasons[$kanbanItem['reason_code']] ?? null; ?>
-                                                <?php if (!empty($kanbanReason)) : ?>
-                                                    <span class="inline-flex w-fit items-center gap-2 rounded-full border border-rose-400/40 bg-rose-500/10 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-wide text-rose-100">
-                                                        <?= htmlspecialchars($kanbanReason, ENT_QUOTES) ?>
-                                                    </span>
+                                        <div class="flex flex-col gap-3">
+                                            <div class="flex items-start justify-between gap-3">
+                                                <h5 class="text-sm font-semibold text-white">
+                                                    <?= htmlspecialchars($kanbanItem['title'] ?? 'Untitled role', ENT_QUOTES) ?>
+                                                </h5>
+                                                <div class="flex items-center gap-2">
+                                                    <?php if ($generation !== null) : ?>
+                                                        <a
+                                                            href="/generations/<?= urlencode((string) ($generation['id'] ?? '')) ?>/download?artifact=cv&amp;format=pdf"
+                                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-indigo-400/40 bg-indigo-500/10 text-indigo-200 transition hover:border-indigo-300 hover:text-indigo-50"
+                                                            title="Download CV<?= isset($generation['cv_filename']) ? ': ' . htmlspecialchars((string) $generation['cv_filename'], ENT_QUOTES) : '' ?>"
+                                                            aria-label="Download CV"
+                                                        >
+                                                            <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                                                <path d="M9 12h6m-6 4h6M9 8h6m3-5H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V7l-5-5z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                            </svg>
+                                                        </a>
+                                                        <a
+                                                            href="/generations/<?= urlencode((string) ($generation['id'] ?? '')) ?>/download?artifact=cover_letter&amp;format=pdf"
+                                                            class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-emerald-400/40 bg-emerald-500/10 text-emerald-200 transition hover:border-emerald-300 hover:text-emerald-50"
+                                                            title="Download cover letter"
+                                                            aria-label="Download cover letter"
+                                                        >
+                                                            <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                                                <path d="M3 8l9 6 9-6" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                                <path d="M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                            </svg>
+                                                        </a>
+                                                    <?php else : ?>
+                                                        <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-800/70 text-slate-500" title="No tailored CV linked" aria-hidden="true">
+                                                            <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                                                <path d="M9 12h6m-6 4h6M9 8h6m3-5H6a2 2 0 00-2 2v14a2 2 0 002 2h12a2 2 0 002-2V7l-5-5z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                            </svg>
+                                                        </span>
+                                                        <span class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-800/70 text-slate-500" title="No cover letter linked" aria-hidden="true">
+                                                            <svg aria-hidden="true" class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                                                <path d="M3 8l9 6 9-6" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                                <path d="M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                            </svg>
+                                                        </span>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                            <div class="flex flex-col gap-2 text-[0.7rem] text-slate-400">
+                                                <?php if (!empty($kanbanItem['source_url'])) : ?>
+                                                    <a href="<?= htmlspecialchars($kanbanItem['source_url'], ENT_QUOTES) ?>" target="_blank" rel="noopener" class="inline-flex items-center gap-1 font-medium text-indigo-300 transition hover:text-indigo-200">
+                                                        <svg aria-hidden="true" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                                            <path d="M14 3h7v7" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                            <path d="M10 14L21 3" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                            <path d="M5 10v11h11" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                        </svg>
+                                                        <span>Job listing</span>
+                                                    </a>
                                                 <?php endif; ?>
-                                            <?php endif; ?>
+                                                <span class="flex items-center gap-2 text-slate-400">
+                                                    <svg aria-hidden="true" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                                        <path d="M8 7V3m8 4V3M5 11h14M7 21h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                    </svg>
+                                                    <span><?= htmlspecialchars($submittedAt, ENT_QUOTES) ?></span>
+                                                </span>
+                                            </div>
                                         </div>
                                     </article>
                                 <?php endforeach; ?>

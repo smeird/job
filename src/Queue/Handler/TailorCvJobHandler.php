@@ -206,6 +206,7 @@ final class TailorCvJobHandler implements JobHandlerInterface
     }
 
     /**
+
      * Build the output rows associated with a specific document artifact.
      *
      * Centralising the mapping keeps persistence logic compact, storing the markdown and rendered
