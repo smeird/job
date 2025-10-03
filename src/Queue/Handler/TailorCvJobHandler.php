@@ -214,7 +214,8 @@ final class TailorCvJobHandler implements JobHandlerInterface
     /**
      * Generate DOCX and PDF binaries for the supplied markdown document.
      *
-     * Having a shared helper keeps binary conversion consistent across CV and cover letter outputs.
+     * Having a shared helper keeps binary conversion consistent across CV and cover letter outputs
+     * while gracefully degrading to markdown-only storage if the conversion stack raises an error.
      *
      * @return array<string, string>
      */
@@ -223,7 +224,14 @@ final class TailorCvJobHandler implements JobHandlerInterface
         try {
             return $converter->renderFormats($markdown);
         } catch (Throwable $exception) {
-            throw new RuntimeException('Failed to convert markdown into binary formats.', 0, $exception);
+            error_log(
+                sprintf(
+                    'TailorCvJobHandler failed to render binary formats: %s',
+                    $exception->getMessage()
+                )
+            );
+
+            return [];
         }
     }
 
