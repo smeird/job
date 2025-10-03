@@ -6,6 +6,7 @@ namespace App\Generations;
 
 use App\Documents\Document;
 use App\Documents\DocumentPreviewer;
+use App\Contacts\ContactDetailsRepository;
 use DateTimeImmutable;
 use PDO;
 use RuntimeException;
@@ -34,22 +35,31 @@ final class GenerationRepository
     /** @var bool */
     private $hasThinkingTimeColumn;
 
+    /** @var ContactDetailsRepository|null */
+    private $contactDetailsRepository;
+
     /**
      * Construct the object with its required dependencies.
      *
      * This ensures collaborating services are available for subsequent method calls.
      */
-    public function __construct(PDO $pdo, ?DocumentPreviewer $documentPreviewer = null)
+    public function __construct(
+        PDO $pdo,
+        ?DocumentPreviewer $documentPreviewer = null,
+        ?ContactDetailsRepository $contactDetailsRepository = null
+    )
     {
         $this->pdo = $pdo;
         $this->documentPreviewer = $documentPreviewer ?? new DocumentPreviewer();
         $this->hasThinkingTimeColumn = $this->detectThinkingTimeColumn();
+        $this->contactDetailsRepository = $contactDetailsRepository;
     }
 
     /**
      * Handle the create operation.
      *
-     * Documenting this helper clarifies its role within the wider workflow.
+     * Documenting this helper clarifies its role within the wider workflow and
+     * explains how optional contact details are passed through to queued jobs.
      */
     public function create(
         int $userId,
@@ -57,7 +67,8 @@ final class GenerationRepository
         Document $cvDocument,
         string $model,
         int $thinkingTime,
-        string $prompt
+        string $prompt,
+        ?array $contactDetails = null
     ): array {
         $now = (new DateTimeImmutable())->format('Y-m-d H:i:s');
 
@@ -106,7 +117,21 @@ final class GenerationRepository
 
             $id = (int) $this->pdo->lastInsertId();
 
-            $this->queueTailorJob($id, $userId, $jobDocument, $cvDocument, $model, $thinkingTime, $prompt, $now);
+            if ($contactDetails === null && $this->contactDetailsRepository !== null) {
+                $contactDetails = $this->contactDetailsRepository->findForUser($userId);
+            }
+
+            $this->queueTailorJob(
+                $id,
+                $userId,
+                $jobDocument,
+                $cvDocument,
+                $model,
+                $thinkingTime,
+                $prompt,
+                $now,
+                $contactDetails
+            );
 
             $this->pdo->commit();
         } catch (Throwable $exception) {
@@ -505,7 +530,9 @@ final class GenerationRepository
     /**
      * Queue the tailor CV job in the background worker.
      *
-     * Consolidating the queuing logic keeps database interactions predictable.
+     * Consolidating the queuing logic keeps database interactions predictable
+     * and carries any saved contact details through to the worker so cover
+     * letters can prefill the applicant header.
      */
     private function queueTailorJob(
         int $generationId,
@@ -515,7 +542,8 @@ final class GenerationRepository
         string $model,
         int $thinkingTime,
         string $prompt,
-        string $queuedAt
+        string $queuedAt,
+        ?array $contactDetails = null
     ): void {
         $jobDescription = $this->extractDocumentText($jobDocument);
         $cvMarkdown = $this->extractDocumentText($cvDocument);
@@ -539,6 +567,18 @@ final class GenerationRepository
             'thinking_time' => $thinkingTime,
             'prompt' => $prompt,
         ];
+
+        if (is_array($contactDetails) && isset($contactDetails['address'])) {
+            $payload['contact_details'] = [
+                'address' => (string) $contactDetails['address'],
+                'phone' => isset($contactDetails['phone']) && $contactDetails['phone'] !== null
+                    ? (string) $contactDetails['phone']
+                    : null,
+                'email' => isset($contactDetails['email']) && $contactDetails['email'] !== null
+                    ? (string) $contactDetails['email']
+                    : null,
+            ];
+        }
 
         $statement = $this->pdo->prepare(
             'INSERT INTO jobs (type, payload_json, run_after, attempts, status, created_at)'

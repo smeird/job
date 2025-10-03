@@ -13,6 +13,7 @@ use App\Controllers\TailorController;
 use App\Controllers\JobApplicationController;
 use App\Controllers\RetentionController;
 use App\Controllers\UsageController;
+use App\Controllers\ContactDetailsController;
 use App\Prompts\PromptLibrary;
 use App\Validation\DraftValidator;
 use InvalidArgumentException;
@@ -67,6 +68,14 @@ class Routes
 
         $app->post('/documents/{id}/delete', function (Request $request, Response $response, array $args) use ($container) {
             return $container->get(DocumentController::class)->delete($request, $response, $args);
+        });
+
+        $app->get('/profile/contact-details', function (Request $request, Response $response) use ($container) {
+            return $container->get(ContactDetailsController::class)->show($request, $response);
+        });
+
+        $app->post('/profile/contact-details', function (Request $request, Response $response) use ($container) {
+            return $container->get(ContactDetailsController::class)->update($request, $response);
         });
 
         $app->post('/documents/tailored/{id}/delete', function (Request $request, Response $response, array $args) use ($container) {

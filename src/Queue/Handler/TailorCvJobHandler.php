@@ -29,6 +29,7 @@ use function json_last_error_msg;
 use function mb_strlen;
 use function mb_substr;
 use function sprintf;
+use function str_replace;
 use function strip_tags;
 use function trim;
 
@@ -70,6 +71,7 @@ final class TailorCvJobHandler implements JobHandlerInterface
         $userId = $this->extractInt($payload, 'user_id');
         $jobDescription = $this->extractString($payload, 'job_description');
         $cvMarkdown = $this->extractString($payload, 'cv_markdown');
+        $contactDetails = $this->extractContactDetails($payload);
 
         error_log(sprintf(
             'TailorCvJobHandler starting generation %d for user %d (job_description=%s, cv_markdown=%s)',
@@ -88,7 +90,7 @@ final class TailorCvJobHandler implements JobHandlerInterface
         $draft = $this->generateDraft($provider, $plan, $constraints);
         $converted = $this->convertDraft($draft);
 
-        $coverLetterPrompt = $this->buildCoverLetterPrompt($payload, $plan, $jobDescription, $cvMarkdown);
+        $coverLetterPrompt = $this->buildCoverLetterPrompt($payload, $plan, $jobDescription, $cvMarkdown, $contactDetails);
         $coverLetterDraft = $this->generateCoverLetterDraft($provider, $coverLetterPrompt);
         $coverLetterConverted = $this->convertDraft($coverLetterDraft);
 
@@ -319,7 +321,8 @@ final class TailorCvJobHandler implements JobHandlerInterface
         array $payload,
         string $plan,
         string $jobDescription,
-        string $cvMarkdown
+        string $cvMarkdown,
+        array $contactDetails
     ): string {
         $template = PromptLibrary::coverLetterPrompt();
         $jobTitle = $this->optionalString($payload, 'job_title');
@@ -327,6 +330,7 @@ final class TailorCvJobHandler implements JobHandlerInterface
         $competencyList = $this->prepareCompetencyList($payload);
         $jobExcerpt = $this->truncateContent($jobDescription, 2000);
         $cvExcerpt = $this->truncateContent($cvMarkdown, 2000);
+        $contactJson = $this->encodeContactDetails($contactDetails);
 
         return strtr($template, [
             '{{title}}' => $jobTitle !== '' ? $jobTitle : 'Not specified',
@@ -335,7 +339,33 @@ final class TailorCvJobHandler implements JobHandlerInterface
             '{{job_description}}' => $jobExcerpt,
             '{{cv_sections}}' => $cvExcerpt,
             '{{plan}}' => trim($plan),
+            '{{contact_details}}' => $contactJson,
         ]);
+    }
+
+    /**
+     * Encode the optional contact details into JSON for the cover letter prompt.
+     *
+     * Serialising the data centrally ensures the AI receives a consistent
+     * structure regardless of which fields the user completed.
+     */
+    private function encodeContactDetails(array $contactDetails): string
+    {
+        if ($contactDetails === [] || !isset($contactDetails['address'])) {
+            return '{}';
+        }
+
+        $payload = ['address' => $contactDetails['address']];
+
+        if (isset($contactDetails['email']) && $contactDetails['email'] !== '') {
+            $payload['email'] = $contactDetails['email'];
+        }
+
+        if (isset($contactDetails['phone']) && $contactDetails['phone'] !== '') {
+            $payload['phone'] = $contactDetails['phone'];
+        }
+
+        return (string) json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
 
     /**
@@ -538,6 +568,47 @@ final class TailorCvJobHandler implements JobHandlerInterface
         }
 
         return $value;
+    }
+
+    /**
+     * Extract and normalise the optional contact details from the payload.
+     *
+     * Returning a trimmed associative array keeps downstream prompt logic
+     * simple and avoids juggling null values during template substitution.
+     *
+     * @param array<string, mixed> $payload
+     * @return array<string, string>
+     */
+    private function extractContactDetails(array $payload): array
+    {
+        if (!isset($payload['contact_details']) || !is_array($payload['contact_details'])) {
+            return [];
+        }
+
+        $raw = $payload['contact_details'];
+        $address = isset($raw['address']) ? trim((string) $raw['address']) : '';
+
+        if ($address === '') {
+            return [];
+        }
+
+        $details = [
+            'address' => str_replace(["\r\n", "\r"], "\n", $address),
+        ];
+
+        $email = isset($raw['email']) ? trim((string) $raw['email']) : '';
+
+        if ($email !== '') {
+            $details['email'] = $email;
+        }
+
+        $phone = isset($raw['phone']) ? trim((string) $raw['phone']) : '';
+
+        if ($phone !== '') {
+            $details['phone'] = $phone;
+        }
+
+        return $details;
     }
 
     /**
