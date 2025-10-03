@@ -8,15 +8,20 @@ use PDO;
 use PDOException;
 use RuntimeException;
 
+use function in_array;
 use function is_resource;
 use function sprintf;
 use function stream_get_contents;
+use function str_replace;
+use function strtolower;
 use function trim;
 
 final class GenerationDownloadService
 {
     private const FORMAT_DOCX_MIME = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
     private const FORMAT_PDF_MIME = 'application/pdf';
+    private const ARTIFACT_CV = 'cv';
+    private const ARTIFACT_COVER_LETTER = 'cover_letter';
 
     /** @var PDO */
     private $pdo;
@@ -37,7 +42,7 @@ final class GenerationDownloadService
      * This helper keeps the fetch logic centralised for clarity and reuse.
      * @return array{filename: string, mime_type: string, content: string}
      */
-    public function fetch(int $generationId, int $userId, string $format): array
+    public function fetch(int $generationId, int $userId, string $artifact, string $format): array
     {
         $generation = $this->findGeneration($generationId);
 
@@ -49,13 +54,19 @@ final class GenerationDownloadService
             throw new GenerationAccessDeniedException('You do not have access to this generation.');
         }
 
+        $artifactKey = strtolower(trim($artifact));
+
+        if (!in_array($artifactKey, [self::ARTIFACT_CV, self::ARTIFACT_COVER_LETTER], true)) {
+            throw new RuntimeException('Unsupported artifact requested.');
+        }
+
         switch ($format) {
             case 'md':
-                return $this->fetchMarkdown($generationId);
+                return $this->fetchMarkdown($generationId, $artifactKey);
             case 'docx':
-                return $this->fetchBinary($generationId, 'docx', self::FORMAT_DOCX_MIME);
+                return $this->fetchBinary($generationId, $artifactKey, 'docx', self::FORMAT_DOCX_MIME);
             case 'pdf':
-                return $this->fetchBinary($generationId, 'pdf', self::FORMAT_PDF_MIME);
+                return $this->fetchBinary($generationId, $artifactKey, 'pdf', self::FORMAT_PDF_MIME);
             default:
                 throw new RuntimeException('Unsupported format requested.');
         }
@@ -67,25 +78,34 @@ final class GenerationDownloadService
      * Centralising the lookup keeps controllers from duplicating database checks
      * while ensuring the UI only exposes download links that will succeed.
      *
-     * @return array<int, string> List of format identifiers such as "md" or "pdf".
+     * @return array<string, array<int, string>> Map of artifact to list of formats.
      */
     public function availableFormats(int $generationId): array
     {
-        $formats = [];
+        $availability = [];
+        $artifacts = [self::ARTIFACT_CV, self::ARTIFACT_COVER_LETTER];
 
-        if ($this->hasMarkdownOutput($generationId)) {
-            $formats[] = 'md';
+        foreach ($artifacts as $artifact) {
+            $formats = [];
+
+            if ($this->hasMarkdownOutput($generationId, $artifact)) {
+                $formats[] = 'md';
+            }
+
+            if ($this->hasBinaryOutput($generationId, $artifact, self::FORMAT_DOCX_MIME)) {
+                $formats[] = 'docx';
+            }
+
+            if ($this->hasBinaryOutput($generationId, $artifact, self::FORMAT_PDF_MIME)) {
+                $formats[] = 'pdf';
+            }
+
+            if ($formats !== []) {
+                $availability[$artifact] = $formats;
+            }
         }
 
-        if ($this->hasBinaryOutput($generationId, self::FORMAT_DOCX_MIME)) {
-            $formats[] = 'docx';
-        }
-
-        if ($this->hasBinaryOutput($generationId, self::FORMAT_PDF_MIME)) {
-            $formats[] = 'pdf';
-        }
-
-        return $formats;
+        return $availability;
     }
 
     /**
@@ -94,13 +114,16 @@ final class GenerationDownloadService
      * Centralised fetching makes upstream integrations easier to evolve.
      * @return array{filename: string, mime_type: string, content: string}
      */
-    private function fetchMarkdown(int $generationId): array
+    private function fetchMarkdown(int $generationId, string $artifact): array
     {
         $statement = $this->pdo->prepare(
             'SELECT output_text FROM generation_outputs WHERE generation_id = :generation_id '
-            . 'AND output_text IS NOT NULL ORDER BY created_at DESC, id DESC LIMIT 1'
+            . 'AND artifact = :artifact AND mime_type = :mime_type AND output_text IS NOT NULL '
+            . 'ORDER BY created_at DESC, id DESC LIMIT 1'
         );
         $statement->bindValue(':generation_id', $generationId, PDO::PARAM_INT);
+        $statement->bindValue(':artifact', $artifact);
+        $statement->bindValue(':mime_type', 'text/markdown');
         $statement->execute();
 
         $row = $statement->fetch();
@@ -116,7 +139,7 @@ final class GenerationDownloadService
         }
 
         return [
-            'filename' => sprintf('generation-%d.md', $generationId),
+            'filename' => $this->buildFilename($generationId, $artifact, 'md'),
             'mime_type' => 'text/markdown; charset=utf-8',
             'content' => $markdown,
         ];
@@ -128,13 +151,15 @@ final class GenerationDownloadService
      * Centralised fetching makes upstream integrations easier to evolve.
      * @return array{filename: string, mime_type: string, content: string}
      */
-    private function fetchBinary(int $generationId, string $extension, string $expectedMime): array
+    private function fetchBinary(int $generationId, string $artifact, string $extension, string $expectedMime): array
     {
         $statement = $this->pdo->prepare(
             'SELECT mime_type, content FROM generation_outputs WHERE generation_id = :generation_id '
-            . 'AND mime_type = :mime_type AND content IS NOT NULL ORDER BY created_at DESC, id DESC LIMIT 1'
+            . 'AND artifact = :artifact AND mime_type = :mime_type AND content IS NOT NULL '
+            . 'ORDER BY created_at DESC, id DESC LIMIT 1'
         );
         $statement->bindValue(':generation_id', $generationId, PDO::PARAM_INT);
+        $statement->bindValue(':artifact', $artifact);
         $statement->bindValue(':mime_type', $expectedMime);
         $statement->execute();
 
@@ -157,7 +182,7 @@ final class GenerationDownloadService
         }
 
         return [
-            'filename' => sprintf('generation-%d.%s', $generationId, $extension),
+            'filename' => $this->buildFilename($generationId, $artifact, $extension),
             'mime_type' => $row['mime_type'] ?? $expectedMime,
             'content' => (string) $content,
         ];
@@ -169,13 +194,16 @@ final class GenerationDownloadService
      * The helper mirrors fetchMarkdown without streaming the content so we can
      * expose download buttons only when the stored draft is usable.
      */
-    private function hasMarkdownOutput(int $generationId): bool
+    private function hasMarkdownOutput(int $generationId, string $artifact): bool
     {
         $statement = $this->pdo->prepare(
             'SELECT output_text FROM generation_outputs WHERE generation_id = :generation_id '
-            . 'AND output_text IS NOT NULL ORDER BY created_at DESC, id DESC LIMIT 1'
+            . 'AND artifact = :artifact AND mime_type = :mime_type AND output_text IS NOT NULL '
+            . 'ORDER BY created_at DESC, id DESC LIMIT 1'
         );
         $statement->bindValue(':generation_id', $generationId, PDO::PARAM_INT);
+        $statement->bindValue(':artifact', $artifact);
+        $statement->bindValue(':mime_type', 'text/markdown');
         $statement->execute();
 
         $row = $statement->fetch();
@@ -195,19 +223,47 @@ final class GenerationDownloadService
      * Checking availability up-front avoids triggering download errors when the
      * requested format has not been generated by the background worker.
      */
-    private function hasBinaryOutput(int $generationId, string $expectedMime): bool
+    private function hasBinaryOutput(int $generationId, string $artifact, string $expectedMime): bool
     {
         $statement = $this->pdo->prepare(
             'SELECT 1 FROM generation_outputs WHERE generation_id = :generation_id '
-            . 'AND mime_type = :mime_type AND content IS NOT NULL ORDER BY created_at DESC, id DESC LIMIT 1'
+            . 'AND artifact = :artifact AND mime_type = :mime_type AND content IS NOT NULL '
+            . 'ORDER BY created_at DESC, id DESC LIMIT 1'
         );
         $statement->bindValue(':generation_id', $generationId, PDO::PARAM_INT);
+        $statement->bindValue(':artifact', $artifact);
         $statement->bindValue(':mime_type', $expectedMime);
         $statement->execute();
 
         $row = $statement->fetch();
 
         return $row !== false;
+    }
+
+    /**
+     * Construct a descriptive filename for the generated artifact and format.
+     */
+    private function buildFilename(int $generationId, string $artifact, string $extension): string
+    {
+        $slug = $this->artifactSlug($artifact);
+
+        return sprintf('generation-%d-%s.%s', $generationId, $slug, $extension);
+    }
+
+    /**
+     * Produce a filesystem-friendly slug for the artifact identifier.
+     */
+    private function artifactSlug(string $artifact): string
+    {
+        if ($artifact === self::ARTIFACT_COVER_LETTER) {
+            return 'cover-letter';
+        }
+
+        if ($artifact === self::ARTIFACT_CV) {
+            return 'cv';
+        }
+
+        return str_replace('_', '-', trim($artifact));
     }
 
     /**

@@ -71,6 +71,7 @@ return [
         "CREATE TABLE IF NOT EXISTS generation_outputs (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             generation_id BIGINT UNSIGNED NOT NULL,
+            artifact VARCHAR(64) NOT NULL DEFAULT 'cv',
             mime_type VARCHAR(191) NULL,
             content LONGBLOB NULL,
             output_text LONGTEXT NULL,

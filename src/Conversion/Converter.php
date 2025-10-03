@@ -41,9 +41,9 @@ class Converter
     public function convertAndStore(int $generationId, string $markdown): array
     {
         $pdo = DB::getConnection();
-
-        $docxBinary = $this->convertMarkdownToDocx($markdown);
-        $pdfBinary = $this->convertMarkdownToPdf($markdown);
+        $rendered = $this->renderFormats($markdown);
+        $docxBinary = $rendered['docx'];
+        $pdfBinary = $rendered['pdf'];
         $markdownBinary = $this->normalizeMarkdown($markdown);
 
         $pdo->beginTransaction();
@@ -88,6 +88,21 @@ class Converter
         }
 
         return $outputs;
+    }
+
+    /**
+     * Render the markdown into available binary formats without persistence.
+     *
+     * Exposing the conversion logic allows queue handlers to reuse the transformations when storing multiple artifacts.
+     *
+     * @return array<string, string>
+     */
+    public function renderFormats(string $markdown): array
+    {
+        return [
+            'docx' => $this->convertMarkdownToDocx($markdown),
+            'pdf' => $this->convertMarkdownToPdf($markdown),
+        ];
     }
 
     /**

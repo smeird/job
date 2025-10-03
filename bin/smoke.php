@@ -1161,33 +1161,19 @@ final class SmokeGeneration
             throw new RuntimeException('Smoke job processing failed: ' . $message, 0, $exception);
         }
 
-        $this->pdo->prepare('INSERT INTO generation_outputs (generation_id, mime_type, content, output_text, created_at) VALUES (:generation_id, :mime_type, :content, :output_text, :created_at)')->execute([
-            'generation_id' => $generationId,
-            'mime_type' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'content' => 'docx-binary-placeholder',
-            'output_text' => null,
-            'created_at' => $now,
-        ]);
-
-        $this->pdo->prepare('INSERT INTO generation_outputs (generation_id, mime_type, content, output_text, created_at) VALUES (:generation_id, :mime_type, :content, :output_text, :created_at)')->execute([
-            'generation_id' => $generationId,
-            'mime_type' => 'application/pdf',
-            'content' => 'pdf-binary-placeholder',
-            'output_text' => null,
-            'created_at' => $now,
-        ]);
-
         $downloadService = new GenerationDownloadService($this->pdo);
-        $downloadService->fetch($generationId, $userId, 'md');
-        $downloadService->fetch($generationId, $userId, 'docx');
-        $downloadService->fetch($generationId, $userId, 'pdf');
+        $downloadService->fetch($generationId, $userId, 'cv', 'md');
+        $downloadService->fetch($generationId, $userId, 'cv', 'docx');
+        $downloadService->fetch($generationId, $userId, 'cv', 'pdf');
+        $downloadService->fetch($generationId, $userId, 'cover_letter', 'md');
+        $downloadService->fetch($generationId, $userId, 'cover_letter', 'docx');
+        $downloadService->fetch($generationId, $userId, 'cover_letter', 'pdf');
 
         return [
             'generation_id' => $generationId,
             'downloads' => [
-                'md' => 1,
-                'docx' => 1,
-                'pdf' => 1,
+                'cv' => ['md' => 1, 'docx' => 1, 'pdf' => 1],
+                'cover_letter' => ['md' => 1, 'docx' => 1, 'pdf' => 1],
             ],
         ];
     }
@@ -1218,7 +1204,7 @@ final class SmokePurge
         $old = (new GlobalDateTimeImmutable('-10 days'))->format('Y-m-d H:i:s');
 
         $this->pdo->exec("INSERT INTO documents (filename, mime_type, size_bytes, sha256, content, extracted_text, created_at) VALUES ('old.txt', 'text/plain', 12, 'hash-old', 'old', 'old', '$old')");
-        $this->pdo->exec("INSERT INTO generation_outputs (generation_id, mime_type, content, output_text, tokens_used, created_at) VALUES (1, 'text/plain', 'legacy', 'legacy', 0, '$old')");
+        $this->pdo->exec("INSERT INTO generation_outputs (generation_id, artifact, mime_type, content, output_text, tokens_used, created_at) VALUES (1, 'cv', 'text/plain', 'legacy', 'legacy', 0, '$old')");
         $this->pdo->exec("INSERT INTO api_usage (user_id, provider, endpoint, tokens_used, cost_pence, metadata, created_at) VALUES (1, 'openai', '/responses', 10, 1, '{}', '$old')");
         $this->pdo->exec("INSERT INTO audit_logs (user_id, email, action, ip_address, user_agent, details, created_at) VALUES (1, 'smoke@example.com', 'test', '127.0.0.1', 'smoke', '{}', '$old')");
 

@@ -8,6 +8,7 @@ use App\Generations\GenerationAccessDeniedException;
 use App\Generations\GenerationDownloadService;
 use App\Generations\GenerationNotFoundException;
 use App\Generations\GenerationOutputUnavailableException;
+use RuntimeException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Slim\Psr7\Stream;
@@ -27,6 +28,7 @@ use function rewind;
 final class GenerationDownloadController
 {
     private const SUPPORTED_FORMATS = ['md', 'docx', 'pdf'];
+    private const SUPPORTED_ARTIFACTS = ['cv', 'cover_letter'];
 
     /** @var GenerationDownloadService */
     private $downloadService;
@@ -50,10 +52,16 @@ final class GenerationDownloadController
      */
     public function download(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
     {
-        $format = strtolower(trim((string) ($request->getQueryParams()['format'] ?? '')));
+        $queryParams = $request->getQueryParams();
+        $format = strtolower(trim((string) ($queryParams['format'] ?? '')));
+        $artifact = strtolower(trim((string) ($queryParams['artifact'] ?? '')));
 
         if ($format === '' || !in_array($format, self::SUPPORTED_FORMATS, true)) {
             return $this->error($response, 400, 'Invalid or missing format parameter.');
+        }
+
+        if ($artifact === '' || !in_array($artifact, self::SUPPORTED_ARTIFACTS, true)) {
+            return $this->error($response, 400, 'Invalid or missing artifact parameter.');
         }
 
         $generationId = (int) ($args['id'] ?? 0);
@@ -71,13 +79,15 @@ final class GenerationDownloadController
         $userId = (int) $user['user_id'];
 
         try {
-            $download = $this->downloadService->fetch($generationId, $userId, $format);
+            $download = $this->downloadService->fetch($generationId, $userId, $artifact, $format);
         } catch (GenerationNotFoundException) {
             return $this->error($response, 404, 'Generation not found.');
         } catch (GenerationAccessDeniedException) {
             return $this->error($response, 403, 'You do not have access to this generation.');
         } catch (GenerationOutputUnavailableException $exception) {
             return $this->error($response, 409, $exception->getMessage());
+        } catch (RuntimeException $exception) {
+            return $this->error($response, 400, $exception->getMessage());
         }
 
         $resource = fopen('php://temp', 'wb+');

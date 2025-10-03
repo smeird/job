@@ -71,9 +71,9 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
             <p class="text-sm uppercase tracking-widest text-indigo-400">
                 Signed in as <?= htmlspecialchars($email, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') ?>
             </p>
-            <h2 class="mt-2 text-3xl font-semibold tracking-tight text-white">Tailor a CV</h2>
+            <h2 class="mt-2 text-3xl font-semibold tracking-tight text-white">Tailor a CV and cover letter</h2>
             <p class="mt-2 text-base text-slate-400">
-                Choose a job description, pick the seed CV, set the AI parameters, and queue the request for processing.
+                Choose a job description, pick the seed CV, set the AI parameters, and queue the request to generate both documents.
             </p>
         </div>
         <div class="flex flex-col gap-3 md:items-end">
@@ -398,14 +398,21 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
                                 ></span>
                             </td>
                             <td class="px-4 py-4 text-right">
-                                <template x-if="item.status === 'completed' && Object.keys(item.downloads || {}).length > 0">
-                                    <div class="inline-flex flex-wrap gap-2 justify-end">
-                                        <template x-for="(link, format) in item.downloads" :key="format">
-                                            <a
-                                                :href="link"
-                                                class="inline-flex items-center gap-2 rounded-lg border border-emerald-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100 transition hover:border-emerald-200 hover:text-emerald-50"
-                                                x-text="downloadLabel(format)"
-                                            ></a>
+                                <template x-if="item.status === 'completed' && Array.isArray(item.downloads) && item.downloads.length > 0">
+                                    <div class="flex flex-col items-end gap-3">
+                                        <template x-for="group in item.downloads" :key="group.artifact">
+                                            <div class="flex flex-col items-end gap-2">
+                                                <p class="text-[10px] font-semibold uppercase tracking-wide text-emerald-300" x-text="group.label"></p>
+                                                <div class="inline-flex flex-wrap justify-end gap-2">
+                                                    <template x-for="(link, format) in group.links" :key="format">
+                                                        <a
+                                                            :href="link"
+                                                            class="inline-flex items-center gap-2 rounded-lg border border-emerald-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100 transition hover:border-emerald-200 hover:text-emerald-50"
+                                                            x-text="downloadLabel(format)"
+                                                        ></a>
+                                                    </template>
+                                                </div>
+                                            </div>
                                         </template>
                                     </div>
                                 </template>

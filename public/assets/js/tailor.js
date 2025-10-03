@@ -136,29 +136,102 @@
         };
 
         /**
-         * Normalise the downloads object to contain only non-empty URLs.
+         * Determine the default label presented for a download artifact.
          *
-         * @param {*} value The value potentially describing download links.
-         * @returns {object} A shallow object of valid download URLs keyed by format.
+         * @param {string} artifact The artifact identifier such as `cv` or `cover_letter`.
+         * @returns {string} The label rendered alongside its download links.
          */
-        const normaliseDownloads = function (value) {
-            if (!value || typeof value !== 'object') {
-                return {};
+        const defaultArtifactLabel = function (artifact) {
+            if (artifact === 'cover_letter') {
+                return 'Cover letter';
             }
 
+            return 'Tailored CV';
+        };
+
+        /**
+         * Normalise the downloads value so templates receive grouped artifact metadata.
+         *
+         * @param {*} value The value potentially describing download links.
+         * @returns {Array} A list of artifact groups with labels and link maps.
+         */
+        const normaliseDownloads = function (value) {
             const formats = ['md', 'docx', 'pdf'];
-            const result = {};
+            const groups = [];
 
-            for (let index = 0; index < formats.length; index += 1) {
-                const format = formats[index];
-                const link = value[format];
+            /**
+             * Assemble a normalised artifact group and append it when valid.
+             *
+             * @param {string} artifactKey The raw artifact identifier to normalise.
+             * @param {string} labelValue The optional label supplied by the server.
+             * @param {object} linksSource The source object describing format URLs.
+             */
+            const pushGroup = function (artifactKey, labelValue, linksSource) {
+                const artifact = typeof artifactKey === 'string' ? artifactKey.trim() : '';
 
-                if (typeof link === 'string' && link.trim() !== '') {
-                    result[format] = link;
+                if (artifact === '') {
+                    return;
+                }
+
+                const label = typeof labelValue === 'string' && labelValue.trim() !== ''
+                    ? labelValue.trim()
+                    : defaultArtifactLabel(artifact);
+
+                const links = {};
+
+                if (linksSource && typeof linksSource === 'object') {
+                    for (let index = 0; index < formats.length; index += 1) {
+                        const format = formats[index];
+                        const link = linksSource[format];
+
+                        if (typeof link === 'string' && link.trim() !== '') {
+                            links[format] = link;
+                        }
+                    }
+                }
+
+                if (Object.keys(links).length > 0) {
+                    groups.push({
+                        artifact: artifact,
+                        label: label,
+                        links: links,
+                    });
+                }
+            };
+
+            if (Array.isArray(value)) {
+                for (let index = 0; index < value.length; index += 1) {
+                    const group = value[index];
+
+                    if (!group || typeof group !== 'object') {
+                        continue;
+                    }
+
+                    pushGroup(group.artifact, group.label, group.links || group.formats || group);
+                }
+
+                return groups;
+            }
+
+            if (value && typeof value === 'object') {
+                const keys = Object.keys(value);
+
+                for (let index = 0; index < keys.length; index += 1) {
+                    const artifactKey = keys[index];
+                    const linksSource = value[artifactKey];
+                    let label = '';
+                    let links = linksSource;
+
+                    if (linksSource && typeof linksSource === 'object' && typeof linksSource.links === 'object') {
+                        label = typeof linksSource.label === 'string' ? linksSource.label : '';
+                        links = linksSource.links;
+                    }
+
+                    pushGroup(artifactKey, label, links);
                 }
             }
 
-            return result;
+            return groups;
         };
 
         /**
@@ -169,7 +242,7 @@
          */
         const normaliseGeneration = function (value) {
             if (!value || typeof value !== 'object') {
-                return { downloads: {} };
+                return { downloads: [] };
             }
 
             const clone = Object.assign({}, value);

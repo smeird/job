@@ -267,6 +267,71 @@ final class OpenAIProvider
     }
 
     /**
+     * Generate a Markdown cover letter that aligns with the supplied instructions.
+     *
+     * The method mirrors the drafting workflow so cover letters benefit from the same retry strategy and token accounting.
+     */
+    public function draftCoverLetter(string $instructions, ?callable $streamHandler = null): string
+    {
+        $messages = [
+            [
+                'role' => 'system',
+                'content' => 'You are a professional cover letter writer using British English. '
+                    . 'Keep the letter concise, factual, and grounded in the supplied material. '
+                    . 'Never invent achievements or employers.',
+            ],
+            [
+                'role' => 'user',
+                'content' => trim($instructions),
+            ],
+        ];
+
+        $models = $this->buildModelFallbackSequence($this->modelDraft, 'cover_letter');
+        $result = null;
+        $lastException = null;
+
+        for ($index = 0, $count = count($models); $index < $count; $index++) {
+            $model = $models[$index];
+            $payload = [
+                'model' => $model,
+                'input' => $this->formatMessagesForResponses($messages),
+                'max_output_tokens' => $this->maxTokens,
+            ];
+
+            try {
+                $result = $this->performChatRequest($payload, 'cover_letter', $streamHandler);
+                break;
+            } catch (RuntimeException $exception) {
+                $hasNextModel = $index < $count - 1;
+
+                if (!$hasNextModel || !$this->shouldRetryWithAlternativeModel($exception)) {
+                    throw $exception;
+                }
+
+                $nextModel = $models[$index + 1];
+                error_log(sprintf(
+                    'Cover letter model fallback: %s -> %s due to %s',
+                    $model,
+                    $nextModel,
+                    $exception->getMessage()
+                ));
+
+                $lastException = $exception;
+            }
+        }
+
+        if ($result === null) {
+            if ($lastException instanceof RuntimeException) {
+                throw $lastException;
+            }
+
+            throw new RuntimeException('Failed to generate a cover letter using the available OpenAI models.');
+        }
+
+        return trim($result['content']);
+    }
+
+    /**
      * Attempt plan generation while gracefully falling back through response_format permutations.
      *
      * @param array<string, mixed> $payload

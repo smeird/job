@@ -5,7 +5,7 @@ $fullWidth = true;
 $subtitle = 'Spend and token insight';
 $navLinks = [
     ['href' => '/', 'label' => 'Dashboard', 'current' => false],
-    ['href' => '/tailor', 'label' => 'Tailor CV', 'current' => false],
+    ['href' => '/tailor', 'label' => 'Tailor CV & letter', 'current' => false],
     ['href' => '/documents', 'label' => 'Documents', 'current' => false],
     ['href' => '/applications', 'label' => 'Applications', 'current' => false],
     ['href' => '/usage', 'label' => 'Usage', 'current' => true],

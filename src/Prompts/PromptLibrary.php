@@ -33,6 +33,32 @@ Output:
 - Preserve factual accuracy and clearly flag any gaps.
 TAILOR;
 
+    private const COVER_LETTER_PROMPT = <<<'LETTER'
+You are preparing a professional UK-English cover letter that must remain factually accurate.
+
+Role context:
+- Job title: {{title}}
+- Hiring company: {{company}}
+- Priority competencies: {{competencies}}
+
+Job description excerpt:
+{{job_description}}
+
+Candidate CV excerpt:
+{{cv_sections}}
+
+Tailoring plan JSON:
+{{plan}}
+
+Instructions:
+1. Write a concise cover letter in Markdown with a greeting, three to four short paragraphs, and a polite closing with a signature placeholder.
+2. Reference achievements already present in the CV excerpt and align them with the listed competencies and plan guidance.
+3. Keep the letter under 350 words, using a confident and warm tone.
+4. Avoid inventing employers, responsibilities, or achievements that the CV does not mention.
+
+Return only the cover letter Markdown without commentary.
+LETTER;
+
     /**
      * Handle the system prompt operation.
      *
@@ -51,5 +77,15 @@ TAILOR;
     public static function tailorPrompt(): string
     {
         return self::TAILOR_PROMPT;
+    }
+
+    /**
+     * Provide the reusable cover letter drafting instructions.
+     *
+     * Supplying the template through a dedicated accessor keeps the job handler implementation succinct.
+     */
+    public static function coverLetterPrompt(): string
+    {
+        return self::COVER_LETTER_PROMPT;
     }
 }
