@@ -436,10 +436,15 @@ final class OpenAIProvider
                     $finishReason = $responseMeta['output'][0]['finish_reason'];
                 }
 
+                $requestedModel = $payload['model'] ?? null;
+                $reportedModel = $responseMeta['model'] ?? null;
+
                 $metadata = [
                     'operation' => $operation,
                     'response_id' => $responseMeta['id'] ?? null,
-                    'model' => $responseMeta['model'] ?? ($payload['model'] ?? null),
+                    'model' => $requestedModel ?? $reportedModel,
+                    'model_requested' => $requestedModel,
+                    'model_reported' => $reportedModel,
                     'finish_reason' => $finishReason,
                 ];
 
