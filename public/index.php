@@ -37,7 +37,6 @@ use Slim\Middleware\ErrorMiddleware;
 use App\Generations\GenerationDownloadService;
 use App\Generations\GenerationLogRepository;
 use App\Generations\GenerationRepository;
-use App\Generations\GenerationTokenService;
 
 require_once __DIR__ . '/../autoload.php';
 
@@ -94,9 +93,7 @@ $container->set(DocumentController::class, static function (Container $c): Docum
         $c->get(DocumentService::class),
         $c->get(DocumentPreviewer::class),
         $c->get(GenerationDownloadService::class),
-        $c->get(GenerationRepository::class),
-        $c->get(GenerationTokenService::class),
-        $c->get(GenerationDownloadService::class)
+        $c->get(GenerationRepository::class)
     );
 });
 
@@ -174,8 +171,7 @@ $container->set(TailorController::class, static function (Container $c): TailorC
         $c->get(DocumentRepository::class),
         $c->get(GenerationRepository::class),
         $c->get(GenerationLogRepository::class),
-        $c->get(GenerationDownloadService::class),
-        $c->get(GenerationTokenService::class)
+        $c->get(GenerationDownloadService::class)
     );
 });
 
@@ -226,58 +222,9 @@ $container->set(GenerationDownloadService::class, static function (Container $c)
     return new GenerationDownloadService($c->get(\PDO::class));
 });
 
-$container->set(GenerationTokenService::class, static function (): ?GenerationTokenService {
-    /**
-     * Resolve the requested environment key from any available source.
-     *
-     * Reading from getenv(), $_ENV, and $_SERVER guarantees the application
-     * honours configuration loaded via vlucas/phpdotenv which avoids populating
-     * PHP's process environment when using the immutable loader.
-     */
-    $resolveEnv = static function (string $key): string {
-        $value = getenv($key);
-
-        if ($value === false || $value === '') {
-            if (isset($_ENV[$key]) && $_ENV[$key] !== '') {
-                return (string) $_ENV[$key];
-            }
-
-            if (isset($_SERVER[$key]) && $_SERVER[$key] !== '') {
-                return (string) $_SERVER[$key];
-            }
-
-            return '';
-        }
-
-        return (string) $value;
-    };
-
-    $secret = $resolveEnv('DOWNLOAD_TOKEN_SECRET');
-
-    if ($secret === '') {
-        $secret = $resolveEnv('APP_KEY');
-    }
-
-    if ($secret === '') {
-        error_log('Generation downloads disabled: configure DOWNLOAD_TOKEN_SECRET or APP_KEY to enable.');
-
-        return null;
-    }
-
-    $ttlValue = $resolveEnv('DOWNLOAD_TOKEN_TTL');
-    $ttl = $ttlValue !== '' ? (int) $ttlValue : 300;
-
-    if ($ttl < 0) {
-        $ttl = 300;
-    }
-
-    return new GenerationTokenService($secret, $ttl);
-});
-
 $container->set(GenerationDownloadController::class, static function (Container $c): GenerationDownloadController {
     return new GenerationDownloadController(
-        $c->get(GenerationDownloadService::class),
-        $c->get(GenerationTokenService::class)
+        $c->get(GenerationDownloadService::class)
     );
 });
 

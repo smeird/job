@@ -15,7 +15,6 @@ use App\Generations\GenerationNotFoundException;
 use App\Generations\GenerationOutputUnavailableException;
 
 use App\Generations\GenerationRepository;
-use App\Generations\GenerationTokenService;
 use App\Views\Renderer;
 use DateTimeImmutable;
 use Exception;
@@ -45,9 +44,6 @@ final class DocumentController
     /** @var GenerationRepository */
     private $generationRepository;
 
-    /** @var GenerationTokenService|null */
-    private $generationTokenService;
-
     /**
      * Construct the object with its required dependencies.
      *
@@ -59,8 +55,7 @@ final class DocumentController
         DocumentService $documentService,
         DocumentPreviewer $documentPreviewer,
         GenerationDownloadService $generationDownloadService,
-        GenerationRepository $generationRepository,
-        ?GenerationTokenService $generationTokenService
+        GenerationRepository $generationRepository
     ) {
         $this->renderer = $renderer;
         $this->documentRepository = $documentRepository;
@@ -68,7 +63,6 @@ final class DocumentController
         $this->documentPreviewer = $documentPreviewer;
         $this->generationDownloadService = $generationDownloadService;
         $this->generationRepository = $generationRepository;
-        $this->generationTokenService = $generationTokenService;
     }
 
     /**
@@ -94,7 +88,7 @@ final class DocumentController
             'navLinks' => $this->navLinks('documents'),
             'jobDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'job_description')),
             'cvDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'cv')),
-            'tailoredGenerations' => $this->mapGenerations($userId, $this->generationRepository->listForUser($userId)),
+            'tailoredGenerations' => $this->mapGenerations($this->generationRepository->listForUser($userId)),
             'errors' => [],
             'status' => $status,
         ]);
@@ -159,7 +153,7 @@ final class DocumentController
             'navLinks' => $this->navLinks('documents'),
             'jobDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'job_description')),
             'cvDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'cv')),
-            'tailoredGenerations' => $this->mapGenerations($userId, $this->generationRepository->listForUser($userId)),
+            'tailoredGenerations' => $this->mapGenerations($this->generationRepository->listForUser($userId)),
             'errors' => $errors,
             'status' => null,
         ]);
@@ -448,11 +442,11 @@ final class DocumentController
      * Map the generation rows into the view-friendly structure.
      *
      * The helper keeps tailored CV metadata formatting consistent across the documents workspace
-     * while avoiding download token creation for generations that are not yet completed.
+     * while exposing permanent download URLs only when background runs have completed.
      * @param array<int, array<string, mixed>> $generations
      * @return array<int, array<string, mixed>>
      */
-    private function mapGenerations(int $userId, array $generations): array
+    private function mapGenerations(array $generations): array
     {
         $mapped = [];
 
@@ -471,7 +465,7 @@ final class DocumentController
             $downloads = [];
 
             if ($status === 'completed') {
-                $downloads = $this->buildDownloadLinks($userId, (int) $generation['id']);
+                $downloads = $this->buildDownloadLinks((int) $generation['id']);
             }
 
             $mapped[] = [
@@ -501,23 +495,16 @@ final class DocumentController
     }
 
     /**
-     * Build the signed download URLs for the provided generation.
+     * Build the permanent download URLs for the provided generation.
      *
-     * Centralising link creation ensures each page exposes consistent tokenised
-     * URLs that respect the per-user security constraints enforced by the
-     * download controller. When the token service is disabled the method
-     * returns an empty list so the UI hides download options gracefully while
-     * still surfacing every available format when binary exports are stored.
+     * Centralising link creation ensures each page exposes consistent URLs
+     * while still surfacing every available format when binary exports are stored.
 
      *
      * @return array<string, string>
      */
-    private function buildDownloadLinks(int $userId, int $generationId): array
+    private function buildDownloadLinks(int $generationId): array
     {
-        if ($this->generationTokenService === null) {
-            return [];
-        }
-
         $availableFormats = $this->generationDownloadService->availableFormats($generationId);
 
         if ($availableFormats === []) {
@@ -527,13 +514,10 @@ final class DocumentController
         $downloads = [];
 
         foreach ($availableFormats as $format) {
-            $token = $this->generationTokenService->createToken($userId, $generationId, $format);
-
             $downloads[$format] = sprintf(
-                '/generations/%d/download?format=%s&token=%s',
+                '/generations/%d/download?format=%s',
                 $generationId,
-                rawurlencode($format),
-                rawurlencode($token)
+                rawurlencode($format)
             );
         }
 

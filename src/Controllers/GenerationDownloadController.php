@@ -8,7 +8,6 @@ use App\Generations\GenerationAccessDeniedException;
 use App\Generations\GenerationDownloadService;
 use App\Generations\GenerationNotFoundException;
 use App\Generations\GenerationOutputUnavailableException;
-use App\Generations\GenerationTokenService;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Slim\Psr7\Stream;
@@ -21,7 +20,6 @@ use function json_encode;
 use function sprintf;
 use function strlen;
 use function str_replace;
-use function time;
 use function strtolower;
 use function trim;
 use function rewind;
@@ -33,74 +31,47 @@ final class GenerationDownloadController
     /** @var GenerationDownloadService */
     private $downloadService;
 
-    /** @var GenerationTokenService|null */
-    private $tokenService;
-
     /**
      * Construct the object with its required dependencies.
      *
      * This ensures collaborating services are available for subsequent method calls.
      */
     public function __construct(
-        GenerationDownloadService $downloadService,
-        ?GenerationTokenService $tokenService
+        GenerationDownloadService $downloadService
     ) {
         $this->downloadService = $downloadService;
-        $this->tokenService = $tokenService;
     }
 
     /**
      * Orchestrate a download response for the generated artifact.
      *
      * Centralising download logic ensures headers and streaming behaviour remain consistent.
-     * When the token service is not configured a service-unavailable response is
-     * returned so administrators can supply the required secret.
      * @param array<string, string> $args
      */
     public function download(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
     {
-        if ($this->tokenService === null) {
-            return $this->error($response, 503, 'Download service is not configured.');
-        }
-
         $format = strtolower(trim((string) ($request->getQueryParams()['format'] ?? '')));
 
         if ($format === '' || !in_array($format, self::SUPPORTED_FORMATS, true)) {
             return $this->error($response, 400, 'Invalid or missing format parameter.');
         }
 
-        $token = trim((string) ($request->getQueryParams()['token'] ?? ''));
-
-        if ($token === '') {
-            return $this->error($response, 401, 'Download token is required.');
-        }
-
-        $payload = $this->tokenService->validateToken($token);
-
-        if ($payload === null || $payload['format'] !== $format) {
-            return $this->error($response, 403, 'Invalid download token.');
-        }
-
         $generationId = (int) ($args['id'] ?? 0);
 
-        if ($generationId <= 0 || $payload['generation_id'] !== $generationId) {
-            return $this->error($response, 403, 'Download token does not match the requested generation.');
-        }
-
-        $now = time();
-
-        if ($payload['expires_at'] !== 0 && $payload['expires_at'] < $now) {
-            return $this->error($response, 403, 'Download link has expired.');
+        if ($generationId <= 0) {
+            return $this->error($response, 400, 'Invalid generation identifier.');
         }
 
         $user = $request->getAttribute('user');
 
-        if (is_array($user) && isset($user['user_id']) && (int) $user['user_id'] !== $payload['user_id']) {
-            return $this->error($response, 403, 'Authenticated user does not match download token.');
+        if (!is_array($user) || !isset($user['user_id'])) {
+            return $this->error($response, 401, 'Authentication required.');
         }
 
+        $userId = (int) $user['user_id'];
+
         try {
-            $download = $this->downloadService->fetch($generationId, $payload['user_id'], $format);
+            $download = $this->downloadService->fetch($generationId, $userId, $format);
         } catch (GenerationNotFoundException) {
             return $this->error($response, 404, 'Generation not found.');
         } catch (GenerationAccessDeniedException) {
