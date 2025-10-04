@@ -130,22 +130,46 @@ class UsageService
         $requested = isset($metadata['model_requested']) ? (string) $metadata['model_requested'] : '';
 
         if ($requested !== '') {
-            return $requested;
+            return $this->normaliseModelIdentifier($requested);
         }
 
         $primary = isset($metadata['model']) ? (string) $metadata['model'] : '';
 
         if ($primary !== '') {
-            return $primary;
+            return $this->normaliseModelIdentifier($primary);
         }
 
         $reported = isset($metadata['model_reported']) ? (string) $metadata['model_reported'] : '';
 
         if ($reported !== '') {
-            return $reported;
+            return $this->normaliseModelIdentifier($reported);
         }
 
         return 'unknown';
+    }
+
+    /**
+     * Harmonise known model aliases into their canonical identifiers.
+     *
+     * Centralising the mapping ensures legacy rows that reference older labels
+     * continue to render alongside the current GPT-5 line-up without confusing
+     * suffixes leaking into the analytics table.
+     */
+    private function normaliseModelIdentifier(string $model): string
+    {
+        $key = strtolower($model);
+
+        $aliases = [
+            'gpt-5-main' => 'gpt-5',
+            'gpt5-main' => 'gpt-5',
+            'gpt5' => 'gpt-5',
+        ];
+
+        if (isset($aliases[$key])) {
+            return $aliases[$key];
+        }
+
+        return $model;
     }
 
     /**

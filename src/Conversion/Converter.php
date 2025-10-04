@@ -311,8 +311,7 @@ body {
 }
 
 .letter {
-    width: 100%;
-    max-width: 16cm;
+    max-width: 17cm;
     margin: 0 auto;
     padding: 0;
     display: flex;
@@ -320,45 +319,18 @@ body {
     gap: 12pt;
 }
 
-.letter-content {
-    display: flex;
-    flex-direction: column;
-    gap: 12pt;
-    width: 100%;
-    max-width: 100%;
-}
-
 .letter-date {
     font-size: 11pt;
     color: #4b5563;
 }
 
-.letter-content > * {
-    margin: 0;
-    max-width: 100%;
-}
-
-.letter-content p,
-.letter-content li {
-    margin: 0;
-    line-height: 1.6;
-    text-align: left;
-    white-space: pre-wrap;
+.letter-content p {
+    margin: 0 0 12pt;
+    text-align: justify;
     word-break: break-word;
-    overflow-wrap: anywhere;
-    hyphens: auto;
 }
 
-.letter-content p + p {
-    margin-top: 12pt;
-}
-
-.letter-content li + li {
-    margin-top: 6pt;
-}
-
-.letter-content p:last-child,
-.letter-content li:last-child {
+.letter-content p:last-child {
     margin-bottom: 0;
 }
 
@@ -391,18 +363,19 @@ body {
 
 .letter-content ul,
 .letter-content ol {
-    margin: 0 0 12pt 1.1cm;
+    margin: 0 0 6pt 1.1cm;
     padding-left: 0;
 }
 
-.letter-content ul:last-child,
-.letter-content ol:last-child {
+.letter-content li {
+    margin: 0 0 6pt;
+}
+
+.letter-content li:last-child {
     margin-bottom: 0;
 }
 
-.letter-content table {
-    border-collapse: collapse;
-    width: 100%;
+.letter-content li p {
     margin: 0;
 }
 

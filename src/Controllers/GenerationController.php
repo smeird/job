@@ -17,7 +17,7 @@ final class GenerationController
     /** @var array<int, array{value: string, label: string}> */
     private const MODELS = [
         ['value' => 'gpt-5-mini', 'label' => 'GPT-5 Mini · Balanced performance'],
-        ['value' => 'gpt-5-main', 'label' => 'GPT-5 Main · Highest quality'],
+        ['value' => 'gpt-5', 'label' => 'GPT-5 · Highest quality'],
         ['value' => 'gpt-5-nano', 'label' => 'GPT-5 Nano · Fastest responses'],
     ];
 
