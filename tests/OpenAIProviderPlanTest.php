@@ -253,7 +253,7 @@ if (!is_array($initialFallbackRequest) || $initialFallbackRequest['model'] !== '
     throw new RuntimeException('Initial plan request did not target the configured missing model.');
 }
 
-if (!is_array($secondFallbackRequest) || $secondFallbackRequest['model'] !== 'gpt-4o-mini') {
+if (!is_array($secondFallbackRequest) || $secondFallbackRequest['model'] !== 'gpt-5-mini') {
     throw new RuntimeException('Fallback plan request did not target the expected default model.');
 }
 
