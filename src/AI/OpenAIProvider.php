@@ -44,8 +44,8 @@ final class OpenAIProvider
     private const INITIAL_BACKOFF_MS = 200;
     private const MAX_BACKOFF_MS = 4000;
 
-    private const PLAN_MODEL_FALLBACKS = ['gpt-4o-mini'];
-    private const DRAFT_MODEL_FALLBACKS = ['gpt-4o-mini'];
+    private const PLAN_MODEL_FALLBACKS = ['gpt-5-mini', 'gpt-5-nano'];
+    private const DRAFT_MODEL_FALLBACKS = ['gpt-5-mini', 'gpt-5-nano'];
 
     /** @var ClientInterface */
     private $client;
