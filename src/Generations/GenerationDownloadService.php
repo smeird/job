@@ -133,7 +133,11 @@ final class GenerationDownloadService
         $markdown = $this->loadMarkdown($generationId, $artifact);
 
         try {
-            $binary = $this->converter->renderFormat($markdown, $extension);
+            if ($artifact === self::ARTIFACT_COVER_LETTER && $extension === 'pdf') {
+                $binary = $this->converter->renderCoverLetterPdf($markdown);
+            } else {
+                $binary = $this->converter->renderFormat($markdown, $extension);
+            }
         } catch (Throwable $exception) {
             error_log(
                 sprintf(

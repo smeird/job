@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Conversion;
 
 use App\DB;
+use DateTimeImmutable;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use League\CommonMark\CommonMarkConverter;
@@ -123,6 +124,17 @@ class Converter
         }
 
         throw new RuntimeException('Unsupported format requested for rendering.');
+    }
+
+    /**
+     * Render a cover letter specific PDF.
+     *
+     * The helper wraps the base PDF conversion with styling and formatting tweaks that
+     * are specific to cover letters, such as injecting the current date.
+     */
+    public function renderCoverLetterPdf(string $markdown): string
+    {
+        return $this->convertMarkdownToPdf($markdown, true);
     }
 
     /**
@@ -268,9 +280,11 @@ class Converter
     /**
      * Convert the markdown to pdf into the desired format.
      *
-     * Having a dedicated converter isolates formatting concerns.
+     * Having a dedicated converter isolates formatting concerns while allowing
+     * callers to optionally inject contextual elements such as the current date
+     * for cover letters.
      */
-    private function convertMarkdownToPdf(string $markdown): string
+    private function convertMarkdownToPdf(string $markdown, bool $includeDate = false): string
     {
         if (method_exists($this->markdownConverter, 'convertToHtml')) {
             $html = (string) $this->markdownConverter->convertToHtml($markdown);
@@ -289,68 +303,90 @@ class Converter
 
 body {
     margin: 0;
-    font-family: 'Calibri', 'Arial', sans-serif;
+    font-family: 'Helvetica Neue', 'Calibri', 'Arial', sans-serif;
     font-size: 11pt;
-    line-height: 1.5;
+    line-height: 1.6;
     color: #111827;
+    background-color: #ffffff;
 }
 
-p {
+.letter {
+    max-width: 17cm;
+    margin: 0 auto;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12pt;
+}
+
+.letter-date {
+    font-size: 11pt;
+    color: #4b5563;
+}
+
+.letter-content p {
     margin: 0 0 12pt;
+    text-align: justify;
+    word-break: break-word;
 }
 
-p:last-child {
+.letter-content p:last-child {
     margin-bottom: 0;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-    font-family: 'Calibri', 'Arial', sans-serif;
+.letter-content h1,
+.letter-content h2,
+.letter-content h3,
+.letter-content h4,
+.letter-content h5,
+.letter-content h6 {
+    font-family: 'Helvetica Neue', 'Calibri', 'Arial', sans-serif;
     font-weight: bold;
     color: #111827;
-    margin: 0;
+    margin: 0 0 8pt;
 }
 
-h1 {
+.letter-content h1 {
     font-size: 20pt;
-    margin-bottom: 12pt;
 }
 
-h2 {
+.letter-content h2 {
     font-size: 16pt;
-    margin-bottom: 8pt;
 }
 
-h3,
-h4,
-h5,
-h6 {
+.letter-content h3,
+.letter-content h4,
+.letter-content h5,
+.letter-content h6 {
     font-size: 13pt;
-    margin-bottom: 6pt;
 }
 
-ul,
-ol {
-    margin: 0 0 6pt 0;
-    padding-left: 0.7cm;
+.letter-content ul,
+.letter-content ol {
+    margin: 0 0 6pt 1.1cm;
+    padding-left: 0;
 }
 
-li {
+.letter-content li {
     margin: 0 0 6pt;
 }
 
-li:last-child {
+.letter-content li:last-child {
     margin-bottom: 0;
 }
 
-li p {
+.letter-content li p {
     margin: 0;
 }
 CSS;
+
+        $dateMarkup = '';
+
+        if ($includeDate) {
+            $formattedDate = (new DateTimeImmutable())->format('j F Y');
+            $escapedDate = htmlspecialchars($formattedDate, ENT_QUOTES, 'UTF-8');
+            $dateMarkup = sprintf('<p class="letter-date">%s</p>', $escapedDate);
+        }
 
         $template = <<<HTML
 <!DOCTYPE html>
@@ -362,7 +398,12 @@ CSS;
 </style>
 </head>
 <body>
+<main class="letter">
+{$dateMarkup}
+<section class="letter-content">
 {$html}
+</section>
+</main>
 </body>
 </html>
 HTML;
