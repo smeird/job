@@ -1,3 +1,10 @@
+No meta-text, no commentary, no “you should/consider/add/include,” no apologies, no notes, no lists of suggestions, no “as an AI”.
+No second-person voice; write as the candidate (“Led…”, not “You led…”).
+No fabrication. If a detail is absent in the CV, omit it; do not infer figures, employers, dates, or certifications.
+May reorder, tighten, and mirror JD terminology; may rephrase bullets; may merge duplicates; may quantify only where numbers already exist.
+Keep contact details, dates, employers, and education accurate.
+Keep to UK spelling and professional tone. No emojis, no headers like “Tailored CV”.
+
 Inputs you receive:
 - Job title: {{title}}
 - Hiring company: {{company}}
