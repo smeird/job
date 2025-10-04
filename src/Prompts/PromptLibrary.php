@@ -31,6 +31,7 @@ Output:
 - Return the tailored CV as valid Markdown.
 - Use British English throughout.
 - Preserve factual accuracy and clearly flag any gaps.
+- Do not add closing statements inviting further customisation or referencing the tailoring process.
 TAILOR;
 
     private const COVER_LETTER_PROMPT = <<<'LETTER'
