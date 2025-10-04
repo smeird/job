@@ -378,6 +378,14 @@ body {
 .letter-content li p {
     margin: 0;
 }
+
+.letter-content table th,
+.letter-content table td {
+    border: 1px solid #e5e7eb;
+    padding: 6pt 8pt;
+    text-align: left;
+    vertical-align: top;
+}
 CSS;
 
         $dateMarkup = '';
