@@ -11,6 +11,7 @@ use App\Contacts\ContactDetailsService;
 use App\Controllers\DocumentController;
 use App\Controllers\JobApplicationController;
 use App\Controllers\GenerationController;
+use App\Controllers\GenerationStreamController;
 use App\Controllers\GenerationDownloadController;
 use App\Controllers\HomeController;
 use App\Controllers\TailorController;
@@ -210,6 +211,13 @@ $container->set(GenerationController::class, static function (Container $c): Gen
         $c->get(GenerationRepository::class),
         $c->get(DocumentRepository::class)
     );
+});
+
+/**
+ * Register the controller that streams live generation updates to the UI.
+ */
+$container->set(GenerationStreamController::class, static function (): GenerationStreamController {
+    return new GenerationStreamController();
 });
 
 $container->set(RetentionPolicyService::class, static function (Container $c): RetentionPolicyService {
