@@ -8,6 +8,7 @@ use App\Controllers\AuthController;
 use App\Controllers\DocumentController;
 use App\Controllers\GenerationController;
 use App\Controllers\GenerationDownloadController;
+use App\Controllers\GenerationStreamController;
 use App\Controllers\HomeController;
 use App\Controllers\TailorController;
 use App\Controllers\JobApplicationController;
@@ -175,6 +176,11 @@ class Routes
 
         $app->get('/generations/{id}/download', function (Request $request, Response $response, array $args) use ($container) {
             return $container->get(GenerationDownloadController::class)->download($request, $response, $args);
+        });
+
+        // Stream generation progress updates using server-sent events.
+        $app->get('/generations/{id}/stream', function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(GenerationStreamController::class)($request, $response, $args);
         });
 
         $app->get('/healthz', function (Request $request, Response $response): Response {
