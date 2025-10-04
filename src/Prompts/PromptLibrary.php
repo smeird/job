@@ -32,6 +32,7 @@ Output:
 - Use British English throughout.
 - Preserve factual accuracy and clearly flag any gaps.
 - Do not add closing statements inviting further customisation or referencing the tailoring process.
+- Present the document as the final CV ready for submission without suggesting further edits or mentioning AI involvement.
 TAILOR;
 
     private const COVER_LETTER_PROMPT = <<<'LETTER'
@@ -60,6 +61,7 @@ Instructions:
 3. Reference achievements already present in the CV excerpt and align them with the listed competencies and plan guidance.
 4. Keep the letter under 350 words, using a confident and warm tone.
 5. Avoid inventing employers, responsibilities, or achievements that the CV does not mention.
+6. Present the letter as the final submission-ready draft without suggesting future tweaks or referencing AI assistance.
 
 Return only the cover letter Markdown without commentary.
 LETTER;
