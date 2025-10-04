@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Generations;
 
+use App\Contacts\ContactDetailsRepository;
 use App\Conversion\Converter;
 use PDO;
 use PDOException;
@@ -12,6 +13,7 @@ use Throwable;
 
 use function error_log;
 use function in_array;
+use function preg_replace;
 use function sprintf;
 use function str_replace;
 use function strtolower;
@@ -31,15 +33,19 @@ final class GenerationDownloadService
     /** @var Converter */
     private $converter;
 
+    /** @var ContactDetailsRepository */
+    private $contactDetailsRepository;
+
     /**
      * Construct the object with its required dependencies.
      *
      * This ensures collaborating services are available for subsequent method calls.
      */
-    public function __construct(PDO $pdo)
+    public function __construct(PDO $pdo, ?ContactDetailsRepository $contactDetailsRepository = null)
     {
         $this->pdo = $pdo;
         $this->converter = new Converter();
+        $this->contactDetailsRepository = $contactDetailsRepository ?? new ContactDetailsRepository($pdo);
     }
 
     /**
@@ -68,10 +74,13 @@ final class GenerationDownloadService
 
         switch ($format) {
             case 'md':
+                $this->converter->setPdfFooterLine(null);
                 return $this->fetchMarkdown($generationId, $artifactKey);
             case 'docx':
+                $this->converter->setPdfFooterLine(null);
                 return $this->fetchConverted($generationId, $artifactKey, 'docx', self::FORMAT_DOCX_MIME);
             case 'pdf':
+                $this->converter->setPdfFooterLine($this->buildPdfFooterLine((int) $generation['user_id']));
                 return $this->fetchConverted($generationId, $artifactKey, 'pdf', self::FORMAT_PDF_MIME);
             default:
                 throw new RuntimeException('Unsupported format requested.');
@@ -160,6 +169,48 @@ final class GenerationDownloadService
             'mime_type' => $mimeType,
             'content' => $binary,
         ];
+    }
+
+    /**
+     * Build a single line footer for the generated PDF using saved contact details.
+     *
+     * Collapsing the structured address, phone, and email fields into a single
+     * string keeps the PDF footer succinct while still surfacing key contact
+     * information for hiring managers.
+     */
+    private function buildPdfFooterLine(int $userId): ?string
+    {
+        $details = $this->contactDetailsRepository->findForUser($userId);
+
+        if ($details === null) {
+            return null;
+        }
+
+        $parts = [];
+        $address = isset($details['address']) ? trim((string) $details['address']) : '';
+
+        if ($address !== '') {
+            $flattenedAddress = preg_replace('/\s*\n\s*/', ', ', $address);
+            $parts[] = $flattenedAddress !== null ? $flattenedAddress : $address;
+        }
+
+        $phone = isset($details['phone']) ? trim((string) $details['phone']) : '';
+
+        if ($phone !== '') {
+            $parts[] = $phone;
+        }
+
+        $email = isset($details['email']) ? trim((string) $details['email']) : '';
+
+        if ($email !== '') {
+            $parts[] = $email;
+        }
+
+        if ($parts === []) {
+            return null;
+        }
+
+        return implode(' • ', $parts);
     }
 
     /**

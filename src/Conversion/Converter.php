@@ -23,6 +23,9 @@ class Converter
     /** @var ConverterInterface */
     private $markdownConverter;
 
+    /** @var string|null */
+    private $pdfFooterLine;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -31,6 +34,20 @@ class Converter
     public function __construct(?ConverterInterface $markdownConverter = null)
     {
         $this->markdownConverter = $markdownConverter ?? new CommonMarkConverter();
+        $this->pdfFooterLine = null;
+    }
+
+    /**
+     * Configure the optional footer line injected into generated PDF files.
+     *
+     * Centralising the state allows controllers to supply the caller specific
+     * contact details that should appear at the bottom of each rendered page.
+     */
+    public function setPdfFooterLine(?string $footerLine): void
+    {
+        $this->pdfFooterLine = $footerLine !== null && trim($footerLine) !== ''
+            ? $footerLine
+            : null;
     }
 
     /**
@@ -298,7 +315,7 @@ class Converter
 
         $styles = <<<'CSS'
 @page {
-    margin: 2.5cm;
+    margin: 2.5cm 2.5cm 3.2cm 2.5cm;
 }
 
 body {
@@ -308,6 +325,7 @@ body {
     line-height: 1.6;
     color: #111827;
     background-color: #ffffff;
+    padding-bottom: 1.2cm;
 }
 
 .letter {
@@ -386,6 +404,20 @@ body {
     text-align: left;
     vertical-align: top;
 }
+
+.letter-footer {
+    position: fixed;
+    left: 2.5cm;
+    right: 2.5cm;
+    bottom: 1.5cm;
+    padding-top: 6pt;
+    border-top: 1px solid #e5e7eb;
+    font-size: 9pt;
+    color: #6b7280;
+    text-align: center;
+    line-height: 1.4;
+    letter-spacing: 0.2pt;
+}
 CSS;
 
         $dateMarkup = '';
@@ -394,6 +426,13 @@ CSS;
             $formattedDate = (new DateTimeImmutable())->format('j F Y');
             $escapedDate = htmlspecialchars($formattedDate, ENT_QUOTES, 'UTF-8');
             $dateMarkup = sprintf('<p class="letter-date">%s</p>', $escapedDate);
+        }
+
+        $footerMarkup = '';
+
+        if ($this->pdfFooterLine !== null) {
+            $escapedFooter = htmlspecialchars($this->pdfFooterLine, ENT_QUOTES, 'UTF-8');
+            $footerMarkup = sprintf('<footer class="letter-footer">%s</footer>', $escapedFooter);
         }
 
         $template = <<<HTML
@@ -412,6 +451,7 @@ CSS;
 {$html}
 </section>
 </main>
+{$footerMarkup}
 </body>
 </html>
 HTML;
