@@ -2,8 +2,8 @@
 /** @var string $title */
 /** @var string $subtitle */
 /** @var array<int, array{href: string, label: string, current: bool}> $navLinks */
-/** @var array<int, array{id: int|null, filename: string, created_at: string, size: string, view_url: string|null, download_url: string|null}> $jobDocuments */
-/** @var array<int, array{id: int|null, filename: string, created_at: string, size: string, view_url: string|null, download_url: string|null}> $cvDocuments */
+/** @var array<int, array{id: int|null, filename: string, created_at: string, size: string, view_url: string|null, download_url: string|null, is_markdown: bool, markdown_view_url: string|null}> $jobDocuments */
+/** @var array<int, array{id: int|null, filename: string, created_at: string, size: string, view_url: string|null, download_url: string|null, is_markdown: bool, markdown_view_url: string|null}> $cvDocuments */
 /** @var array<int, array<string, mixed>> $tailoredGenerations */
 /** @var array<int, string> $errors */
 /** @var string|null $status */
@@ -113,6 +113,11 @@
                                                 Download
                                             </a>
                                         <?php endif; ?>
+                                        <?php if (!empty($document['is_markdown']) && !empty($document['markdown_view_url'])) : ?>
+                                            <a href="<?= htmlspecialchars($document['markdown_view_url'], ENT_QUOTES) ?>#formatted-markdown" class="inline-flex items-center gap-2 rounded-full border border-sky-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-100 transition hover:border-sky-300 hover:text-sky-50">
+                                                Markdown view
+                                            </a>
+                                        <?php endif; ?>
                                         <?php if (!empty($document['view_url'])) : ?>
                                             <a href="<?= htmlspecialchars($document['view_url'], ENT_QUOTES) ?>" class="inline-flex items-center gap-2 rounded-full border border-indigo-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-100 transition hover:border-indigo-300 hover:text-indigo-50">
                                                 View
@@ -157,6 +162,11 @@
                                         <?php if (!empty($document['download_url'])) : ?>
                                             <a href="<?= htmlspecialchars($document['download_url'], ENT_QUOTES) ?>" class="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100 transition hover:border-emerald-300 hover:text-emerald-50">
                                                 Download
+                                            </a>
+                                        <?php endif; ?>
+                                        <?php if (!empty($document['is_markdown']) && !empty($document['markdown_view_url'])) : ?>
+                                            <a href="<?= htmlspecialchars($document['markdown_view_url'], ENT_QUOTES) ?>#formatted-markdown" class="inline-flex items-center gap-2 rounded-full border border-sky-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-100 transition hover:border-sky-300 hover:text-sky-50">
+                                                Markdown view
                                             </a>
                                         <?php endif; ?>
                                         <?php if (!empty($document['view_url'])) : ?>

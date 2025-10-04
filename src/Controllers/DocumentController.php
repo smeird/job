@@ -8,6 +8,7 @@ use App\Documents\DocumentPreviewer;
 use App\Documents\DocumentRepository;
 use App\Documents\DocumentService;
 use App\Documents\DocumentValidationException;
+use App\Documents\MarkdownRenderer;
 
 use App\Generations\GenerationAccessDeniedException;
 use App\Generations\GenerationDownloadService;
@@ -52,6 +53,9 @@ final class DocumentController
     /** @var GenerationRepository */
     private $generationRepository;
 
+    /** @var MarkdownRenderer */
+    private $markdownRenderer;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -62,6 +66,7 @@ final class DocumentController
         DocumentRepository $documentRepository,
         DocumentService $documentService,
         DocumentPreviewer $documentPreviewer,
+        MarkdownRenderer $markdownRenderer,
         GenerationDownloadService $generationDownloadService,
         GenerationRepository $generationRepository
     ) {
@@ -69,6 +74,7 @@ final class DocumentController
         $this->documentRepository = $documentRepository;
         $this->documentService = $documentService;
         $this->documentPreviewer = $documentPreviewer;
+        $this->markdownRenderer = $markdownRenderer;
         $this->generationDownloadService = $generationDownloadService;
         $this->generationRepository = $generationRepository;
     }
@@ -194,6 +200,10 @@ final class DocumentController
 
         $preview = $this->documentPreviewer->render($document);
         $documentType = $document->documentType() === 'cv' ? 'CV' : 'Job description';
+        $isMarkdown = $document->mimeType() === 'text/markdown';
+        $markdownUrl = ($document->id() !== null && $isMarkdown)
+            ? '/documents/' . rawurlencode((string) $document->id()) . '/markdown'
+            : null;
 
         return $this->renderer->render($response, 'document-view', [
             'title' => $document->filename() . ' · Documents',
@@ -211,6 +221,72 @@ final class DocumentController
                     ? '/documents/' . rawurlencode((string) $document->id()) . '/download'
                     : null,
                 'preview' => $preview,
+                'is_markdown' => $isMarkdown,
+                'markdown_view_url' => $markdownUrl,
+            ],
+        ]);
+    }
+
+    /**
+     * Display a formatted markdown preview for eligible documents.
+     *
+     * Keeping markdown rendering in a dedicated action makes it easy to reuse
+     * from other navigation entry points without duplicating validation logic.
+     * @param array<string, string> $args
+     */
+    public function showMarkdown(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if (!is_array($user) || !isset($user['user_id'])) {
+            return $response->withHeader('Location', '/auth/login')->withStatus(302);
+        }
+
+        $userId = (int) $user['user_id'];
+        $documentId = isset($args['id']) ? (int) $args['id'] : 0;
+
+        try {
+            $document = $this->documentService->getForUser($userId, $documentId);
+        } catch (RuntimeException $exception) {
+            return $response
+                ->withHeader('Location', '/documents?status=' . rawurlencode($exception->getMessage()))
+                ->withStatus(302);
+        }
+
+        if ($document->mimeType() !== 'text/markdown') {
+            $redirect = $document->id() !== null
+                ? '/documents/' . rawurlencode((string) $document->id())
+                : '/documents';
+
+            return $response->withHeader('Location', $redirect)->withStatus(302);
+        }
+
+        $documentType = $document->documentType() === 'cv' ? 'CV' : 'Job description';
+        $markdown = $document->content();
+        $formatted = $this->markdownRenderer->toHtml($markdown);
+
+        return $this->renderer->render($response, 'document-markdown', [
+            'title' => $document->filename() . ' · Documents',
+            'subtitle' => 'Formatted markdown preview',
+            'fullWidth' => true,
+            'navLinks' => $this->navLinks('documents'),
+            'document' => [
+                'id' => $document->id(),
+                'filename' => $document->filename(),
+                'created_at' => $document->createdAt()->format('Y-m-d H:i'),
+                'size' => $this->formatBytes($document->sizeBytes()),
+                'mime_type' => $document->mimeType(),
+                'type_label' => $documentType,
+                'download_url' => $document->id() !== null
+                    ? '/documents/' . rawurlencode((string) $document->id()) . '/download'
+                    : null,
+                'plain_view_url' => $document->id() !== null
+                    ? '/documents/' . rawurlencode((string) $document->id())
+                    : '/documents',
+            ],
+            'markdown' => [
+                'raw' => $markdown,
+                'html' => $formatted,
             ],
         ]);
     }
@@ -410,11 +486,16 @@ final class DocumentController
      * Map the provided data set into the desired shape.
      *
      * @param array<int, \App\Documents\Document> $documents
-     * @return array<int, array{id: int|null, filename: string, created_at: string, size: string, view_url: string|null, download_url: string|null}>
+     * @return array<int, array{id: int|null, filename: string, created_at: string, size: string, view_url: string|null, download_url: string|null, is_markdown: bool, markdown_view_url: string|null}>
      */
     private function mapDocuments(array $documents): array
     {
         return array_map(function ($document) {
+            $isMarkdown = $document->mimeType() === 'text/markdown';
+            $markdownUrl = ($document->id() !== null && $isMarkdown)
+                ? '/documents/' . rawurlencode((string) $document->id()) . '/markdown'
+                : null;
+
             return [
                 'id' => $document->id(),
                 'filename' => $document->filename(),
@@ -426,6 +507,8 @@ final class DocumentController
                 'download_url' => $document->id() !== null
                     ? '/documents/' . rawurlencode((string) $document->id()) . '/download'
                     : null,
+                'is_markdown' => $isMarkdown,
+                'markdown_view_url' => $markdownUrl,
             ];
         }, $documents);
     }
