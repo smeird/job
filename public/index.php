@@ -21,6 +21,7 @@ use App\Documents\DocumentPreviewer;
 use App\Documents\DocumentRepository;
 use App\Documents\DocumentService;
 use App\Documents\DocumentValidator;
+use App\Documents\MarkdownRenderer;
 use App\Infrastructure\Database\Connection;
 use App\Infrastructure\Database\Migrator;
 use App\Middleware\CsrfMiddleware;
@@ -91,12 +92,17 @@ $container->set(DocumentPreviewer::class, static function (): DocumentPreviewer 
     return new DocumentPreviewer();
 });
 
+$container->set(MarkdownRenderer::class, static function (): MarkdownRenderer {
+    return new MarkdownRenderer();
+});
+
 $container->set(DocumentController::class, static function (Container $c): DocumentController {
     return new DocumentController(
         $c->get(Renderer::class),
         $c->get(DocumentRepository::class),
         $c->get(DocumentService::class),
         $c->get(DocumentPreviewer::class),
+        $c->get(MarkdownRenderer::class),
         $c->get(GenerationDownloadService::class),
         $c->get(GenerationRepository::class)
     );

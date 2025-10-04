@@ -59,6 +59,10 @@ class Routes
             return $container->get(DocumentController::class)->show($request, $response, $args);
         });
 
+        $app->get('/documents/{id}/markdown', function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(DocumentController::class)->showMarkdown($request, $response, $args);
+        });
+
         $app->get('/documents/{id}/download', function (Request $request, Response $response, array $args) use ($container) {
             return $container->get(DocumentController::class)->download($request, $response, $args);
         });

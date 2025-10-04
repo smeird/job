@@ -1,5 +1,5 @@
 <?php
-/** @var array{filename: string, created_at: string, size: string, mime_type: string, type_label: string, preview: string, id: int|null, download_url: string|null} $document */
+/** @var array{filename: string, created_at: string, size: string, mime_type: string, type_label: string, preview: string, id: int|null, download_url: string|null, is_markdown: bool, markdown_view_url: string|null} $document */
 /** @var string $title */
 /** @var string $subtitle */
 /** @var array<int, array{href: string, label: string, current: bool}> $navLinks */
@@ -58,18 +58,30 @@
         </div>
 
         <article class="rounded-2xl border border-slate-800/80 bg-slate-900/70 p-6 shadow-xl">
-            <header class="flex items-center justify-between gap-4">
+            <header class="flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h3 class="text-lg font-semibold text-white">Contents</h3>
                     <p class="text-sm text-slate-400">Plain text preview extracted for quick review.</p>
                 </div>
-                <?php if (!empty($document['download_url'])) : ?>
-                    <a href="<?= htmlspecialchars($document['download_url'], ENT_QUOTES) ?>" class="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-100 transition hover:border-emerald-300 hover:text-emerald-50">
-                        Download original
-                    </a>
-                <?php endif; ?>
+                <div class="flex flex-wrap items-center gap-2">
+                    <?php if (!empty($document['is_markdown']) && !empty($document['markdown_view_url'])) : ?>
+                        <a href="<?= htmlspecialchars($document['markdown_view_url'], ENT_QUOTES) ?>#formatted-markdown" class="inline-flex items-center gap-2 rounded-full border border-sky-400/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-sky-100 transition hover:border-sky-300 hover:text-sky-50">
+                            Markdown view
+                        </a>
+                    <?php endif; ?>
+                    <?php if (!empty($document['download_url'])) : ?>
+                        <a href="<?= htmlspecialchars($document['download_url'], ENT_QUOTES) ?>" class="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-emerald-100 transition hover:border-emerald-300 hover:text-emerald-50">
+                            Download original
+                        </a>
+                    <?php endif; ?>
+                </div>
             </header>
             <div class="mt-4 max-h-[540px] overflow-auto rounded-xl border border-slate-800/60 bg-slate-950/60 p-4 text-sm leading-relaxed text-slate-200">
+                <?php if (!empty($document['is_markdown']) && !empty($document['markdown_view_url'])) : ?>
+                    <p class="mb-4 rounded-lg border border-sky-400/30 bg-sky-500/10 p-3 text-xs text-sky-100">
+                        Need formatting? Visit the <a href="<?= htmlspecialchars($document['markdown_view_url'], ENT_QUOTES) ?>#formatted-markdown" class="font-semibold underline decoration-dotted">markdown view</a> for headings, lists, and emphasis.
+                    </p>
+                <?php endif; ?>
                 <?php if ($document['preview'] === '') : ?>
                     <p class="text-slate-500">A preview is not available for this file type, but the document remains stored securely.</p>
                 <?php else : ?>
