@@ -112,7 +112,7 @@
                         <?php endforeach; ?>
                     </select>
                     <p class="text-xs text-slate-500">
-                        <?= htmlspecialchars($statusOptions[$form['status'] ?? 'outstanding']['description'] ?? 'Track whether the role is queued, submitted, or marked for reflection.', ENT_QUOTES) ?>
+                        <?= htmlspecialchars($statusOptions[$form['status'] ?? 'outstanding']['description'] ?? 'Track whether the role is queued, submitted, interviewing, contracting, or marked for reflection.', ENT_QUOTES) ?>
                     </p>
                 </div>
                 <div class="space-y-2">

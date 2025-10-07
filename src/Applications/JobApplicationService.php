@@ -20,6 +20,8 @@ class JobApplicationService
         'other' => 'Other or unspecified reason',
     ];
 
+    private const PIPELINE_STATUSES = ['outstanding', 'applied', 'interviewing', 'contracting', 'failed'];
+
     /** @var JobApplicationRepository */
     private $repository;
 
@@ -206,7 +208,7 @@ class JobApplicationService
         string $status,
         ?string $reasonCode = null
     ): JobApplication {
-        $normalisedStatus = in_array($status, ['applied', 'outstanding', 'failed'], true) ? $status : 'outstanding';
+        $normalisedStatus = in_array($status, self::PIPELINE_STATUSES, true) ? $status : 'outstanding';
         $normalisedReason = null;
 
         if ($normalisedStatus === 'failed') {
@@ -312,6 +314,14 @@ class JobApplicationService
             'applied' => [
                 'label' => 'Submitted',
                 'description' => 'Applications that have been sent to the employer.',
+            ],
+            'interviewing' => [
+                'label' => 'Interviewing',
+                'description' => 'Opportunities where conversations or interviews are in motion.',
+            ],
+            'contracting' => [
+                'label' => 'Contracting',
+                'description' => 'Roles that have progressed to offer reviews or contract discussions.',
             ],
             'failed' => [
                 'label' => 'Learning',
