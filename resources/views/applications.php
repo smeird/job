@@ -130,7 +130,12 @@ $additionalHead = '<script src="/assets/js/applications.js" defer></script>';
                                         <div class="flex flex-col gap-3">
                                             <div class="flex items-start justify-between gap-3">
                                                 <h5 class="text-sm font-semibold text-white theme-light:text-slate-900">
-                                                    <?= htmlspecialchars($applicationTitleValue, ENT_QUOTES) ?>
+                                                    <a
+                                                        href="/applications/<?= urlencode($applicationIdValue) ?>"
+                                                        class="inline-flex items-center gap-2 text-left text-white underline-offset-2 transition hover:text-indigo-200 hover:underline theme-light:text-slate-900 theme-light:hover:text-indigo-600"
+                                                    >
+                                                        <?= htmlspecialchars($applicationTitleValue, ENT_QUOTES) ?>
+                                                    </a>
                                                 </h5>
                                                 <div class="flex flex-wrap items-center justify-end gap-2">
                                                     <button

@@ -104,6 +104,14 @@ class Routes
             return $container->get(JobApplicationController::class)->store($request, $response);
         });
 
+        $app->get('/applications/{id}', function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(JobApplicationController::class)->edit($request, $response, $args);
+        });
+
+        $app->post('/applications/{id}', function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(JobApplicationController::class)->update($request, $response, $args);
+        });
+
         $app->post('/applications/{id}/status', function (Request $request, Response $response, array $args) use ($container) {
             return $container->get(JobApplicationController::class)->updateStatus($request, $response, $args);
         });
