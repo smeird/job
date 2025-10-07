@@ -27,7 +27,7 @@ final class WebSearchClient
     private const DEFAULT_BASE_URL = 'https://api.search.local/v1';
     private const DEFAULT_ENDPOINT = 'search';
 
-    /** @var ClientInterface */
+    /** @var ClientInterface|null */
     private $client;
 
     /** @var string */
@@ -36,6 +36,9 @@ final class WebSearchClient
     /** @var string */
     private $endpoint;
 
+    /** @var bool */
+    private $enabled;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -43,7 +46,19 @@ final class WebSearchClient
      */
     public function __construct(?ClientInterface $client = null)
     {
-        $this->apiKey = $this->requireEnv('SEARCH_API_KEY');
+        $apiKey = $this->env('SEARCH_API_KEY');
+
+        if ($apiKey === null) {
+            $this->apiKey = '';
+            $this->endpoint = trim(self::DEFAULT_ENDPOINT, '/');
+            $this->client = null;
+            $this->enabled = false;
+
+            return;
+        }
+
+        $this->enabled = true;
+        $this->apiKey = $apiKey;
         $baseUrl = $this->env('SEARCH_API_BASE_URL') ?? self::DEFAULT_BASE_URL;
         $endpoint = $this->env('SEARCH_API_ENDPOINT') ?? self::DEFAULT_ENDPOINT;
         $this->endpoint = trim($endpoint, '/');
@@ -61,10 +76,18 @@ final class WebSearchClient
      * The helper translates diverse search provider schemas into a predictable
      * tuple list containing title, url, and snippet keys for downstream use.
      *
+     *
+     * When the API key is not configured the client returns an empty array to
+     * gracefully disable the feature without blocking page rendering.
+     *
      * @return array<int, array{title: string, url: string, snippet: string}>
      */
     public function search(string $query, int $limit = 5): array
     {
+        if ($this->enabled === false) {
+            return [];
+        }
+
         $parameters = [
             'query' => [
                 'q' => $query,
@@ -207,17 +230,4 @@ final class WebSearchClient
         return $trimmed === '' ? null : $trimmed;
     }
 
-    /**
-     * Fetch an environment variable, throwing if it is missing.
-     */
-    private function requireEnv(string $key): string
-    {
-        $value = $this->env($key);
-
-        if ($value === null) {
-            throw new RuntimeException(sprintf('%s environment variable must be configured for search access.', $key));
-        }
-
-        return $value;
-    }
 }
