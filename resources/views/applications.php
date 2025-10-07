@@ -10,6 +10,9 @@
 /** @var array<string, string> $failureReasons */
 /** @var string|null $csrfToken */
 ?>
+<?php
+$additionalHead = '<script src="/assets/js/applications.js" defer></script>';
+?>
 <?php ob_start(); ?>
 <div class="space-y-8">
     <header class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -112,6 +115,13 @@
                                     $generation = isset($kanbanItem['generation']) && is_array($kanbanItem['generation'])
                                         ? $kanbanItem['generation']
                                         : null;
+                                    $applicationIdValue = isset($kanbanItem['id']) ? (string) $kanbanItem['id'] : '';
+                                    $researchPanelId = 'application_research_' . ($applicationIdValue !== ''
+                                        ? preg_replace('/[^a-zA-Z0-9_-]/', '_', $applicationIdValue)
+                                        : uniqid('app_', false));
+                                    $applicationTitleValue = isset($kanbanItem['title']) && is_string($kanbanItem['title'])
+                                        ? $kanbanItem['title']
+                                        : 'Untitled role';
                                     $submittedAt = isset($kanbanItem['applied_at']) && $kanbanItem['applied_at'] !== null && $kanbanItem['applied_at'] !== ''
                                         ? 'Submitted ' . $kanbanItem['applied_at']
                                         : 'Not submitted yet';
@@ -120,9 +130,24 @@
                                         <div class="flex flex-col gap-3">
                                             <div class="flex items-start justify-between gap-3">
                                                 <h5 class="text-sm font-semibold text-white theme-light:text-slate-900">
-                                                    <?= htmlspecialchars($kanbanItem['title'] ?? 'Untitled role', ENT_QUOTES) ?>
+                                                    <?= htmlspecialchars($applicationTitleValue, ENT_QUOTES) ?>
                                                 </h5>
-                                                <div class="flex items-center gap-2">
+                                                <div class="flex flex-wrap items-center justify-end gap-2">
+                                                    <button
+                                                        type="button"
+                                                        class="inline-flex items-center gap-2 rounded-full border border-indigo-400/40 bg-indigo-500/10 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-wide text-indigo-100 transition hover:border-indigo-300 hover:text-indigo-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 theme-light:border-indigo-200 theme-light:bg-indigo-50 theme-light:text-indigo-600 theme-light:hover:border-indigo-300 theme-light:hover:text-indigo-700"
+                                                        data-research-trigger
+                                                        data-application-id="<?= htmlspecialchars($applicationIdValue, ENT_QUOTES) ?>"
+                                                        data-application-title="<?= htmlspecialchars($applicationTitleValue, ENT_QUOTES) ?>"
+                                                        aria-controls="<?= htmlspecialchars($researchPanelId, ENT_QUOTES) ?>"
+                                                        aria-expanded="false"
+                                                    >
+                                                        <svg aria-hidden="true" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                                            <path d="M21 21l-4.35-4.35"></path>
+                                                            <circle cx="10.5" cy="10.5" r="6.5"></circle>
+                                                        </svg>
+                                                        <span>Research company</span>
+                                                    </button>
                                                     <?php if ($generation !== null) : ?>
                                                         <a
                                                             href="/generations/<?= urlencode((string) ($generation['id'] ?? '')) ?>/download?artifact=cv&amp;format=pdf"
@@ -159,6 +184,32 @@
                                                         </span>
                                                     <?php endif; ?>
                                                 </div>
+                                            </div>
+                                            <div
+                                                id="<?= htmlspecialchars($researchPanelId, ENT_QUOTES) ?>"
+                                                class="hidden rounded-xl border border-indigo-400/30 bg-slate-950/80 p-3 text-left text-[0.72rem] text-slate-200 shadow-inner shadow-indigo-900/20 focus:outline-none theme-light:border-indigo-200 theme-light:bg-indigo-50 theme-light:text-slate-700"
+                                                data-research-output
+                                                data-application-id="<?= htmlspecialchars($applicationIdValue, ENT_QUOTES) ?>"
+                                                role="region"
+                                                aria-label="Research insights for <?= htmlspecialchars($applicationTitleValue, ENT_QUOTES) ?>"
+                                                aria-live="polite"
+                                                aria-busy="false"
+                                                aria-hidden="true"
+                                                tabindex="-1"
+                                            >
+                                                <div class="flex items-center gap-2 text-indigo-200 theme-light:text-indigo-600" data-research-loading hidden role="status" aria-live="polite">
+                                                    <svg aria-hidden="true" class="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                                                        <circle cx="12" cy="12" r="9" opacity="0.25"></circle>
+                                                        <path d="M21 12a9 9 0 01-9 9" stroke-linecap="round"></path>
+                                                    </svg>
+                                                    <span class="font-medium">Gathering company research…</span>
+                                                </div>
+                                                <div class="prose prose-invert max-w-none text-left text-sm leading-relaxed theme-light:prose-slate" data-research-content hidden></div>
+                                                <div class="space-y-1" data-research-error hidden role="alert">
+                                                    <p class="text-sm font-semibold text-rose-200 theme-light:text-rose-600" data-research-error-heading>Unable to load insights.</p>
+                                                    <p class="text-xs text-rose-200/80 theme-light:text-rose-600/80" data-research-error-body>Please try again in a moment.</p>
+                                                </div>
+                                                <p class="mt-3 text-[0.65rem] text-slate-400 theme-light:text-slate-600" data-research-meta hidden></p>
                                             </div>
                                             <div class="flex flex-col gap-2 text-[0.7rem] text-slate-400 theme-light:text-slate-600">
                                                 <?php if (!empty($kanbanItem['source_url'])) : ?>
