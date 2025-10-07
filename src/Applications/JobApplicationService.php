@@ -93,6 +93,109 @@ class JobApplicationService
     }
 
     /**
+     * Handle the update from submission workflow.
+     *
+     * This helper mirrors creation validation while targeting existing records.
+     * @param array<string, mixed>|null $input
+     * @return array{application: ?JobApplication, errors: array<int, string>}
+     */
+    public function updateFromSubmission(int $userId, int $applicationId, ?array $input): array
+    {
+        $application = $this->repository->findForUser($userId, $applicationId);
+
+        if ($application === null) {
+            return [
+                'application' => null,
+                'errors' => ['The requested job application could not be found.'],
+            ];
+        }
+
+        $title = $application->title();
+        $sourceUrl = $application->sourceUrl() ?? '';
+        $description = $application->description();
+        $status = $application->status();
+        $reasonCode = $application->reasonCode() ?? '';
+        $errors = [];
+
+        if (is_array($input)) {
+            if (isset($input['title'])) {
+                $title = trim((string) $input['title']);
+            }
+
+            if (isset($input['source_url'])) {
+                $sourceUrl = trim((string) $input['source_url']);
+            }
+
+            if (isset($input['description'])) {
+                $description = trim((string) $input['description']);
+            }
+
+            if (isset($input['status'])) {
+                $status = strtolower(trim((string) $input['status']));
+            }
+
+            if (isset($input['reason_code'])) {
+                $reasonCode = trim((string) $input['reason_code']);
+            }
+        }
+
+        if ($description === '') {
+            $errors[] = 'Paste the job description text before saving the record.';
+        }
+
+        if ($sourceUrl !== '' && filter_var($sourceUrl, FILTER_VALIDATE_URL) === false) {
+            $errors[] = 'Provide a valid URL so the job posting can be revisited later.';
+        }
+
+        $availableStatuses = array_keys($this->statusOptions());
+
+        if (!in_array($status, $availableStatuses, true)) {
+            $errors[] = 'Select a valid status before saving the application.';
+            $status = $application->status();
+        }
+
+        $normalisedReason = null;
+
+        if ($status === 'failed') {
+            $normalisedReason = $this->normaliseReasonCode($reasonCode);
+
+            if ($normalisedReason === null) {
+                $errors[] = 'Select a valid rejection reason before marking the application as failed.';
+            }
+        }
+
+        if ($status !== 'failed') {
+            $normalisedReason = null;
+        }
+
+        if ($errors !== []) {
+            return [
+                'application' => $application,
+                'errors' => $errors,
+            ];
+        }
+
+        $resolvedTitle = $title === '' ? 'Untitled application' : $title;
+        $storedUrl = $sourceUrl === '' ? null : $sourceUrl;
+
+        $updated = $this->repository->updateDetails(
+            $application,
+            $resolvedTitle,
+            $storedUrl,
+            $description,
+            $status,
+            $normalisedReason
+        );
+
+        $this->storeJobDescriptionDocument($updated);
+
+        return [
+            'application' => $updated,
+            'errors' => [],
+        ];
+    }
+
+    /**
      * Handle the status transition workflow.
      *
      * This helper keeps status updates predictable and access-controlled.
@@ -191,6 +294,30 @@ class JobApplicationService
     public function failureReasons(): array
     {
         return self::FAILURE_REASONS;
+    }
+
+    /**
+     * Handle the status option workflow.
+     *
+     * Exposing labels and helper copy keeps presentation logic out of the templates.
+     * @return array<string, array{label: string, description: string}>
+     */
+    public function statusOptions(): array
+    {
+        return [
+            'outstanding' => [
+                'label' => 'Queued',
+                'description' => 'Roles waiting on materials or next steps.',
+            ],
+            'applied' => [
+                'label' => 'Submitted',
+                'description' => 'Applications that have been sent to the employer.',
+            ],
+            'failed' => [
+                'label' => 'Learning',
+                'description' => 'Opportunities marked as unsuccessful with a reason for reflection.',
+            ],
+        ];
     }
 
     /**

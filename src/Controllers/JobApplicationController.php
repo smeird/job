@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\Applications\JobApplication;
 use App\Applications\JobApplicationRepository;
 use App\Applications\JobApplicationService;
 use App\Research\CompanyResearchService;
@@ -146,6 +147,112 @@ final class JobApplicationController
                 'description' => isset($formInput['description']) ? (string) $formInput['description'] : '',
             ],
         ]);
+    }
+
+    /**
+     * Display the edit view for a saved application.
+     *
+     * Centralising the retrieval and payload shaping keeps the form consistent between initial load and validation errors.
+     * @param array<string, string> $args
+     */
+    public function edit(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if ($user === null) {
+            return $response->withHeader('Location', '/auth/login')->withStatus(302);
+        }
+
+        $applicationId = isset($args['id']) ? (int) $args['id'] : 0;
+
+        if ($applicationId <= 0) {
+            return $response
+                ->withHeader('Location', '/applications?status=The+requested+job+application+could+not+be+found.')
+                ->withStatus(302);
+        }
+
+        $userId = (int) $user['user_id'];
+        $application = $this->repository->findForUser($userId, $applicationId);
+
+        if ($application === null) {
+            return $response
+                ->withHeader('Location', '/applications?status=The+requested+job+application+could+not+be+found.')
+                ->withStatus(302);
+        }
+
+        $statusMessage = $request->getQueryParams()['status'] ?? null;
+
+        return $this->renderer->render(
+            $response,
+            'applications-edit',
+            $this->editViewPayload(
+                $application,
+                [
+                    'title' => $application->title(),
+                    'source_url' => $application->sourceUrl() ?? '',
+                    'description' => $application->description(),
+                    'status' => $application->status(),
+                    'reason_code' => $application->reasonCode() ?? '',
+                ],
+                [],
+                $statusMessage
+            )
+        );
+    }
+
+    /**
+     * Persist edits submitted for an existing application.
+     *
+     * Delegating to the service keeps validation and persistence consistent with creation.
+     * @param array<string, string> $args
+     */
+    public function update(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if ($user === null) {
+            return $response->withHeader('Location', '/auth/login')->withStatus(302);
+        }
+
+        $applicationId = isset($args['id']) ? (int) $args['id'] : 0;
+
+        if ($applicationId <= 0) {
+            return $response
+                ->withHeader('Location', '/applications?status=The+requested+job+application+could+not+be+found.')
+                ->withStatus(302);
+        }
+
+        $userId = (int) $user['user_id'];
+        $data = $request->getParsedBody();
+        $formInput = is_array($data) ? $data : [];
+
+        $result = $this->service->updateFromSubmission($userId, $applicationId, $formInput);
+
+        if ($result['application'] === null) {
+            return $response
+                ->withHeader('Location', '/applications?status=The+requested+job+application+could+not+be+found.')
+                ->withStatus(302);
+        }
+
+        if ($result['errors'] === []) {
+            return $response
+                ->withHeader('Location', '/applications/' . $applicationId . '?status=Job+application+updated')
+                ->withStatus(302);
+        }
+
+        $preparedForm = [
+            'title' => isset($formInput['title']) ? (string) $formInput['title'] : $result['application']->title(),
+            'source_url' => isset($formInput['source_url']) ? (string) $formInput['source_url'] : ($result['application']->sourceUrl() ?? ''),
+            'description' => isset($formInput['description']) ? (string) $formInput['description'] : $result['application']->description(),
+            'status' => isset($formInput['status']) ? strtolower((string) $formInput['status']) : $result['application']->status(),
+            'reason_code' => isset($formInput['reason_code']) ? trim((string) $formInput['reason_code']) : ($result['application']->reasonCode() ?? ''),
+        ];
+
+        return $this->renderer->render(
+            $response->withStatus(422),
+            'applications-edit',
+            $this->editViewPayload($result['application'], $preparedForm, $result['errors'], null)
+        );
     }
 
     /**
@@ -499,5 +606,42 @@ final class JobApplicationController
         return $response
             ->withHeader('Content-Type', 'application/json')
             ->withStatus($status);
+    }
+
+    /**
+     * Prepare the shared payload for the edit template.
+     *
+     * Centralising this shaping logic prevents subtle inconsistencies between different controller paths.
+     * @param array<string, string> $form
+     * @param array<int, string> $errors
+     * @return array<string, mixed>
+     */
+    private function editViewPayload(JobApplication $application, array $form, array $errors, ?string $statusMessage): array
+    {
+        $appliedAt = $application->appliedAt();
+
+        return [
+            'title' => 'Edit job posting',
+            'subtitle' => 'Refresh saved details, update the status, and capture the latest insights.',
+            'fullWidth' => true,
+            'navLinks' => $this->navLinks('applications'),
+            'status' => $statusMessage,
+            'errors' => $errors,
+            'form' => [
+                'title' => $form['title'] ?? $application->title(),
+                'source_url' => $form['source_url'] ?? ($application->sourceUrl() ?? ''),
+                'description' => $form['description'] ?? $application->description(),
+                'status' => $form['status'] ?? $application->status(),
+                'reason_code' => $form['reason_code'] ?? ($application->reasonCode() ?? ''),
+            ],
+            'failureReasons' => $this->service->failureReasons(),
+            'statusOptions' => $this->service->statusOptions(),
+            'application' => [
+                'id' => $application->id(),
+                'created_at' => $application->createdAt()->format('Y-m-d H:i'),
+                'updated_at' => $application->updatedAt()->format('Y-m-d H:i'),
+                'applied_at' => $appliedAt !== null ? $appliedAt->format('Y-m-d H:i') : null,
+            ],
+        ];
     }
 }

@@ -153,6 +153,78 @@ class JobApplicationRepository
     }
 
     /**
+     * Handle the update details operation.
+     *
+     * This helper keeps full-record edits consistent with inline updates.
+     */
+    public function updateDetails(
+        JobApplication $application,
+        string $title,
+        ?string $sourceUrl,
+        string $description,
+        string $status,
+        ?string $reasonCode
+    ): JobApplication {
+        $now = new DateTimeImmutable('now');
+        $appliedAt = $application->appliedAt();
+
+        if ($status === 'applied' && $appliedAt === null) {
+            $appliedAt = $now;
+        }
+
+        if ($status === 'outstanding') {
+            $appliedAt = null;
+        }
+
+        if ($status !== 'failed') {
+            $reasonCode = null;
+        }
+
+        $statement = $this->pdo->prepare(
+            'UPDATE job_applications
+             SET title = :title,
+                 source_url = :source_url,
+                 description = :description,
+                 status = :status,
+                 applied_at = :applied_at,
+                 reason_code = :reason_code,
+                 updated_at = :updated_at
+             WHERE id = :id AND user_id = :user_id'
+        );
+
+        $statement->bindValue(':title', $title);
+
+        if ($sourceUrl !== null) {
+            $statement->bindValue(':source_url', $sourceUrl);
+        } else {
+            $statement->bindValue(':source_url', null, PDO::PARAM_NULL);
+        }
+
+        $statement->bindValue(':description', $description);
+        $statement->bindValue(':status', $status);
+
+        if ($appliedAt !== null) {
+            $statement->bindValue(':applied_at', $appliedAt->format('Y-m-d H:i:s'));
+        } else {
+            $statement->bindValue(':applied_at', null, PDO::PARAM_NULL);
+        }
+
+        if ($reasonCode !== null) {
+            $statement->bindValue(':reason_code', $reasonCode);
+        } else {
+            $statement->bindValue(':reason_code', null, PDO::PARAM_NULL);
+        }
+
+        $statement->bindValue(':updated_at', $now->format('Y-m-d H:i:s'));
+        $statement->bindValue(':id', (int) $application->id(), PDO::PARAM_INT);
+        $statement->bindValue(':user_id', $application->userId(), PDO::PARAM_INT);
+
+        $statement->execute();
+
+        return $application->withDetails($title, $sourceUrl, $description, $status, $appliedAt, $reasonCode, $now);
+    }
+
+    /**
      * Handle the update status operation.
      *
      * The helper keeps state transitions consistent across the service layer.

@@ -183,6 +183,35 @@ class JobApplication
     }
 
     /**
+     * Handle the with details operation.
+     *
+     * This helper keeps immutable updates consistent when editing saved applications.
+     */
+    public function withDetails(
+        string $title,
+        ?string $sourceUrl,
+        string $description,
+        string $status,
+        ?DateTimeImmutable $appliedAt,
+        ?string $reasonCode,
+        DateTimeImmutable $updatedAt
+    ): self {
+        return new self(
+            $this->id,
+            $this->userId,
+            $title,
+            $sourceUrl,
+            $description,
+            $status,
+            $appliedAt,
+            $reasonCode,
+            $this->generationId,
+            $this->createdAt,
+            $updatedAt
+        );
+    }
+
+    /**
      * Handle the with status operation.
      *
      * This helper keeps the immutable update workflow neat and predictable.
