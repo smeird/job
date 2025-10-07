@@ -7,6 +7,8 @@
 /** @var array<string, array{label: string, description: string}> $statusOptions */
 /** @var array<string, string> $failureReasons */
 /** @var array<string, mixed> $application */
+/** @var array<int, array{id: int, label: string}> $generationOptions */
+/** @var array<string, mixed>|null $linkedGeneration */
 /** @var string|null $status */
 /** @var string|null $csrfToken */
 ?>
@@ -136,35 +138,105 @@
             </button>
         </form>
 
-        <aside class="space-y-4 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-6 shadow-xl">
-            <h3 class="text-lg font-semibold text-white">Timeline &amp; context</h3>
-            <p class="text-sm text-slate-400">
-                Use these timestamps to gauge momentum and plan follow-ups. Keeping them accurate ensures reminders and reports stay relevant.
-            </p>
-            <dl class="space-y-3 text-sm text-slate-300">
-                <div class="flex items-center justify-between">
-                    <dt class="text-slate-400">Created</dt>
-                    <dd><?= htmlspecialchars((string) ($application['created_at'] ?? ''), ENT_QUOTES) ?></dd>
-                </div>
-                <div class="flex items-center justify-between">
-                    <dt class="text-slate-400">Last updated</dt>
-                    <dd><?= htmlspecialchars((string) ($application['updated_at'] ?? ''), ENT_QUOTES) ?></dd>
-                </div>
-                <div class="flex items-center justify-between">
-                    <dt class="text-slate-400">Submitted</dt>
-                    <dd>
-                        <?php if (!empty($application['applied_at'])) : ?>
-                            <?= htmlspecialchars((string) $application['applied_at'], ENT_QUOTES) ?>
-                        <?php else : ?>
-                            <span class="text-slate-500">Not submitted</span>
+        <aside class="space-y-5 rounded-2xl border border-slate-800/80 bg-slate-900/60 p-6 shadow-xl">
+            <section class="space-y-3">
+                <h3 class="text-lg font-semibold text-white">Timeline &amp; context</h3>
+                <p class="text-sm text-slate-400">
+                    Use these timestamps to gauge momentum and plan follow-ups. Keeping them accurate ensures reminders and reports stay relevant.
+                </p>
+                <dl class="space-y-3 text-sm text-slate-300">
+                    <div class="flex items-center justify-between">
+                        <dt class="text-slate-400">Created</dt>
+                        <dd><?= htmlspecialchars((string) ($application['created_at'] ?? ''), ENT_QUOTES) ?></dd>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <dt class="text-slate-400">Last updated</dt>
+                        <dd><?= htmlspecialchars((string) ($application['updated_at'] ?? ''), ENT_QUOTES) ?></dd>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <dt class="text-slate-400">Submitted</dt>
+                        <dd>
+                            <?php if (!empty($application['applied_at'])) : ?>
+                                <?= htmlspecialchars((string) $application['applied_at'], ENT_QUOTES) ?>
+                            <?php else : ?>
+                                <span class="text-slate-500">Not submitted</span>
+                            <?php endif; ?>
+                        </dd>
+                    </div>
+                </dl>
+            </section>
+
+            <section class="space-y-3 rounded-2xl border border-slate-800/70 bg-slate-950/70 p-4 text-sm text-slate-200 theme-light:border-slate-200 theme-light:bg-white theme-light:text-slate-700">
+                <header class="space-y-1">
+                    <h4 class="text-base font-semibold text-white theme-light:text-slate-900">Tailored CV link</h4>
+                    <p class="text-xs text-slate-400 theme-light:text-slate-500">Attach a generated CV so downloads stay one click away.</p>
+                </header>
+                <?php if (!empty($linkedGeneration)) : ?>
+                    <div class="space-y-1 rounded-xl border border-indigo-400/30 bg-indigo-500/10 p-3 text-xs text-indigo-100 theme-light:border-indigo-200 theme-light:bg-indigo-50 theme-light:text-indigo-600">
+                        <p class="font-semibold uppercase tracking-wide">Currently linked</p>
+                        <p class="flex flex-wrap items-center gap-2">
+                            <span class="inline-flex items-center gap-2 rounded-md bg-slate-900/60 px-2 py-1 text-[0.7rem] font-medium text-indigo-100 theme-light:bg-white theme-light:text-indigo-600">
+                                <svg aria-hidden="true" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <path d="M7 3h10l4 4v12a2 2 0 01-2 2H7a2 2 0 01-2-2V5a2 2 0 012-2z" stroke-linecap="round" stroke-linejoin="round"></path>
+                                </svg>
+                                <?= htmlspecialchars((string) ($linkedGeneration['cv_filename'] ?? 'CV draft'), ENT_QUOTES) ?>
+                            </span>
+                            <span class="text-indigo-200/70 theme-light:text-indigo-500">tailored for</span>
+                            <span class="inline-flex items-center gap-2 rounded-md bg-slate-900/60 px-2 py-1 text-[0.7rem] font-medium text-indigo-100 theme-light:bg-white theme-light:text-indigo-600">
+                                <svg aria-hidden="true" class="h-3.5 w-3.5" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                                    <path d="M3 7h18M3 12h18M3 17h18" stroke-linecap="round" stroke-linejoin="round"></path>
+                                </svg>
+                                <?= htmlspecialchars((string) ($linkedGeneration['job_filename'] ?? 'Job description'), ENT_QUOTES) ?>
+                            </span>
+                        </p>
+                        <?php if (!empty($linkedGeneration['created_at'])) : ?>
+                            <p class="text-[0.65rem] text-indigo-200/80 theme-light:text-indigo-500/80">Generated <?= htmlspecialchars((string) $linkedGeneration['created_at'], ENT_QUOTES) ?></p>
                         <?php endif; ?>
-                    </dd>
-                </div>
-            </dl>
-            <div class="rounded-xl border border-indigo-500/40 bg-indigo-500/10 p-4 text-xs text-indigo-100">
+                    </div>
+                <?php else : ?>
+                    <p class="text-xs text-slate-400 theme-light:text-slate-500">No tailored CV linked yet. Choose one to unlock quick downloads from the kanban board.</p>
+                <?php endif; ?>
+                <form method="post" action="/applications/<?= urlencode((string) ($application['id'] ?? '')) ?>/generation" class="space-y-2">
+                    <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                    <label for="generation_id" class="text-xs font-semibold uppercase tracking-wide text-slate-400 theme-light:text-slate-600">Select tailored document</label>
+                    <select
+                        id="generation_id"
+                        name="generation_id"
+                        class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 theme-light:border-slate-300 theme-light:bg-white theme-light:text-slate-700"
+                    >
+                        <option value="">No tailored CV linked</option>
+                        <?php foreach ($generationOptions as $option) : ?>
+                            <option value="<?= htmlspecialchars((string) $option['id'], ENT_QUOTES) ?>" <?= (string) ($application['generation_id'] ?? '') === (string) $option['id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($option['label'], ENT_QUOTES) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="submit" class="w-full rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-400">
+                        Update link
+                    </button>
+                </form>
+                <?php if (empty($generationOptions)) : ?>
+                    <p class="text-xs text-slate-500 theme-light:text-slate-500">Generate tailored documents from the Tailor page to link them here.</p>
+                <?php endif; ?>
+            </section>
+
+            <section class="space-y-3 rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 text-xs text-rose-100 theme-light:border-rose-200 theme-light:bg-rose-50 theme-light:text-rose-600">
+                <header class="space-y-1">
+                    <h4 class="text-base font-semibold">Delete application</h4>
+                    <p class="text-[0.75rem]">Removing the record also clears linked tailored documents and status history.</p>
+                </header>
+                <form method="post" action="/applications/<?= urlencode((string) ($application['id'] ?? '')) ?>/delete" class="space-y-2">
+                    <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                    <button type="submit" class="w-full rounded-lg border border-rose-400/50 bg-rose-500/20 px-4 py-2 text-sm font-semibold uppercase tracking-wide text-rose-100 transition hover:border-rose-300 hover:bg-rose-500/30 hover:text-rose-50 theme-light:border-rose-300 theme-light:text-rose-700 theme-light:hover:border-rose-400 theme-light:hover:text-rose-800">
+                        Delete this application
+                    </button>
+                </form>
+            </section>
+
+            <div class="rounded-xl border border-indigo-500/40 bg-indigo-500/10 p-4 text-xs text-indigo-100 theme-light:border-indigo-200 theme-light:bg-indigo-50 theme-light:text-indigo-600">
                 <p class="font-semibold uppercase tracking-wide">Tip</p>
                 <p class="mt-1">
-                    After saving, revisit the kanban board to drag insight from the new status or generate fresh tailored documents.
+                    After saving, return to the kanban board to review the updated column placement or trigger fresh company research.
                 </p>
             </div>
         </aside>
