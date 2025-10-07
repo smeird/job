@@ -62,7 +62,7 @@ Candidate contact details JSON:
 
 Instructions:
 1. If the contact details JSON includes an address, place it above the greeting and add any provided email or phone on separate lines. Skip the header when the JSON is empty.
-2. Write a concise cover letter in Markdown with a greeting, three to four short paragraphs, and a polite closing with a signature placeholder.
+2. Write a concise, factual cover letter in British English using only the provided material. Do not invent achievements or employers.
 3. Reference achievements already present in the CV excerpt and align them with the listed competencies and plan guidance.
 4. Keep the letter under 350 words, using a confident and warm tone.
 5. Avoid inventing employers, responsibilities, or achievements that the CV does not mention.
