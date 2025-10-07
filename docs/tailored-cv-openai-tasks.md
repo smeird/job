@@ -7,6 +7,20 @@ This note summarises the background jobs and OpenAI operations that run when a u
 1. When the user submits the tailoring form, `GenerationRepository::queueTailorJob()` stores the job payload (job description text, CV markdown, selected model, thinking time, optional contact details) in the `jobs` table with the type `tailor_cv`.【F:src/Generations/GenerationRepository.php†L531-L595】
 2. A queue worker picks the job up via `TailorCvJobHandler::handle()`, which orchestrates the OpenAI calls and persists the outputs once every step succeeds.【F:src/Queue/Handler/TailorCvJobHandler.php†L62-L111】
 
+```mermaid
+flowchart TD
+    A[User submits tailoring form] --> B[GenerationRepository::queueTailorJob saves payload in jobs table]
+    B --> C[Queue worker dequeues tailor_cv job]
+    C --> D[TailorCvJobHandler loads job artifacts]
+    D --> E[Call OpenAIProvider.generatePlan]
+    E --> F[Persist cv_plan artifact for auditing]
+    F --> G[Call OpenAIProvider.generateDraft]
+    G --> H[Store tailored CV outputs (markdown, HTML, text)]
+    H --> I[Call OpenAIProvider.generateCoverLetter]
+    I --> J[Save cover letter outputs]
+    J --> K[Mark job as completed and notify Tailor workspace]
+```
+
 ## OpenAI operations logged per run
 
 The handler invokes the OpenAI provider three times, and each call appears in the API usage logs (`/usage` in the web app):
