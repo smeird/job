@@ -159,19 +159,13 @@ final class CompanyResearchService
     /**
      * Perform the outbound web search call and map failures into domain errors.
      *
-     * When the search client is not configured the method returns an empty
-     * result set so the downstream summary can still be generated using job
-     * details alone. Catching upstream exceptions here ensures the controller
-     * can surface a predictable message and status code to the caller.
+     * Catching upstream exceptions here ensures the controller can surface a
+     * predictable message and status code to the caller.
      *
      * @return array<int, array{title: string, url: string, snippet: string}>
      */
     private function performSearch(string $query): array
     {
-        if (!$this->searchClient->isConfigured()) {
-            return [];
-        }
-
         try {
             return $this->searchClient->search($query, self::SEARCH_RESULT_LIMIT);
         } catch (RuntimeException $exception) {

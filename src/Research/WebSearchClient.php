@@ -19,6 +19,7 @@ use function is_array;
 use function is_string;
 use function json_decode;
 use function rtrim;
+use function sprintf;
 use function trim;
 
 final class WebSearchClient
@@ -29,7 +30,7 @@ final class WebSearchClient
     /** @var ClientInterface */
     private $client;
 
-    /** @var string|null */
+    /** @var string */
     private $apiKey;
 
     /** @var string */
@@ -42,7 +43,7 @@ final class WebSearchClient
      */
     public function __construct(?ClientInterface $client = null)
     {
-        $this->apiKey = $this->env('SEARCH_API_KEY');
+        $this->apiKey = $this->requireEnv('SEARCH_API_KEY');
         $baseUrl = $this->env('SEARCH_API_BASE_URL') ?? self::DEFAULT_BASE_URL;
         $endpoint = $this->env('SEARCH_API_ENDPOINT') ?? self::DEFAULT_ENDPOINT;
         $this->endpoint = trim($endpoint, '/');
@@ -64,10 +65,6 @@ final class WebSearchClient
      */
     public function search(string $query, int $limit = 5): array
     {
-        if ($this->apiKey === null) {
-            throw new RuntimeException('Search provider credentials are not configured.');
-        }
-
         $parameters = [
             'query' => [
                 'q' => $query,
@@ -145,14 +142,6 @@ final class WebSearchClient
     }
 
     /**
-     * Indicate whether the client has sufficient configuration to make requests.
-     */
-    public function isConfigured(): bool
-    {
-        return $this->apiKey !== null;
-    }
-
-    /**
      * Decode a JSON response payload into a PHP array.
      *
      * Wrapping json_decode with error handling keeps failure messaging tidy.
@@ -218,4 +207,17 @@ final class WebSearchClient
         return $trimmed === '' ? null : $trimmed;
     }
 
+    /**
+     * Fetch an environment variable, throwing if it is missing.
+     */
+    private function requireEnv(string $key): string
+    {
+        $value = $this->env($key);
+
+        if ($value === null) {
+            throw new RuntimeException(sprintf('%s environment variable must be configured for search access.', $key));
+        }
+
+        return $value;
+    }
 }
