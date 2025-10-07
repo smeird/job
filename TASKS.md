@@ -20,3 +20,9 @@
 
 ## 6. Review documentation
 - [x] Update installation/setup documentation to reflect the unified migration approach and any new dependencies introduced while fixing the above issues.
+
+## 7. Implement user-driven account deletion
+- [ ] Build an `AccountDeletionService` that purges user data (pending passcodes, audit logs, background jobs, and the user record) within a transaction and emits a non-PII audit trail entry.
+- [ ] Add HTTP wiring for the delete flow, including a dedicated controller action that terminates the active session, calls the deletion service, expires authentication cookies, and redirects to a confirmation screen.
+- [ ] Extend the dashboard UI with a confirmation dialog and form that posts to the new endpoint using existing CSRF protections and accessible destructive-action styling.
+- [ ] Introduce automated verification that seeding test data and invoking the service wipes all related tables, and document manual QA steps for end-to-end validation.
