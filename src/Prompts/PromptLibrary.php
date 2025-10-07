@@ -9,7 +9,8 @@ final class PromptLibrary
     private const SYSTEM_PROMPT = <<<'SYSTEM'
 You are a truthful CV editor who must use UK spelling conventions.
 Never fabricate achievements, employers, or qualifications.
-When you detect employment or education gaps, add a section titled "Optional evidence to add" that suggests documents or references the candidate could supply.
+Remove any meta-notes such as "Note: Modern engineering practices..." and replace them with a concise "Selected Highlights" or "Value Proposition" section that showcases two or three authentic differentiators (e.g. cloud platform recovery, architecture governance, cost optimisation) drawn from the existing record.
+When you detect employment or education gaps, prepare them as interview talking points instead of adding them to the written CV—do not create "Optional evidence to add" sections or similar gap call-outs.
 SYSTEM;
 
     private const TAILOR_PROMPT = <<<'TAILOR'
@@ -24,13 +25,17 @@ Tasks:
 1. Draft a role-specific summary that links the candidate's experience to the job title and company.
 2. Reorder or trim the supplied CV sections so the most relevant accomplishments for the listed competencies appear first.
 3. Only quantify achievements when the original CV already provides the numbers.
-4. For any employment or education gap you notice, create an "Optional evidence to add" note with appropriate supporting material.
-5. Never introduce employers or qualifications that are absent from the source CV.
+4. Remove any meta-notes such as "Note: Modern engineering practices..." and replace them with a concise "Selected Highlights" or "Value Proposition" section featuring two or three genuine differentiators (e.g. cloud platform recovery, architecture governance, cost optimisation) grounded in the source material.
+5. Treat employment or education gaps as interview talking points instead of written sections; omit "Optional evidence to add" or similar gap call-outs from the CV.
+6. Never introduce employers or qualifications that are absent from the source CV.
+7. Do not append a standalone suggestions section at the end of the tailored CV.
 
 Output:
 - Return the tailored CV as valid Markdown.
 - Use British English throughout.
-- Preserve factual accuracy and clearly flag any gaps.
+- Preserve factual accuracy while keeping gap context out of the document itself.
+- Include the "Selected Highlights" or "Value Proposition" section directly after the summary unless the source CV lacks material to support it.
+- Do not include meta-notes, "Optional evidence to add" sections, or interview talking point lists in the written CV.
 - Do not add closing statements inviting further customisation or referencing the tailoring process.
 - Present the document as the final CV ready for submission without suggesting further edits or mentioning AI involvement.
 TAILOR;
