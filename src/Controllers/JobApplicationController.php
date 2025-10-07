@@ -6,11 +6,15 @@ namespace App\Controllers;
 
 use App\Applications\JobApplicationRepository;
 use App\Applications\JobApplicationService;
+use App\Research\CompanyResearchService;
 use App\Views\Renderer;
 use DateTimeImmutable;
+use JsonException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use RuntimeException;
+
+use function json_encode;
 
 final class JobApplicationController
 {
@@ -23,6 +27,9 @@ final class JobApplicationController
     /** @var JobApplicationService */
     private $service;
 
+    /** @var CompanyResearchService */
+    private $researchService;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -31,11 +38,13 @@ final class JobApplicationController
     public function __construct(
         Renderer $renderer,
         JobApplicationRepository $repository,
-        JobApplicationService $service
+        JobApplicationService $service,
+        CompanyResearchService $researchService
     ) {
         $this->renderer = $renderer;
         $this->repository = $repository;
         $this->service = $service;
+        $this->researchService = $researchService;
     }
 
     /**
@@ -137,6 +146,63 @@ final class JobApplicationController
                 'description' => isset($formInput['description']) ? (string) $formInput['description'] : '',
             ],
         ]);
+    }
+
+    /**
+     * Produce company research insights for a single job application.
+     *
+     * The helper validates ownership before delegating to the dedicated
+     * research service, returning JSON so the frontend can display results.
+     *
+     * @param array<string, string> $args
+     */
+    public function research(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if ($user === null) {
+            return $this->jsonResponse($response, [
+                'status' => 'error',
+                'message' => 'Authentication required.',
+            ], 401);
+        }
+
+        $applicationId = isset($args['id']) ? (int) $args['id'] : 0;
+
+        if ($applicationId <= 0) {
+            return $this->jsonResponse($response, [
+                'status' => 'error',
+                'message' => 'Invalid job application identifier supplied.',
+            ], 400);
+        }
+
+        $userId = (int) $user['user_id'];
+
+        try {
+            $result = $this->researchService->research($userId, $applicationId);
+        } catch (RuntimeException $exception) {
+            $status = $exception->getCode();
+
+            if ($status !== 404 && $status !== 429) {
+                $status = 500;
+            }
+
+            $message = $status === 404
+                ? 'Job application not found.'
+                : ($status === 429
+                    ? 'Rate limit reached. Please retry later.'
+                    : 'Unable to complete company research at this time.');
+
+            return $this->jsonResponse($response, [
+                'status' => 'error',
+                'message' => $message,
+            ], $status);
+        }
+
+        return $this->jsonResponse($response, [
+            'status' => $result['status'],
+            'data' => $result,
+        ], 200);
     }
 
     /**
@@ -413,5 +479,25 @@ final class JobApplicationController
                 'current' => $key === $current,
             ];
         }, array_keys($links), $links);
+    }
+
+    /**
+     * Emit a JSON payload while handling encoding errors centrally.
+     *
+     * @param array<string, mixed> $payload
+     */
+    private function jsonResponse(ResponseInterface $response, array $payload, int $status): ResponseInterface
+    {
+        try {
+            $encoded = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        } catch (JsonException $exception) {
+            throw new RuntimeException('Failed to encode JSON response.', 0, $exception);
+        }
+
+        $response->getBody()->write($encoded);
+
+        return $response
+            ->withHeader('Content-Type', 'application/json')
+            ->withStatus($status);
     }
 }
