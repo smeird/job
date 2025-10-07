@@ -4,6 +4,8 @@
 /** @var array<int, array{href: string, label: string, current: bool}> $navLinks */
 /** @var array<int, array<string, mixed>> $outstanding */
 /** @var array<int, array<string, mixed>> $applied */
+/** @var array<int, array<string, mixed>> $interviewing */
+/** @var array<int, array<string, mixed>> $contracting */
 /** @var array<int, array<string, mixed>> $failed */
 /** @var string|null $status */
 ?>
@@ -46,7 +48,7 @@ $additionalHead = '<script src="/assets/js/applications.js" defer></script>';
             </div>
             <div class="flex items-center gap-2 rounded-full border border-indigo-500/50 bg-indigo-500/15 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-indigo-100 shadow-lg shadow-indigo-500/10 theme-light:border-indigo-200 theme-light:bg-indigo-50 theme-light:text-indigo-600 theme-light:shadow-indigo-200/60">
                 <span class="inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
-                <?= count($outstanding) + count($applied) + count($failed) ?> opportunities tracked
+                <?= count($outstanding) + count($applied) + count($interviewing) + count($contracting) + count($failed) ?> opportunities tracked
             </div>
         </header>
         <?php
@@ -72,6 +74,26 @@ $additionalHead = '<script src="/assets/js/applications.js" defer></script>';
                 'border_class' => 'border-indigo-500/40'
             ],
             [
+                'title' => 'Interviewing',
+                'description' => 'Opportunities with active interviews, screens, or recruiter touchpoints.',
+                'badge' => count($interviewing) . ' in motion',
+                'badge_class' => 'border-emerald-400/40 bg-emerald-500/10 text-emerald-200 theme-light:border-emerald-200 theme-light:bg-emerald-50 theme-light:text-emerald-700',
+                'items' => $interviewing,
+                'empty' => 'Move roles here once you are scheduling conversations or meeting the team.',
+                'accent' => 'from-emerald-500/30 via-emerald-500/5 to-transparent',
+                'border_class' => 'border-emerald-500/40'
+            ],
+            [
+                'title' => 'Contracting',
+                'description' => 'Offers under review and contract discussions that need timely attention.',
+                'badge' => count($contracting) . ' negotiating',
+                'badge_class' => 'border-cyan-400/40 bg-cyan-500/10 text-cyan-200 theme-light:border-cyan-200 theme-light:bg-cyan-50 theme-light:text-cyan-700',
+                'items' => $contracting,
+                'empty' => 'Once an offer is on the table, track paperwork and deadlines in this lane.',
+                'accent' => 'from-cyan-500/30 via-cyan-500/5 to-transparent',
+                'border_class' => 'border-cyan-500/40'
+            ],
+            [
                 'title' => 'Learnings',
                 'description' => 'Rejections captured with the reason so you can refine your approach.',
                 'badge' => count($failed) . ' recorded',
@@ -84,9 +106,9 @@ $additionalHead = '<script src="/assets/js/applications.js" defer></script>';
         ];
         ?>
         <div class="relative z-10 mt-6 overflow-x-auto pb-2">
-            <div class="flex min-w-full snap-x gap-6">
+            <div class="grid min-w-full snap-x gap-6 grid-flow-col auto-cols-[minmax(280px,1fr)] sm:auto-cols-[minmax(300px,1fr)] xl:auto-cols-[minmax(320px,1fr)]">
                 <?php foreach ($kanbanColumns as $column) : ?>
-                    <section class="group relative min-w-[280px] flex-1 snap-start overflow-hidden rounded-2xl border <?= htmlspecialchars($column['border_class'], ENT_QUOTES) ?> bg-slate-900/70 p-5 shadow-xl shadow-indigo-900/30 backdrop-blur theme-light:border-slate-200 theme-light:bg-white/90 theme-light:shadow-soft">
+                    <section class="group relative min-w-[280px] snap-start overflow-hidden rounded-2xl border <?= htmlspecialchars($column['border_class'], ENT_QUOTES) ?> bg-slate-900/70 p-5 shadow-xl shadow-indigo-900/30 backdrop-blur theme-light:border-slate-200 theme-light:bg-white/90 theme-light:shadow-soft">
                         <div class="pointer-events-none absolute inset-0 rounded-2xl bg-gradient-to-br <?= htmlspecialchars($column['accent'], ENT_QUOTES) ?> opacity-70 transition duration-500 group-hover:opacity-100 theme-light:opacity-80"></div>
                         <header class="relative z-10 flex flex-col gap-3">
                             <div class="flex items-center justify-between gap-3">

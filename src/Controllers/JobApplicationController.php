@@ -73,6 +73,8 @@ final class JobApplicationController
             'navLinks' => $this->navLinks('applications'),
             'outstanding' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'outstanding'), $generationIndex),
             'applied' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'applied'), $generationIndex),
+            'interviewing' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'interviewing'), $generationIndex),
+            'contracting' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'contracting'), $generationIndex),
             'failed' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'failed'), $generationIndex),
             'status' => $statusMessage,
         ]);
@@ -378,6 +380,10 @@ final class JobApplicationController
             $message = 'Marked application as failed (' . $reasonLabel . ').';
         } elseif ($updated->status() === 'applied') {
             $message = 'Marked application as submitted.';
+        } elseif ($updated->status() === 'interviewing') {
+            $message = 'Marked application as interviewing.';
+        } elseif ($updated->status() === 'contracting') {
+            $message = 'Marked application as contracting.';
         } else {
             $message = 'Marked application as outstanding.';
         }
