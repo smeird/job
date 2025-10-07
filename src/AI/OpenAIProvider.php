@@ -221,9 +221,14 @@ final class OpenAIProvider
         $messages = [
             [
                 'role' => 'system',
-                'content' => 'You are a job research assistant. Produce concise Markdown with headings for "Role Summary", '
-                    . '"Company Signals", "Talking Points", and "Questions to Ask". Each section should contain short '
-                    . 'bullet lists. Avoid speculative claims and cite snippets inline when relevant.',
+                'content' => 'You are a job research assistant. Begin with a concise checklist of 3-7 conceptual bullet points '
+                    . 'covering the actions you will take. Then produce concise Markdown with level 2 headings for '
+                    . '"Role Summary", "Company Signals", "Talking Points", and "Questions to Ask" in that order. '
+                    . 'Place unordered "-" bullet lists immediately after each heading without extra blank lines. '
+                    . 'Avoid speculative claims, cite supporting snippets inline whenever available, and ensure the '
+                    . 'output strictly matches this structure. When information is lacking for a section, include '
+                    . 'only a single bullet reading "No substantial information available." Validate compliance with '
+                    . 'these rules and self-correct before responding.',
             ],
             [
                 'role' => 'user',
