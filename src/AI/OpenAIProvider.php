@@ -33,6 +33,7 @@ use function rtrim;
 use function sprintf;
 use function trim;
 use function usleep;
+use function implode;
 
 final class OpenAIProvider
 {
@@ -111,6 +112,17 @@ final class OpenAIProvider
             'base_uri' => $this->baseUrl,
             'timeout' => 60,
         ]);
+    }
+
+    /**
+     * Produce a provider instance scoped to a specific user identifier.
+     *
+     * Reusing the configured HTTP client and repositories keeps resource
+     * usage predictable while ensuring usage metrics are attributed correctly.
+     */
+    public function forUser(int $userId): self
+    {
+        return new self($userId, $this->client, $this->pdo, $this->settingsRepository);
     }
 
     /**
@@ -193,6 +205,109 @@ final class OpenAIProvider
         }
 
         return json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Generate a compact research cheat sheet in Markdown format.
+     *
+     * This helper mirrors the plan workflow while focusing on combining job
+     * descriptions with web research snippets to brief the applicant.
+     *
+     * @param array<int, array{title: string, url: string, snippet: string}> $searchResults
+     */
+    public function cheatSheet(string $jobText, array $searchResults): string
+    {
+        $messages = [
+            [
+                'role' => 'system',
+                'content' => 'You are a job research assistant. Produce concise Markdown with headings for "Role Summary", '
+                    . '"Company Signals", "Talking Points", and "Questions to Ask". Each section should contain short '
+                    . 'bullet lists. Avoid speculative claims and cite snippets inline when relevant.',
+            ],
+            [
+                'role' => 'user',
+                'content' => sprintf(
+                    "Job description:\n%s\n\nResearch snippets:\n%s\n\nPrepare the briefing.",
+                    trim($jobText),
+                    $this->summariseSearchResults($searchResults)
+                ),
+            ],
+        ];
+
+        $models = $this->buildModelFallbackSequence($this->modelPlan, 'cheat_sheet');
+        $result = null;
+        $lastException = null;
+
+        for ($index = 0, $count = count($models); $index < $count; $index++) {
+            $model = $models[$index];
+            $payload = [
+                'model' => $model,
+                'input' => $this->formatMessagesForResponses($messages),
+                'max_output_tokens' => $this->maxTokens,
+            ];
+
+            try {
+                $result = $this->performChatRequest($payload, 'cheat_sheet', null);
+                break;
+            } catch (RuntimeException $exception) {
+                $hasNextModel = $index < $count - 1;
+
+                if (!$hasNextModel || !$this->shouldRetryWithAlternativeModel($exception)) {
+                    throw $exception;
+                }
+
+                $nextModel = $models[$index + 1];
+                error_log(sprintf(
+                    'Cheat sheet model fallback: %s -> %s due to %s',
+                    $model,
+                    $nextModel,
+                    $exception->getMessage()
+                ));
+
+                $lastException = $exception;
+            }
+        }
+
+        if ($result === null) {
+            if ($lastException instanceof RuntimeException) {
+                throw $lastException;
+            }
+
+            throw new RuntimeException('Failed to generate research cheat sheet using OpenAI.');
+        }
+
+        return trim($result['content']);
+    }
+
+    /**
+     * Convert the search result tuples into a single human-readable summary block.
+     *
+     * @param array<int, array{title: string, url: string, snippet: string}> $searchResults
+     */
+    private function summariseSearchResults(array $searchResults): string
+    {
+        $segments = [];
+
+        foreach ($searchResults as $index => $result) {
+            $title = isset($result['title']) ? (string) $result['title'] : '';
+            $url = isset($result['url']) ? (string) $result['url'] : '';
+            $snippet = isset($result['snippet']) ? (string) $result['snippet'] : '';
+
+            $segments[] = sprintf(
+                '%d. %s (%s)%s%s',
+                $index + 1,
+                $title,
+                $url,
+                $snippet === '' ? '' : "\nSnippet: ",
+                $snippet
+            );
+        }
+
+        if ($segments === []) {
+            return 'No additional company research was available beyond the job description.';
+        }
+
+        return implode("\n\n", $segments);
     }
 
     /**
@@ -678,7 +793,7 @@ final class OpenAIProvider
     private function buildModelFallbackSequence(string $configuredModel, string $operation): array
     {
         $sequence = [$configuredModel];
-        $fallbacks = $operation === 'plan'
+        $fallbacks = in_array($operation, ['plan', 'cheat_sheet'], true)
             ? self::PLAN_MODEL_FALLBACKS
             : self::DRAFT_MODEL_FALLBACKS;
 
