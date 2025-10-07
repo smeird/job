@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require __DIR__ . '/src/Support/mbstring_polyfill.php';
+
 $autoloadPath = __DIR__ . '/vendor/autoload.php';
 
 if (!file_exists($autoloadPath)) {
