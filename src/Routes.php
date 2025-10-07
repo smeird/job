@@ -64,6 +64,10 @@ class Routes
             return $container->get(DocumentController::class)->showMarkdown($request, $response, $args);
         });
 
+        $app->get('/documents/tailored/{id}/markdown/{artifact}', function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(DocumentController::class)->showGenerationMarkdown($request, $response, $args);
+        });
+
         $app->get('/documents/{id}/download', function (Request $request, Response $response, array $args) use ($container) {
             return $container->get(DocumentController::class)->download($request, $response, $args);
         });
