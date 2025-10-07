@@ -13,6 +13,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Slim\Psr7\Stream;
 
+use function fclose;
 use function fopen;
 use function fwrite;
 use function in_array;
@@ -24,6 +25,7 @@ use function str_replace;
 use function strtolower;
 use function trim;
 use function rewind;
+use function substr;
 
 final class GenerationDownloadController
 {
@@ -99,7 +101,14 @@ final class GenerationDownloadController
             return $this->error($response, 500, 'Unable to prepare download stream.');
         }
 
-        fwrite($resource, $download['content']);
+        try {
+            $this->writeStreamContent($resource, $download['content']);
+        } catch (RuntimeException $exception) {
+            fclose($resource);
+
+            return $this->error($response, 500, 'Unable to stream the requested download.');
+        }
+
         rewind($resource);
 
         $stream = new Stream($resource);
@@ -115,6 +124,35 @@ final class GenerationDownloadController
         $response = $response->withHeader('Content-Length', (string) $length);
 
         return $response;
+    }
+
+    /**
+     * Stream the supplied binary content into the open temporary resource.
+     *
+     * Looping writes guarantees DOCX archives and other formats reach the client
+     * without truncation, protecting downloads from corruption caused by partial
+     * fwrite operations.
+     *
+     * @param resource $resource
+     */
+    private function writeStreamContent($resource, string $content): void
+    {
+        $length = strlen($content);
+        $offset = 0;
+
+        while ($offset < $length) {
+            $written = fwrite($resource, substr($content, $offset));
+
+            if ($written === false) {
+                throw new RuntimeException('Failed to write download content to the stream.');
+            }
+
+            if ($written === 0) {
+                throw new RuntimeException('Download stream stalled before completion.');
+            }
+
+            $offset += $written;
+        }
     }
 
     /**

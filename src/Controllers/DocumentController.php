@@ -25,13 +25,16 @@ use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
 use Slim\Psr7\Stream;
+use function fclose;
 use function fopen;
 use function fwrite;
+use function rawurlencode;
 use function rewind;
 use function strlen;
 use function str_replace;
 use function strtolower;
 use function strtoupper;
+use function substr;
 
 final class DocumentController
 {
@@ -529,7 +532,16 @@ final class DocumentController
         }
 
         $content = $document->content();
-        fwrite($resource, $content);
+        try {
+            $this->writeStreamContent($resource, $content);
+        } catch (RuntimeException $exception) {
+            fclose($resource);
+
+            return $response
+                ->withHeader('Location', '/documents?status=' . rawurlencode('We could not stream the document content.'))
+                ->withStatus(302);
+        }
+
         rewind($resource);
 
         $stream = new Stream($resource);
@@ -541,6 +553,34 @@ final class DocumentController
             ->withHeader('Content-Disposition', $disposition)
             ->withHeader('Cache-Control', 'no-store')
             ->withHeader('Content-Length', (string) strlen($content));
+    }
+
+    /**
+     * Write the complete document payload into the supplied temporary stream.
+     *
+     * Ensuring the loop flushes every byte prevents partial downloads that leave
+     * DOCX archives or PDFs corrupted when end users attempt to open them.
+     *
+     * @param resource $resource
+     */
+    private function writeStreamContent($resource, string $content): void
+    {
+        $length = strlen($content);
+        $offset = 0;
+
+        while ($offset < $length) {
+            $written = fwrite($resource, substr($content, $offset));
+
+            if ($written === false) {
+                throw new RuntimeException('Failed to write the document content to the stream.');
+            }
+
+            if ($written === 0) {
+                throw new RuntimeException('Document stream stalled before completion.');
+            }
+
+            $offset += $written;
+        }
     }
 
     /**
