@@ -163,6 +163,10 @@ class UsageService
             'gpt-5-main' => 'gpt-5',
             'gpt5-main' => 'gpt-5',
             'gpt5' => 'gpt-5',
+            'gpt-5-strategist' => 'gpt-5',
+            'gpt-5.0-strategist' => 'gpt-5',
+            'gpt5-strategist' => 'gpt-5',
+            'gpt5.0-strategist' => 'gpt-5',
         ];
 
         if (isset($aliases[$key])) {

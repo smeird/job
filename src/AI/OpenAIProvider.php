@@ -816,7 +816,9 @@ final class OpenAIProvider
      * Marketing materials occasionally reference dotted variants such as
      * "gpt-5.0-mini" even though the API only recognises "gpt-5-mini". By
      * normalising the identifier at read time we guarantee that every request and
-     * fallback attempt references a model name accepted by OpenAI.
+     * fallback attempt references a model name accepted by OpenAI. Marketing aliases
+     * such as "gpt-5-strategist" are collapsed into the corresponding production
+     * identifier so upstream configuration changes do not break plan generation.
      */
     private function normaliseConfiguredModel(string $model): string
     {
@@ -829,18 +831,27 @@ final class OpenAIProvider
         $lower = strtolower($trimmed);
 
         if (strpos($lower, 'gpt-5.0-') === 0) {
-            $suffix = substr($trimmed, 8);
+            $suffix = substr($lower, 8);
 
-            return strtolower('gpt-5-' . $suffix);
+            $lower = 'gpt-5-' . $suffix;
+        } elseif (strpos($lower, 'gpt-5.0') === 0) {
+            $suffix = substr($lower, 7);
+
+            $lower = 'gpt-5' . $suffix;
         }
 
-        if (strpos($lower, 'gpt-5.0') === 0) {
-            $suffix = substr($trimmed, 7);
+        $aliases = [
+            'gpt-5-strategist' => 'gpt-5',
+            'gpt-5.0-strategist' => 'gpt-5',
+            'gpt5-strategist' => 'gpt-5',
+            'gpt5.0-strategist' => 'gpt-5',
+        ];
 
-            return strtolower('gpt-5' . $suffix);
+        if (isset($aliases[$lower])) {
+            return $aliases[$lower];
         }
 
-        return strtolower($trimmed);
+        return $lower;
     }
 
     /**
