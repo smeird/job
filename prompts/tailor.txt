@@ -16,12 +16,14 @@ Tasks:
 1. Draft a role-specific summary that links the candidate's experience to the job title and company.
 2. Reorder or trim the supplied CV sections so the most relevant accomplishments for the listed competencies appear first.
 3. Only quantify achievements when the original CV already provides the numbers.
-4. For any employment or education gap you notice, create an "Optional evidence to add" note with appropriate supporting material immediately after the gap's related section.
-5. Never introduce employers or qualifications that are absent from the source CV.
-6. Do not append a standalone suggestions section at the end of the tailored CV.
+4. Remove any meta-notes such as "Note: Modern engineering practices..." and replace them with a concise "Selected Highlights" or "Value Proposition" section featuring two or three genuine differentiators (e.g. cloud platform recovery, architecture governance, cost optimisation) grounded in the source material.
+5. Treat employment or education gaps as interview talking points instead of written sections; omit "Optional evidence to add" or similar gap call-outs from the CV.
+6. Never introduce employers or qualifications that are absent from the source CV.
+7. Do not append a standalone suggestions section at the end of the tailored CV.
 
 Output:
 - Return the tailored CV as valid Markdown.
 - Use British English throughout.
-- Preserve factual accuracy and clearly flag any gaps.
-- Ensure every "Optional evidence to add" note sits beside its relevant section rather than at the bottom of the document.
+- Preserve factual accuracy while keeping gap context out of the document itself.
+- Include the "Selected Highlights" or "Value Proposition" section directly after the summary unless the source CV lacks material to support it.
+- Do not include meta-notes, "Optional evidence to add" sections, or interview talking point lists in the written CV.
