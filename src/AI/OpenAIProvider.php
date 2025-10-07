@@ -138,6 +138,8 @@ final class OpenAIProvider
             [
                 'role' => 'system',
                 'content' => 'You are a planning assistant that prepares tailored job application strategies. '
+                    . 'Recommend only actions that directly support tailoring the candidate\'s CV for the specified role; '
+                    . 'exclude interview preparation, follow-up logistics, or other tasks unrelated to refining the CV. '
                     . 'Always respond with a valid JSON object following this schema: '
                     . '{"summary": string, "strengths": string[], "gaps": string[], "next_steps": [{"task": string, "rationale": string, "priority": "high"|"medium"|"low", "estimated_minutes": int}]}. '
                     . 'Ensure arrays are never empty: use informative entries. Avoid markdown or prose outside JSON.',
