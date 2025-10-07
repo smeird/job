@@ -269,7 +269,7 @@ $_ENV['OPENAI_MODEL_PLAN'] = 'gpt-5.0-strategist';
 $_SERVER['OPENAI_MODEL_PLAN'] = 'gpt-5.0-strategist';
 
 $aliasSuccessPayload = $successPayload;
-$aliasSuccessPayload['model'] = 'gpt-5-strategist';
+$aliasSuccessPayload['model'] = 'gpt-5';
 
 $aliasClient = new FakeClient([
     $firstFailure,
@@ -288,11 +288,11 @@ if (count($aliasRequests) !== 2) {
 $aliasFirstRequest = json_decode($aliasRequests[0]['options']['body'], true);
 $aliasSecondRequest = json_decode($aliasRequests[1]['options']['body'], true);
 
-if (!is_array($aliasFirstRequest) || $aliasFirstRequest['model'] !== 'gpt-5-strategist') {
+if (!is_array($aliasFirstRequest) || $aliasFirstRequest['model'] !== 'gpt-5') {
     throw new RuntimeException('Initial alias plan request did not normalise the marketing model name.');
 }
 
-if (!is_array($aliasSecondRequest) || $aliasSecondRequest['model'] !== 'gpt-5-strategist') {
+if (!is_array($aliasSecondRequest) || $aliasSecondRequest['model'] !== 'gpt-5') {
     throw new RuntimeException('Second alias plan request did not retain the normalised model identifier.');
 }
 
