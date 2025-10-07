@@ -63,7 +63,6 @@ final class JobApplicationController
 
         $userId = (int) $user['user_id'];
         $statusMessage = $request->getQueryParams()['status'] ?? null;
-        $failureReasons = $this->service->failureReasons();
         $generations = $this->service->generationsForUser($userId);
         $generationIndex = $this->indexGenerations($generations);
 
@@ -76,8 +75,6 @@ final class JobApplicationController
             'applied' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'applied'), $generationIndex),
             'failed' => $this->mapApplications($this->repository->listForUserAndStatus($userId, 'failed'), $generationIndex),
             'status' => $statusMessage,
-            'failureReasons' => $failureReasons,
-            'generationOptions' => $this->mapGenerationOptions($generations),
         ]);
     }
 
@@ -181,6 +178,16 @@ final class JobApplicationController
         }
 
         $statusMessage = $request->getQueryParams()['status'] ?? null;
+        $generations = $this->service->generationsForUser($userId);
+        $generationOptions = $this->mapGenerationOptions($generations);
+        $generationIndex = $this->indexGenerations($generations);
+        $linkedGeneration = null;
+
+        $linkedId = $application->generationId();
+
+        if ($linkedId !== null && isset($generationIndex[$linkedId])) {
+            $linkedGeneration = $generationIndex[$linkedId];
+        }
 
         return $this->renderer->render(
             $response,
@@ -195,7 +202,9 @@ final class JobApplicationController
                     'reason_code' => $application->reasonCode() ?? '',
                 ],
                 [],
-                $statusMessage
+                $statusMessage,
+                $generationOptions,
+                $linkedGeneration
             )
         );
     }
@@ -248,10 +257,20 @@ final class JobApplicationController
             'reason_code' => isset($formInput['reason_code']) ? trim((string) $formInput['reason_code']) : ($result['application']->reasonCode() ?? ''),
         ];
 
+        $generations = $this->service->generationsForUser($userId);
+        $generationOptions = $this->mapGenerationOptions($generations);
+        $generationIndex = $this->indexGenerations($generations);
+        $linkedGeneration = null;
+        $current = $result['application']->generationId();
+
+        if ($current !== null && isset($generationIndex[$current])) {
+            $linkedGeneration = $generationIndex[$current];
+        }
+
         return $this->renderer->render(
             $response->withStatus(422),
             'applications-edit',
-            $this->editViewPayload($result['application'], $preparedForm, $result['errors'], null)
+            $this->editViewPayload($result['application'], $preparedForm, $result['errors'], null, $generationOptions, $linkedGeneration)
         );
     }
 
@@ -614,9 +633,18 @@ final class JobApplicationController
      * Centralising this shaping logic prevents subtle inconsistencies between different controller paths.
      * @param array<string, string> $form
      * @param array<int, string> $errors
+     * @param array<int, array{id: int, label: string}> $generationOptions
+     * @param array<string, mixed>|null $linkedGeneration
      * @return array<string, mixed>
      */
-    private function editViewPayload(JobApplication $application, array $form, array $errors, ?string $statusMessage): array
+    private function editViewPayload(
+        JobApplication $application,
+        array $form,
+        array $errors,
+        ?string $statusMessage,
+        array $generationOptions,
+        ?array $linkedGeneration
+    ): array
     {
         $appliedAt = $application->appliedAt();
 
@@ -636,11 +664,14 @@ final class JobApplicationController
             ],
             'failureReasons' => $this->service->failureReasons(),
             'statusOptions' => $this->service->statusOptions(),
+            'generationOptions' => $generationOptions,
+            'linkedGeneration' => $linkedGeneration,
             'application' => [
                 'id' => $application->id(),
                 'created_at' => $application->createdAt()->format('Y-m-d H:i'),
                 'updated_at' => $application->updatedAt()->format('Y-m-d H:i'),
                 'applied_at' => $appliedAt !== null ? $appliedAt->format('Y-m-d H:i') : null,
+                'generation_id' => $application->generationId(),
             ],
         ];
     }
