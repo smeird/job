@@ -6,6 +6,7 @@ use App\Bootstrap;
 use App\Controllers\AuthController;
 use App\Applications\JobApplicationRepository;
 use App\Applications\JobApplicationService;
+use App\AI\OpenAIProvider;
 use App\Contacts\ContactDetailsRepository;
 use App\Contacts\ContactDetailsService;
 use App\Controllers\DocumentController;
@@ -23,6 +24,8 @@ use App\Documents\DocumentRepository;
 use App\Documents\DocumentService;
 use App\Documents\DocumentValidator;
 use App\Documents\MarkdownRenderer;
+use App\Research\CompanyResearchService;
+use App\Research\WebSearchClient;
 use App\Infrastructure\Database\Connection;
 use App\Infrastructure\Database\Migrator;
 use App\Middleware\CsrfMiddleware;
@@ -121,11 +124,28 @@ $container->set(JobApplicationService::class, static function (Container $c): Jo
     );
 });
 
+$container->set(WebSearchClient::class, static function (): WebSearchClient {
+    return new WebSearchClient();
+});
+
+$container->set(OpenAIProvider::class, static function (Container $c): OpenAIProvider {
+    return new OpenAIProvider(0, null, $c->get(\PDO::class));
+});
+
+$container->set(CompanyResearchService::class, static function (Container $c): CompanyResearchService {
+    return new CompanyResearchService(
+        $c->get(JobApplicationRepository::class),
+        $c->get(WebSearchClient::class),
+        $c->get(OpenAIProvider::class)
+    );
+});
+
 $container->set(JobApplicationController::class, static function (Container $c): JobApplicationController {
     return new JobApplicationController(
         $c->get(Renderer::class),
         $c->get(JobApplicationRepository::class),
-        $c->get(JobApplicationService::class)
+        $c->get(JobApplicationService::class),
+        $c->get(CompanyResearchService::class)
     );
 });
 
