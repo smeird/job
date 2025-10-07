@@ -17,6 +17,7 @@ use RuntimeException;
 use Throwable;
 
 use function array_key_exists;
+use function implode;
 use function in_array;
 use function is_array;
 use function is_numeric;
@@ -26,15 +27,17 @@ use function json_encode;
 use function max;
 use function mb_strlen;
 use function mb_substr;
-use function strpos;
-use function substr;
-use function strtolower;
+use function preg_match;
+use function preg_split;
 use function random_int;
 use function rtrim;
 use function sprintf;
+use function strpos;
+use function strtolower;
+use function substr;
 use function trim;
 use function usleep;
-use function implode;
+use function strlen;
 
 final class OpenAIProvider
 {
@@ -134,20 +137,49 @@ final class OpenAIProvider
      */
     public function plan(string $jobText, string $cvText, ?callable $streamHandler = null): string
     {
+        $jobTarget = $this->inferJobTarget($jobText);
+        $applicantBackground = $this->buildApplicantBackgroundPayload($cvText);
+        $inputPayload = [
+            'job_target' => $jobTarget,
+            'applicant_background' => $applicantBackground,
+            'job_description' => trim($jobText),
+        ];
+
         $messages = [
             [
                 'role' => 'system',
-                'content' => 'You are a planning assistant that prepares tailored job application strategies. '
-                    . 'Always respond with a valid JSON object following this schema: '
-                    . '{"summary": string, "strengths": string[], "gaps": string[], "next_steps": [{"task": string, "rationale": string, "priority": "high"|"medium"|"low", "estimated_minutes": int}]}. '
-                    . 'Ensure arrays are never empty: use informative entries. Avoid markdown or prose outside JSON.',
+                'content' => <<<'PROMPT'
+You are a planning assistant that generates tailored job application strategies. Begin with a concise checklist (3-7 bullets) of your planned sub-tasks before producing a substantive response. Always reply with a valid JSON object using this schema: {"summary": string, "strengths": string[], "gaps": string[], "next_steps": [{"task": string, "rationale": string, "priority": "high"|"medium"|"low", "estimated_minutes": int}]}. Arrays must always be non-empty and provide meaningful, specific content. Do not use markdown formatting or prose outside the JSON object.
+Input Requirements:
+- job_target (string): The position or job title the applicant seeks.
+- applicant_background (object): Detailed applicant profile, including education, professional experience, and pertinent skills.
+If editing or revising code or structured information, state key assumptions, validate correctness of data, and ensure reproducibility of steps. After generating the JSON output, provide a brief internal validation in 1-2 lines on whether input fields were handled as expected. If correction is needed, attempt a minimal fix.
+Error Handling:
+If mandatory fields (such as job_target or applicant_background) are missing or malformed, reply with a JSON object containing an "error" field specifying the issue, and do not generate any further output.
+Output Format:
+Only return a valid JSON object in the following structure:
+{
+"summary": string, // Concise assessment of applicant's readiness for the specified job
+"strengths": string[], // At least one relevant strength, with informative details
+"gaps": string[], // At least one actionable area for improvement
+"next_steps": [
+{
+"task": string, // Concrete action
+"rationale": string, // Purpose of the action
+"priority": "high" | "medium" | "low", // Importance (high = most urgent)
+"estimated_minutes": int // Time estimate (integer, in minutes)
+}
+// Must have at least one next_step, ideally sorted by priority (descending)
+]
+}
+If input is incomplete, output: {"error": "<error description>"}
+PROMPT,
             ],
             [
                 'role' => 'user',
                 'content' => sprintf(
-                    "Job description:\n%s\n\nCandidate CV:\n%s\n\nCreate the plan.",
-                    trim($jobText),
-                    trim($cvText)
+                    "Input payload:\n%s\n\nGenerate the tailored application strategy.",
+                    json_encode($inputPayload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
                 ),
             ],
         ];
@@ -198,14 +230,219 @@ final class OpenAIProvider
         }
 
         $content = trim($result['content']);
+        $jsonSegment = $this->extractJsonObject($content);
 
         try {
-            $decoded = json_decode($content, true, 512, JSON_THROW_ON_ERROR);
+            $decoded = json_decode($jsonSegment, true, 512, JSON_THROW_ON_ERROR);
         } catch (JsonException $exception) {
             throw new RuntimeException('Failed to decode JSON plan produced by OpenAI.', 0, $exception);
         }
 
         return json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Infer a best-effort job target string from the supplied job description text.
+     *
+     * Providing a reasonable fallback keeps the planning prompt satisfied even when
+     * the upstream payload lacks a dedicated job title field.
+     */
+    private function inferJobTarget(string $jobDescription): string
+    {
+        $trimmed = trim($jobDescription);
+
+        if ($trimmed === '') {
+            return 'Unspecified role';
+        }
+
+        if (preg_match('/^\s*Job Title\s*[:|-]\s*(.+)$/mi', $jobDescription, $matches) === 1) {
+            $candidate = trim($matches[1]);
+
+            if ($candidate !== '') {
+                return $candidate;
+            }
+        }
+
+        $lines = preg_split("/\r\n|\r|\n/", $trimmed);
+
+        if ($lines === false || $lines === []) {
+            return 'Unspecified role';
+        }
+
+        foreach ($lines as $line) {
+            $candidate = trim((string) $line);
+
+            if ($candidate === '') {
+                continue;
+            }
+
+            $lower = strtolower($candidate);
+
+            if (strpos($lower, 'job description') !== false || strpos($lower, 'about ') !== false) {
+                continue;
+            }
+
+            if (mb_strlen($candidate) <= 120) {
+                return $candidate;
+            }
+        }
+
+        return 'Unspecified role';
+    }
+
+    /**
+     * Build the applicant background payload expected by the planning prompt.
+     *
+     * Normalising the CV sections into labelled fields gives the model richer
+     * structure while ensuring required keys are always populated.
+     *
+     * @return array<string, string>
+     */
+    private function buildApplicantBackgroundPayload(string $cvMarkdown): array
+    {
+        $sections = $this->segmentCvByHeading($cvMarkdown);
+        $education = $this->findSectionContent($sections, ['education', 'academic', 'qualification', 'certification']);
+        $experience = $this->findSectionContent($sections, ['experience', 'employment', 'career', 'work history']);
+        $skills = $this->findSectionContent($sections, ['skill', 'competenc', 'strength', 'capability']);
+        $fallback = 'Not specified in the provided CV excerpt.';
+        $cvContent = trim($cvMarkdown);
+
+        return [
+            'education' => $education !== '' ? $education : $fallback,
+            'experience' => $experience !== '' ? $experience : $fallback,
+            'skills' => $skills !== '' ? $skills : $fallback,
+            'cv_markdown' => $cvContent !== '' ? $cvContent : 'No CV content was supplied.',
+        ];
+    }
+
+    /**
+     * Segment the CV markdown content into sections keyed by their headings.
+     *
+     * @return array<string, string>
+     */
+    private function segmentCvByHeading(string $cvMarkdown): array
+    {
+        $lines = preg_split("/\r\n|\r|\n/", $cvMarkdown);
+        $segments = [];
+        $current = 'general';
+        $segments[$current] = [];
+
+        if ($lines === false) {
+            $lines = [$cvMarkdown];
+        }
+
+        foreach ($lines as $line) {
+            $value = (string) $line;
+
+            if (preg_match('/^\s{0,3}#{1,6}\s+(.+?)\s*$/u', $value, $matches) === 1) {
+                $heading = strtolower(trim($matches[1]));
+
+                if ($heading === '') {
+                    $heading = 'general';
+                }
+
+                if (!isset($segments[$heading])) {
+                    $segments[$heading] = [];
+                }
+
+                $current = $heading;
+
+                continue;
+            }
+
+            $segments[$current][] = $value;
+        }
+
+        foreach ($segments as $heading => $contentLines) {
+            $segments[$heading] = trim(implode("\n", $contentLines));
+        }
+
+        return $segments;
+    }
+
+    /**
+     * Locate the first CV section whose heading contains one of the supplied keywords.
+     */
+    private function findSectionContent(array $sections, array $keywords): string
+    {
+        foreach ($sections as $name => $content) {
+            $normalized = strtolower((string) $name);
+
+            foreach ($keywords as $keyword) {
+                if (strpos($normalized, $keyword) !== false) {
+                    $trimmed = trim((string) $content);
+
+                    if ($trimmed !== '') {
+                        return $trimmed;
+                    }
+                }
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * Extract a JSON object from an OpenAI response that may include extra commentary.
+     */
+    private function extractJsonObject(string $content): string
+    {
+        $start = strpos($content, '{');
+
+        if ($start === false) {
+            throw new RuntimeException('OpenAI response did not contain a JSON object.');
+        }
+
+        $length = strlen($content);
+        $depth = 0;
+        $inString = false;
+        $escape = false;
+
+        for ($index = $start; $index < $length; $index++) {
+            $char = $content[$index];
+
+            if ($inString) {
+                if ($escape) {
+                    $escape = false;
+
+                    continue;
+                }
+
+                if ($char === '\\') {
+                    $escape = true;
+
+                    continue;
+                }
+
+                if ($char === '"') {
+                    $inString = false;
+                }
+
+                continue;
+            }
+
+            if ($char === '"') {
+                $inString = true;
+
+                continue;
+            }
+
+            if ($char === '{') {
+                $depth++;
+
+                continue;
+            }
+
+            if ($char === '}') {
+                $depth--;
+
+                if ($depth === 0) {
+                    return substr($content, $start, $index - $start + 1);
+                }
+            }
+        }
+
+        throw new RuntimeException('Incomplete JSON object found in OpenAI response.');
     }
 
     /**
