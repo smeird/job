@@ -27,6 +27,7 @@ use function max;
 use function mb_strlen;
 use function mb_substr;
 use function strpos;
+use function substr;
 use function strtolower;
 use function random_int;
 use function rtrim;
@@ -103,8 +104,8 @@ final class OpenAIProvider
         $this->apiKey = $this->requireEnv('OPENAI_API_KEY');
         $baseUrl = $this->env('OPENAI_BASE_URL') ?? self::DEFAULT_BASE_URL;
         $this->baseUrl = rtrim($baseUrl, '/') . '/';
-        $this->modelPlan = $this->requireEnv('OPENAI_MODEL_PLAN');
-        $this->modelDraft = $this->requireEnv('OPENAI_MODEL_DRAFT');
+        $this->modelPlan = $this->normaliseConfiguredModel($this->requireEnv('OPENAI_MODEL_PLAN'));
+        $this->modelDraft = $this->normaliseConfiguredModel($this->requireEnv('OPENAI_MODEL_DRAFT'));
         $this->maxTokens = $this->resolveMaxTokens();
         $this->tariffs = $this->parseTariffs($this->env('OPENAI_TARIFF_JSON'));
 
@@ -792,18 +793,54 @@ final class OpenAIProvider
      */
     private function buildModelFallbackSequence(string $configuredModel, string $operation): array
     {
-        $sequence = [$configuredModel];
+        $primaryModel = $this->normaliseConfiguredModel($configuredModel);
+        $sequence = [$primaryModel];
         $fallbacks = in_array($operation, ['plan', 'cheat_sheet'], true)
             ? self::PLAN_MODEL_FALLBACKS
             : self::DRAFT_MODEL_FALLBACKS;
 
         foreach ($fallbacks as $fallback) {
-            if (!in_array($fallback, $sequence, true)) {
-                $sequence[] = $fallback;
+            $normalisedFallback = $this->normaliseConfiguredModel($fallback);
+
+            if (!in_array($normalisedFallback, $sequence, true)) {
+                $sequence[] = $normalisedFallback;
             }
         }
 
         return $sequence;
+    }
+
+    /**
+     * Rewrite configured model identifiers into the canonical API-supported format.
+     *
+     * Marketing materials occasionally reference dotted variants such as
+     * "gpt-5.0-mini" even though the API only recognises "gpt-5-mini". By
+     * normalising the identifier at read time we guarantee that every request and
+     * fallback attempt references a model name accepted by OpenAI.
+     */
+    private function normaliseConfiguredModel(string $model): string
+    {
+        $trimmed = trim($model);
+
+        if ($trimmed === '') {
+            return $trimmed;
+        }
+
+        $lower = strtolower($trimmed);
+
+        if (strpos($lower, 'gpt-5.0-') === 0) {
+            $suffix = substr($trimmed, 8);
+
+            return strtolower('gpt-5-' . $suffix);
+        }
+
+        if (strpos($lower, 'gpt-5.0') === 0) {
+            $suffix = substr($trimmed, 7);
+
+            return strtolower('gpt-5' . $suffix);
+        }
+
+        return strtolower($trimmed);
     }
 
     /**

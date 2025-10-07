@@ -264,4 +264,43 @@ if (!is_array($fallbackDecoded) || $fallbackDecoded['summary'] !== 'Done') {
 }
 
 
+putenv('OPENAI_MODEL_PLAN=gpt-5.0-strategist');
+$_ENV['OPENAI_MODEL_PLAN'] = 'gpt-5.0-strategist';
+$_SERVER['OPENAI_MODEL_PLAN'] = 'gpt-5.0-strategist';
+
+$aliasSuccessPayload = $successPayload;
+$aliasSuccessPayload['model'] = 'gpt-5-strategist';
+
+$aliasClient = new FakeClient([
+    $firstFailure,
+    new Response(200, ['Content-Type' => 'application/json'], json_encode($aliasSuccessPayload)),
+]);
+
+$aliasProvider = new OpenAIProvider(1, $aliasClient, $pdo, $settings);
+$aliasPlan = $aliasProvider->plan('Job text', 'CV text');
+
+$aliasRequests = $aliasClient->recordedRequests();
+
+if (count($aliasRequests) !== 2) {
+    throw new RuntimeException('Expected two requests during alias normalisation testing.');
+}
+
+$aliasFirstRequest = json_decode($aliasRequests[0]['options']['body'], true);
+$aliasSecondRequest = json_decode($aliasRequests[1]['options']['body'], true);
+
+if (!is_array($aliasFirstRequest) || $aliasFirstRequest['model'] !== 'gpt-5-strategist') {
+    throw new RuntimeException('Initial alias plan request did not normalise the marketing model name.');
+}
+
+if (!is_array($aliasSecondRequest) || $aliasSecondRequest['model'] !== 'gpt-5-strategist') {
+    throw new RuntimeException('Second alias plan request did not retain the normalised model identifier.');
+}
+
+$aliasDecoded = json_decode($aliasPlan, true);
+
+if (!is_array($aliasDecoded) || $aliasDecoded['summary'] !== 'Done') {
+    throw new RuntimeException('Alias plan JSON did not decode as expected.');
+}
+
+
 echo 'OpenAIProviderPlanTest passed' . PHP_EOL;
