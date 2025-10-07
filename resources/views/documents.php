@@ -219,30 +219,38 @@
                                     <p class="text-xs text-slate-400">Source CV: <?= htmlspecialchars($generation['cv_document']['filename'], ENT_QUOTES) ?></p>
                                 </div>
 
-                                  <div class="flex flex-col gap-2">
-                                      <?php if ($statusValue === 'completed' && !empty($generation['downloads'])) : ?>
-                                          <?php foreach ($generation['downloads'] as $group) : ?>
-                                              <div class="flex flex-wrap items-center gap-2">
-                                                  <span class="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100">
-                                                      <?= htmlspecialchars($group['label'], ENT_QUOTES) ?>
-                                                  </span>
-                                                  <?php foreach ($group['links'] as $link) : ?>
-                                                      <a
-                                                          href="<?= htmlspecialchars($link['url'], ENT_QUOTES) ?>"
-                                                          class="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100 transition hover:border-emerald-300 hover:text-emerald-50"
-                                                      >
-                                                          <?= htmlspecialchars($link['label'], ENT_QUOTES) ?>
-                                                      </a>
-                                                  <?php endforeach; ?>
-                                              </div>
-                                          <?php endforeach; ?>
-                                      <?php endif; ?>
-                                      <?php if (!empty($generation['promote_url'])) : ?>
-                                          <form method="post" action="<?= htmlspecialchars($generation['promote_url'], ENT_QUOTES) ?>" class="inline">
-                                              <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
-                                              <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-indigo-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-100 transition hover:border-indigo-300 hover:text-indigo-50">
-                                                  Save as CV
-                                              </button>
+                                <div class="flex flex-col gap-2">
+                                    <?php if ($statusValue === 'completed' && !empty($generation['downloads'])) : ?>
+                                        <?php foreach ($generation['downloads'] as $group) : ?>
+                                            <div class="flex flex-wrap items-center gap-2">
+                                                <span class="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100">
+                                                    <?= htmlspecialchars($group['label'], ENT_QUOTES) ?>
+                                                </span>
+                                                <?php if (!empty($group['viewer_url'])) : ?>
+                                                    <a
+                                                        href="<?= htmlspecialchars($group['viewer_url'], ENT_QUOTES) ?>"
+                                                        class="inline-flex items-center gap-2 rounded-full border border-sky-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-sky-100 transition hover:border-sky-300 hover:text-sky-50"
+                                                    >
+                                                        <?= htmlspecialchars($group['viewer_label'] ?? 'View markdown', ENT_QUOTES) ?>
+                                                    </a>
+                                                <?php endif; ?>
+                                                <?php foreach ($group['links'] as $link) : ?>
+                                                    <a
+                                                        href="<?= htmlspecialchars($link['url'], ENT_QUOTES) ?>"
+                                                        class="inline-flex items-center gap-2 rounded-full border border-emerald-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-emerald-100 transition hover:border-emerald-300 hover:text-emerald-50"
+                                                    >
+                                                        <?= htmlspecialchars($link['label'], ENT_QUOTES) ?>
+                                                    </a>
+                                                <?php endforeach; ?>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                    <?php if (!empty($generation['promote_url'])) : ?>
+                                        <form method="post" action="<?= htmlspecialchars($generation['promote_url'], ENT_QUOTES) ?>" class="inline">
+                                            <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                                            <button type="submit" class="inline-flex items-center gap-2 rounded-full border border-indigo-400/40 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-100 transition hover:border-indigo-300 hover:text-indigo-50">
+                                                Save as CV
+                                            </button>
                                         </form>
                                     <?php endif; ?>
                                     <?php if (!empty($generation['delete_url'])) : ?>

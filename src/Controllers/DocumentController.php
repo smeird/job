@@ -292,6 +292,210 @@ final class DocumentController
     }
 
     /**
+     * Display a formatted markdown preview for tailored generation outputs.
+     *
+     * Centralising the tailored preview flow ensures ownership checks and
+     * download links mirror the rest of the documents workspace.
+     *
+     * @param array<string, string> $args
+     */
+    public function showGenerationMarkdown(
+        ServerRequestInterface $request,
+        ResponseInterface $response,
+        array $args
+    ): ResponseInterface {
+        $user = $request->getAttribute('user');
+
+        if (!is_array($user) || !isset($user['user_id'])) {
+            return $response->withHeader('Location', '/auth/login')->withStatus(302);
+        }
+
+        $userId = (int) $user['user_id'];
+        $generationId = isset($args['id']) ? (int) $args['id'] : 0;
+        $artifactParam = isset($args['artifact']) ? (string) $args['artifact'] : '';
+        $artifactKey = strtolower(str_replace('-', '_', trim($artifactParam)));
+
+        if (!in_array($artifactKey, ['cv', 'cover_letter'], true)) {
+            return $response
+                ->withHeader(
+                    'Location',
+                    '/documents?status=' . rawurlencode('Select a valid tailored draft to preview.')
+                )
+                ->withStatus(302);
+        }
+
+        $generation = $this->generationRepository->findForUser($userId, $generationId);
+
+        if ($generation === null) {
+            return $response
+                ->withHeader(
+                    'Location',
+                    '/documents?status=' . rawurlencode('The tailored draft could not be found.')
+                )
+                ->withStatus(302);
+        }
+
+        if (($generation['status'] ?? '') !== 'completed') {
+            return $response
+                ->withHeader(
+                    'Location',
+                    '/documents?status=' . rawurlencode('The tailored draft is not ready to preview yet.')
+                )
+                ->withStatus(302);
+        }
+
+        $availableFormats = $this->generationDownloadService->availableFormats($generation['id']);
+
+        if (!isset($availableFormats[$artifactKey])) {
+            return $response
+                ->withHeader(
+                    'Location',
+                    '/documents?status=' . rawurlencode('The tailored markdown is not available yet. Please try again once the run completes.')
+                )
+                ->withStatus(302);
+        }
+
+        try {
+            $download = $this->generationDownloadService->fetch(
+                $generation['id'],
+                $userId,
+                $artifactKey,
+                'md'
+            );
+        } catch (GenerationAccessDeniedException $exception) {
+            return $response
+                ->withHeader(
+                    'Location',
+                    '/documents?status=' . rawurlencode('You do not have access to that tailored draft.')
+                )
+                ->withStatus(302);
+        } catch (GenerationNotFoundException $exception) {
+            return $response
+                ->withHeader(
+                    'Location',
+                    '/documents?status=' . rawurlencode('The tailored draft could not be found.')
+                )
+                ->withStatus(302);
+        } catch (GenerationOutputUnavailableException $exception) {
+            return $response
+                ->withHeader(
+                    'Location',
+                    '/documents?status=' . rawurlencode('The tailored markdown is not available yet. Please try again once the run completes.')
+                )
+                ->withStatus(302);
+        } catch (RuntimeException $exception) {
+            return $response
+                ->withHeader(
+                    'Location',
+                    '/documents?status=' . rawurlencode('We could not load the tailored markdown preview. Please try again.')
+                )
+                ->withStatus(302);
+        }
+
+        $markdown = (string) ($download['content'] ?? '');
+        $formatted = $this->markdownRenderer->toHtml($markdown);
+        $artifactLabel = $this->artifactLabel($artifactKey);
+        $formattedAnchor = $this->formattedAnchor($artifactKey);
+
+        $viewerActions = [];
+
+        $artifactFormats = is_array($availableFormats[$artifactKey]) ? $availableFormats[$artifactKey] : [];
+
+        foreach ($artifactFormats as $format) {
+            $viewerActions[] = [
+                'href' => sprintf(
+                    '/generations/%d/download?artifact=%s&format=%s',
+                    $generation['id'],
+                    rawurlencode($artifactKey),
+                    rawurlencode((string) $format)
+                ),
+                'label' => $this->downloadLabel((string) $format),
+                'style' => $this->viewerActionStyle((string) $format),
+            ];
+        }
+
+        $heroActions = [];
+
+        foreach ($availableFormats as $availableArtifact => $formats) {
+            if ($availableArtifact === $artifactKey || !is_array($formats) || $formats === []) {
+                continue;
+            }
+
+            $heroActions[] = [
+                'href' => sprintf(
+                    '/documents/tailored/%d/markdown/%s#%s',
+                    $generation['id'],
+                    rawurlencode($this->artifactRouteSegment((string) $availableArtifact)),
+                    $this->formattedAnchor((string) $availableArtifact)
+                ),
+                'label' => 'View ' . $this->artifactLabel((string) $availableArtifact),
+                'style' => 'secondary',
+            ];
+        }
+
+        $generatedAt = $generation['created_at'] ?? '';
+
+        try {
+            $timestamp = new DateTimeImmutable((string) $generatedAt);
+            $generatedDisplay = $timestamp->format('Y-m-d H:i');
+        } catch (Exception $exception) {
+            $generatedDisplay = (string) $generatedAt;
+        }
+
+        $metadata = [
+            ['label' => 'Run ID', 'value' => '#' . $generation['id']],
+            ['label' => 'Artifact', 'value' => $artifactLabel],
+            ['label' => 'Generated', 'value' => $generatedDisplay],
+            ['label' => 'Model', 'value' => (string) ($generation['model'] ?? '')],
+            [
+                'label' => 'Thinking time',
+                'value' => sprintf('%d seconds', (int) ($generation['thinking_time'] ?? 0)),
+            ],
+        ];
+
+        if (!empty($generation['job_document']['filename'])) {
+            $metadata[] = [
+                'label' => 'Job description',
+                'value' => (string) $generation['job_document']['filename'],
+            ];
+        }
+
+        if (!empty($generation['cv_document']['filename'])) {
+            $metadata[] = [
+                'label' => 'Source CV',
+                'value' => (string) $generation['cv_document']['filename'],
+            ];
+        }
+
+        return $this->renderer->render($response, 'generation-markdown', [
+            'title' => sprintf('%s · Tailored generation #%d', $artifactLabel, $generation['id']),
+            'subtitle' => 'Tailored generation preview',
+            'fullWidth' => true,
+            'navLinks' => $this->navLinks('documents'),
+            'viewer' => [
+                'eyebrow' => 'Tailored generation',
+                'heading' => $artifactLabel . ' markdown',
+                'description' => 'Review the sanitized markdown rendering, then download polished formats for sharing.',
+                'backLink' => [
+                    'href' => '/documents',
+                    'label' => '← Back to documents',
+                ],
+                'heroActions' => $heroActions,
+                'metadataTitle' => 'Generation details',
+                'metadataDescription' => 'Key context for the tailored draft helps confirm you are reviewing the correct run.',
+                'metadata' => $metadata,
+                'viewerActions' => $viewerActions,
+                'html' => $formatted,
+                'raw' => $markdown,
+                'formattedDescription' => 'Rendered preview uses the site typography while stripping unsafe HTML.',
+                'rawDescription' => 'Copy the original markdown if you need to edit locally or share snippets.',
+                'formattedAnchor' => $formattedAnchor,
+                'footerNote' => 'Downloads are generated on demand so you always receive the latest version of the draft.',
+            ],
+        ]);
+    }
+
+    /**
      * Stream the requested document to the browser as a download.
      *
      * Exposing a download endpoint keeps uploaded files accessible in their original format.
@@ -644,9 +848,14 @@ final class DocumentController
      *
      * Centralising link creation ensures each page exposes consistent URLs
      * while still surfacing every available format when binary exports are stored.
-
      *
-     * @return array<int, array{artifact: string, label: string, links: array<int, array{format: string, url: string, label: string}>}>
+     * @return array<int, array{
+     *     artifact: string,
+     *     label: string,
+     *     links: array<int, array{format: string, url: string, label: string}>,
+     *     viewer_url: string,
+     *     viewer_label: string
+     * }>
      */
     private function buildDownloadLinks(int $generationId): array
     {
@@ -683,6 +892,13 @@ final class DocumentController
                     'artifact' => (string) $artifact,
                     'label' => $this->artifactLabel((string) $artifact),
                     'links' => $links,
+                    'viewer_url' => sprintf(
+                        '/documents/tailored/%d/markdown/%s#%s',
+                        $generationId,
+                        rawurlencode($this->artifactRouteSegment((string) $artifact)),
+                        $this->formattedAnchor((string) $artifact)
+                    ),
+                    'viewer_label' => 'View ' . $this->artifactLabel((string) $artifact),
                 ];
             }
         }
@@ -700,6 +916,44 @@ final class DocumentController
         }
 
         return 'Tailored CV';
+    }
+
+    /**
+     * Map a download format to the appropriate viewer action style.
+     */
+    private function viewerActionStyle(string $format): string
+    {
+        $key = strtolower($format);
+
+        if ($key === 'md') {
+            return 'emerald';
+        }
+
+        if ($key === 'pdf') {
+            return 'sky';
+        }
+
+        if ($key === 'docx') {
+            return 'primary';
+        }
+
+        return 'secondary';
+    }
+
+    /**
+     * Build the route segment used for tailored generation viewer URLs.
+     */
+    private function artifactRouteSegment(string $artifact): string
+    {
+        return str_replace('_', '-', strtolower($artifact));
+    }
+
+    /**
+     * Provide the anchor identifier used by markdown viewer links.
+     */
+    private function formattedAnchor(string $artifact): string
+    {
+        return 'formatted-' . $this->artifactRouteSegment($artifact) . '-markdown';
     }
 
     /**
