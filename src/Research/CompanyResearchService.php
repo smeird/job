@@ -12,6 +12,7 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use RuntimeException;
 
+use function error_log;
 use function implode;
 use function parse_url;
 use function preg_match;
@@ -160,7 +161,10 @@ final class CompanyResearchService
      * Perform the outbound web search call and map failures into domain errors.
      *
      * Catching upstream exceptions here ensures the controller can surface a
-     * predictable message and status code to the caller.
+     * predictable message and status code to the caller. When the search API
+     * is temporarily unavailable the method logs the failure and gracefully
+     * continues with an empty result set so OpenAI summarisation can still
+     * proceed using the job description alone.
      *
      * @return array<int, array{title: string, url: string, snippet: string}>
      */
@@ -173,7 +177,9 @@ final class CompanyResearchService
                 throw new RuntimeException('Search provider rate limit reached.', 429, $exception);
             }
 
-            throw new RuntimeException('Unable to contact the search provider.', 0, $exception);
+            error_log('Company research web search failed: ' . $exception->getMessage());
+
+            return [];
         }
     }
 
