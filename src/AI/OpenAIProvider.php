@@ -712,7 +712,11 @@ final class OpenAIProvider
                         continue;
                     }
 
-                    $type = isset($part['type']) ? (string) $part['type'] : 'input_text';
+                    $type = isset($part['type']) ? (string) $part['type'] : 'text';
+                    
+                    if ($type === 'input_text') {
+                        $type = 'text';
+                    }
                     $text = isset($part['text']) ? (string) $part['text'] : '';
 
                     $parts[] = [
@@ -1045,7 +1049,7 @@ final class OpenAIProvider
      * Transform chat-style message arrays into the Responses API input schema.
      *
      * The method ensures all text-based segments adopt the Responses API
-     * `input_text` label while preserving any explicitly provided types.
+     * `text` label while preserving any explicitly provided types.
      *
      * @param array<int, array<string, mixed>> $messages
      * @return array<int, array{role: string, content: array<int, array{type: string, text: string}>}>
@@ -1063,10 +1067,10 @@ final class OpenAIProvider
 
                 foreach ($content as $part) {
                     if (is_array($part) && isset($part['text'])) {
-                        $type = isset($part['type']) ? (string) $part['type'] : 'input_text';
+                        $type = isset($part['type']) ? (string) $part['type'] : 'text';
 
-                        if ($type === 'text') {
-                            $type = 'input_text';
+                        if ($type === 'input_text') {
+                            $type = 'text';
                         }
 
                         $parts[] = [
@@ -1075,7 +1079,7 @@ final class OpenAIProvider
                         ];
                     } elseif (is_string($part)) {
                         $parts[] = [
-                            'type' => 'input_text',
+                            'type' => 'text',
                             'text' => $part,
                         ];
                     }
@@ -1083,13 +1087,13 @@ final class OpenAIProvider
 
                 if ($parts === []) {
                     $parts[] = [
-                        'type' => 'input_text',
+                        'type' => 'text',
                         'text' => '',
                     ];
                 }
             } else {
                 $parts = [[
-                    'type' => 'input_text',
+                    'type' => 'text',
                     'text' => (string) $content,
                 ]];
             }
