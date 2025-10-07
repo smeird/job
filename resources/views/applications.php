@@ -33,8 +33,8 @@ $additionalHead = '<script src="/assets/js/applications.js" defer></script>';
         </div>
     </header>
 
-    <section class="relative overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-900/60 p-6 shadow-2xl theme-light:border-slate-200 theme-light:bg-white/85 theme-light:shadow-soft">
-        <div class="pointer-events-none absolute inset-0 bg-gradient-to-br from-indigo-950/70 via-slate-900/40 to-slate-950/70 opacity-90 theme-light:from-white/80 theme-light:via-indigo-100/40 theme-light:to-transparent theme-light:opacity-80"></div>
+    <section class="relative overflow-hidden rounded-3xl border border-slate-800/70 bg-slate-950/70 p-6 shadow-2xl backdrop-blur theme-light:border-slate-200 theme-light:bg-white/85 theme-light:shadow-soft">
+        <div class="pointer-events-none absolute inset-0 bg-gradient-to-br from-indigo-950/70 via-indigo-900/25 to-transparent opacity-90 theme-light:from-white/80 theme-light:via-indigo-100/40 theme-light:to-transparent theme-light:opacity-80"></div>
         <div class="pointer-events-none absolute -top-24 right-10 h-56 w-56 rounded-full bg-indigo-500/20 blur-3xl"></div>
         <div class="pointer-events-none absolute -bottom-20 left-0 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl"></div>
         <header class="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
