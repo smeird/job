@@ -274,7 +274,7 @@ class Converter
 
         $styles = <<<'CSS'
 @page {
-    margin: 2.5cm 2.5cm 3.2cm 2.5cm;
+    margin: 2.5cm 2.5cm 4.2cm 2.5cm;
 }
 
 body {
@@ -284,13 +284,13 @@ body {
     line-height: 1.6;
     color: #111827;
     background-color: #ffffff;
-    padding-bottom: 1.2cm;
+    padding-bottom: 2.5cm;
 }
 
 .letter {
     max-width: 17cm;
     margin: 0 auto;
-    padding: 0;
+    padding: 0 0 2.5cm;
     display: flex;
     flex-direction: column;
     gap: 12pt;
@@ -366,9 +366,9 @@ body {
 
 .letter-footer {
     position: fixed;
-    left: 2.5cm;
-    right: 2.5cm;
-    bottom: 1.5cm;
+    left: 1.5cm;
+    right: 1.5cm;
+    bottom: 1.2cm;
     padding-top: 6pt;
     border-top: 1px solid #e5e7eb;
     font-size: 9pt;
@@ -376,6 +376,7 @@ body {
     text-align: center;
     line-height: 1.4;
     letter-spacing: 0.2pt;
+    background-color: #ffffff;
 }
 CSS;
 
