@@ -6,6 +6,7 @@ namespace App\Conversion;
 
 use App\DB;
 use DateTimeImmutable;
+use DOMDocument;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use League\CommonMark\CommonMarkConverter;
@@ -199,8 +200,9 @@ class Converter
         $section = $phpWord->addSection();
 
         $html = $this->renderMarkdownToHtml($markdown);
+        $safeHtml = $this->sanitizeHtmlForDocx($html);
 
-        Html::addHtml($section, sprintf('<div class="markdown-doc">%s</div>', $html), false, false);
+        Html::addHtml($section, sprintf('<div class="markdown-doc">%s</div>', $safeHtml), false, false);
 
         $tempPath = $this->createTempFile('docx');
 
@@ -256,6 +258,104 @@ class Converter
         if (substr($binary, 0, 2) !== 'PK') {
             throw new RuntimeException('Generated DOCX content is not a valid archive.');
         }
+    }
+
+    /**
+     * Remove remote asset references from HTML before passing it to PhpWord.
+     *
+     * Scrubbing external URLs prevents PhpWord from issuing outbound HTTP or file
+     * requests when rendering user supplied markdown, closing the SSRF avenue
+     * introduced by the HTML based conversion pipeline.
+     */
+    private function sanitizeHtmlForDocx(string $html): string
+    {
+        if (trim($html) === '') {
+            return $html;
+        }
+
+        $priorSetting = libxml_use_internal_errors(true);
+        $document = new DOMDocument('1.0', 'UTF-8');
+        $loaded = $document->loadHTML(
+            '<?xml encoding="utf-8" ?>' . $html,
+            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+        );
+
+        if ($loaded === true) {
+            $images = $document->getElementsByTagName('img');
+            $removals = [];
+
+            foreach ($images as $image) {
+                $source = $image->getAttribute('src');
+
+                if ($source === '') {
+                    continue;
+                }
+
+                if ($this->isRemotePath($source)) {
+                    $removals[] = $image;
+                }
+            }
+
+            foreach ($removals as $image) {
+                $parentNode = $image->parentNode;
+
+                if ($parentNode !== null) {
+                    $parentNode->removeChild($image);
+                }
+            }
+
+            $body = $document->getElementsByTagName('body')->item(0);
+
+            if ($body !== null) {
+                $sanitized = '';
+
+                foreach ($body->childNodes as $childNode) {
+                    $sanitized .= $document->saveHTML($childNode);
+                }
+            } else {
+                $sanitized = $document->saveHTML();
+            }
+        } else {
+            $sanitized = $html;
+        }
+
+        libxml_clear_errors();
+        libxml_use_internal_errors($priorSetting);
+
+        return $sanitized;
+    }
+
+    /**
+     * Determine whether a given path references a remote or local resource with a scheme.
+     *
+     * PhpWord follows URLs that contain schemes or protocol relative prefixes, so the
+     * method identifies these patterns to block external resource fetching.
+     */
+    private function isRemotePath(string $path): bool
+    {
+        $trimmedPath = trim($path);
+
+        if ($trimmedPath === '') {
+            return false;
+        }
+
+        if (strpos($trimmedPath, '//') === 0) {
+            return true;
+        }
+
+        $scheme = parse_url($trimmedPath, PHP_URL_SCHEME);
+
+        if ($scheme === false || $scheme === null || $scheme === '') {
+            return false;
+        }
+
+        $normalizedScheme = strtolower($scheme);
+
+        if ($normalizedScheme === 'data') {
+            return false;
+        }
+
+        return in_array($normalizedScheme, ['http', 'https', 'ftp', 'ftps', 'file'], true);
     }
 
     /**
