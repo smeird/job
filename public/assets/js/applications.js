@@ -541,7 +541,7 @@
         };
 
         if (csrfToken !== '') {
-            headers['X-CSRF-TOKEN'] = csrfToken;
+            headers['X-CSRF-Token'] = csrfToken;
         }
 
         fetch(endpoint, {
