@@ -14,6 +14,7 @@ use League\CommonMark\Output\RenderedContentInterface;
 use PDO;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
+use PhpOffice\PhpWord\Shared\Html;
 use PhpOffice\PhpWord\SimpleType\NumberFormat;
 use RuntimeException;
 use Throwable;
@@ -197,46 +198,9 @@ class Converter
 
         $section = $phpWord->addSection();
 
-        $lines = preg_split('/\R/', $markdown) ?: [];
-        $previousWasList = false;
+        $html = $this->renderMarkdownToHtml($markdown);
 
-        foreach ($lines as $line) {
-            $trimmed = trim($line);
-
-            if ($trimmed === '') {
-                if (!$previousWasList) {
-                    $section->addTextBreak();
-                }
-
-                $previousWasList = false;
-                continue;
-            }
-
-            if (preg_match('/^(#{1,6})\s+(.*)$/', $trimmed, $matches) === 1) {
-                $level = strlen($matches[1]);
-                $text = $matches[2];
-
-                if ($level === 1) {
-                    $section->addTitle($text, 1);
-                } elseif ($level === 2) {
-                    $section->addTitle($text, 2);
-                } else {
-                    $section->addText($text, null, 'Body');
-                }
-
-                $previousWasList = false;
-                continue;
-            }
-
-            if (preg_match('/^[-*]\s+(.*)$/', $trimmed, $matches) === 1) {
-                $section->addListItem($matches[1], 0, null, 'Bullet');
-                $previousWasList = true;
-                continue;
-            }
-
-            $section->addText($trimmed, null, 'Body');
-            $previousWasList = false;
-        }
+        Html::addHtml($section, sprintf('<div class="markdown-doc">%s</div>', $html), false, false);
 
         $tempPath = $this->createTempFile('docx');
 
@@ -303,12 +267,7 @@ class Converter
      */
     private function convertMarkdownToPdf(string $markdown, bool $includeDate = false): string
     {
-        if (method_exists($this->markdownConverter, 'convertToHtml')) {
-            $html = (string) $this->markdownConverter->convertToHtml($markdown);
-        } else {
-            $converted = $this->markdownConverter->convert($markdown);
-            $html = $converted instanceof RenderedContentInterface ? $converted->getContent() : (string) $converted;
-        }
+        $html = $this->renderMarkdownToHtml($markdown);
 
         $options = new Options();
         $options->set('isRemoteEnabled', false);
@@ -462,6 +421,26 @@ HTML;
         $dompdf->render();
 
         return $dompdf->output();
+    }
+
+    /**
+     * Render the markdown into HTML for downstream conversions.
+     *
+     * Centralising the markdown to HTML transformation keeps DOCX and PDF
+     * outputs consistent by ensuring both rely on the same CommonMark
+     * conversion pipeline before format specific styling is applied.
+     */
+    private function renderMarkdownToHtml(string $markdown): string
+    {
+        if (method_exists($this->markdownConverter, 'convertToHtml')) {
+            return (string) $this->markdownConverter->convertToHtml($markdown);
+        }
+
+        $converted = $this->markdownConverter->convert($markdown);
+
+        return $converted instanceof RenderedContentInterface
+            ? $converted->getContent()
+            : (string) $converted;
     }
 
     /**
