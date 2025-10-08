@@ -199,14 +199,8 @@ class Converter
         $section = $phpWord->addSection();
 
         $html = $this->renderMarkdownToHtml($markdown);
-        $sanitizedHtml = $this->sanitizeHtmlForDocx($html);
-        $wrappedMarkup = sprintf('<div class="markdown-doc">%s</div>', $sanitizedHtml);
 
-        try {
-            Html::addHtml($section, $wrappedMarkup, false, false);
-        } catch (Throwable $exception) {
-            throw new RuntimeException('DOCX conversion failed while processing the rendered HTML content.', 0, $exception);
-        }
+        Html::addHtml($section, sprintf('<div class="markdown-doc">%s</div>', $html), false, false);
 
         $tempPath = $this->createTempFile('docx');
 
@@ -447,24 +441,6 @@ HTML;
         return $converted instanceof RenderedContentInterface
             ? $converted->getContent()
             : (string) $converted;
-    }
-
-    /**
-     * Remove characters that DOCX's XML parser cannot represent safely.
-     *
-     * Filtering control characters avoids partial exports when PhpWord halts
-     * processing in response to malformed markup produced by unusual source
-     * input, such as pasted terminal output or binary data.
-     */
-    private function sanitizeHtmlForDocx(string $html): string
-    {
-        $cleaned = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', $html);
-
-        if (!is_string($cleaned)) {
-            throw new RuntimeException('Failed to sanitize HTML prior to DOCX conversion.');
-        }
-
-        return $cleaned;
     }
 
     /**

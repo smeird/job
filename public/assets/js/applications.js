@@ -227,7 +227,7 @@
     };
 
     /**
-     * Render structured sections or highlight lists when provided.
+     * Render structured sections, highlight lists, and related sources when provided.
      *
      * @param {object} payload The payload returned from the API.
      * @param {HTMLElement|null} container The container that receives rendered HTML.
@@ -240,6 +240,87 @@
 
         const fragment = document.createDocumentFragment();
         let hasRendered = false;
+
+        /**
+         * Render a list of search results with titles and supporting snippets.
+         *
+         * @param {(HTMLElement|DocumentFragment)} parent The container accepting rendered items.
+         * @param {Array} results The collection of result objects returned by the API.
+         * @returns {boolean} Indicates whether any search result entries were rendered.
+         */
+        const renderSearchResults = function (parent, results) {
+            if (!parent || !Array.isArray(results) || results.length === 0) {
+                return false;
+            }
+
+            const list = document.createElement('ul');
+            list.className = 'space-y-3 text-left';
+
+            let appended = false;
+
+            for (let index = 0; index < results.length; index += 1) {
+                const item = results[index];
+
+                if (!item || typeof item !== 'object') {
+                    continue;
+                }
+
+                const title = typeof item.title === 'string' ? item.title.trim() : '';
+                const snippetSource = typeof item.snippet === 'string' ? item.snippet : item.description;
+                const snippet = typeof snippetSource === 'string' ? snippetSource.trim() : '';
+                const linkSource = typeof item.url === 'string' ? item.url : item.link;
+                const url = typeof linkSource === 'string' ? linkSource.trim() : '';
+
+                if (title === '' && snippet === '') {
+                    continue;
+                }
+
+                const listItem = document.createElement('li');
+                listItem.className = 'rounded-md border border-slate-700/40 bg-slate-900/40 p-3 theme-light:border-slate-200 theme-light:bg-white/60';
+
+                if (title !== '') {
+                    if (url !== '') {
+                        const anchor = document.createElement('a');
+                        anchor.href = url;
+                        anchor.target = '_blank';
+                        anchor.rel = 'noreferrer noopener';
+                        anchor.className = 'text-sm font-semibold text-indigo-200 hover:text-indigo-100 theme-light:text-indigo-600 theme-light:hover:text-indigo-500';
+                        anchor.textContent = title;
+                        listItem.appendChild(anchor);
+                    } else {
+                        const heading = document.createElement('p');
+                        heading.className = 'text-sm font-semibold text-indigo-200 theme-light:text-indigo-600';
+                        heading.textContent = title;
+                        listItem.appendChild(heading);
+                    }
+                }
+
+                if (snippet !== '') {
+                    const snippetParagraph = document.createElement('p');
+                    snippetParagraph.className = 'mt-1 text-sm text-slate-300 theme-light:text-slate-600';
+                    snippetParagraph.textContent = snippet;
+                    listItem.appendChild(snippetParagraph);
+                }
+
+                list.appendChild(listItem);
+                appended = true;
+            }
+
+            if (!appended) {
+                return false;
+            }
+
+            const wrapper = document.createDocumentFragment();
+            const heading = document.createElement('h3');
+            heading.className = 'text-sm font-semibold text-indigo-200 theme-light:text-indigo-600';
+            heading.textContent = 'Related sources';
+            wrapper.appendChild(heading);
+            wrapper.appendChild(list);
+
+            parent.appendChild(wrapper);
+
+            return true;
+        };
 
         if (Array.isArray(payload.sections) && payload.sections.length > 0) {
             for (let index = 0; index < payload.sections.length; index += 1) {
@@ -292,6 +373,14 @@
             if (Array.isArray(highlights) && highlights.length > 0) {
                 hasRendered = appendList(fragment, highlights);
             }
+        }
+
+        const searchResults = Array.isArray(payload.search_results)
+            ? payload.search_results
+            : (Array.isArray(payload.searchResults) ? payload.searchResults : null);
+
+        if (Array.isArray(searchResults) && searchResults.length > 0) {
+            hasRendered = renderSearchResults(fragment, searchResults) || hasRendered;
         }
 
         if (!hasRendered) {
@@ -472,6 +561,10 @@
                 rendered = renderMarkdownContent(payload.markdown, elements.content);
             }
 
+            if (!rendered && typeof payload.summary === 'string') {
+                rendered = renderMarkdownContent(payload.summary, elements.content);
+            }
+
             if (!rendered && typeof payload.content === 'string') {
                 rendered = renderMarkdownContent(payload.content, elements.content);
             }
@@ -541,7 +634,7 @@
         };
 
         if (csrfToken !== '') {
-            headers['X-CSRF-TOKEN'] = csrfToken;
+            headers['X-CSRF-Token'] = csrfToken;
         }
 
         fetch(endpoint, {
