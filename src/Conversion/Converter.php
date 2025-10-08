@@ -284,13 +284,13 @@ body {
     line-height: 1.6;
     color: #111827;
     background-color: #ffffff;
-    padding-bottom: 2.5cm;
+    padding-bottom: 3.5cm;
 }
 
 .letter {
     max-width: 17cm;
     margin: 0 auto;
-    padding: 0 0 2.5cm;
+    padding: 0;
     display: flex;
     flex-direction: column;
     gap: 12pt;
