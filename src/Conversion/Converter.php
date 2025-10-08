@@ -6,6 +6,8 @@ namespace App\Conversion;
 
 use App\DB;
 use DateTimeImmutable;
+use DOMDocument;
+use DOMXPath;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 use League\CommonMark\CommonMarkConverter;
@@ -199,8 +201,9 @@ class Converter
         $section = $phpWord->addSection();
 
         $html = $this->renderMarkdownToHtml($markdown);
+        $safeHtml = $this->sanitizeHtmlForDocx($html);
 
-        Html::addHtml($section, sprintf('<div class="markdown-doc">%s</div>', $html), false, false);
+        Html::addHtml($section, sprintf('<div class="markdown-doc">%s</div>', $safeHtml), false, false);
 
         $tempPath = $this->createTempFile('docx');
 
@@ -441,6 +444,117 @@ HTML;
         return $converted instanceof RenderedContentInterface
             ? $converted->getContent()
             : (string) $converted;
+    }
+
+    /**
+     * Sanitize HTML before passing it to PhpWord.
+     *
+     * PhpWord attempts to resolve external resources when rendering HTML, so this
+     * method strips any tags that would trigger outbound network requests or
+     * filesystem reads, preventing SSRF vectors during DOCX generation.
+     */
+    private function sanitizeHtmlForDocx(string $html): string
+    {
+        $document = new DOMDocument();
+        $previous = libxml_use_internal_errors(true);
+
+        $document->loadHTML('<?xml encoding="utf-8" ?><div id="docx-root">' . $html . '</div>');
+
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        $xpath = new DOMXPath($document);
+        $containerList = $xpath->query('//*[@id="docx-root"]');
+
+        if ($containerList->length === 0) {
+            return $html;
+        }
+
+        $resourceTags = [
+            'img',
+            'audio',
+            'video',
+            'source',
+            'track',
+            'iframe',
+            'embed',
+            'object',
+            'link',
+            'script',
+        ];
+
+        $attributeNames = ['src', 'href', 'poster', 'xlink:href', 'data'];
+        $queryParts = [];
+
+        foreach ($resourceTags as $tag) {
+            $queryParts[] = sprintf('local-name() = "%s"', $tag);
+        }
+
+        $resourceQuery = sprintf(
+            '//*[(%s) and (@src or @href or @poster or @xlink:href or @data)]',
+            implode(' or ', $queryParts)
+        );
+
+        $nodes = $xpath->query($resourceQuery);
+
+        if ($nodes !== false) {
+            $removals = [];
+
+            foreach ($nodes as $node) {
+                foreach ($attributeNames as $attribute) {
+                    if (!$node->hasAttribute($attribute)) {
+                        continue;
+                    }
+
+                    $value = trim($node->getAttribute($attribute));
+
+                    if ($value === '') {
+                        continue;
+                    }
+
+                    if ($this->isSafeEmbeddedResourceUrl($value)) {
+                        continue;
+                    }
+
+                    $removals[] = $node;
+                    break;
+                }
+            }
+
+            foreach ($removals as $node) {
+                if ($node->parentNode !== null) {
+                    $node->parentNode->removeChild($node);
+                }
+            }
+        }
+
+        $container = $containerList->item(0);
+
+        if ($container === null) {
+            return $html;
+        }
+
+        $sanitized = '';
+
+        foreach ($container->childNodes as $child) {
+            $sanitized .= $document->saveHTML($child);
+        }
+
+        return $sanitized;
+    }
+
+    /**
+     * Determine whether a referenced resource is safe to embed in PhpWord.
+     *
+     * Only data and CID URLs are treated as safe because they are fully
+     * self-contained. All other schemes are blocked to avoid SSRF or local file
+     * reads triggered during DOCX generation.
+     */
+    private function isSafeEmbeddedResourceUrl(string $value): bool
+    {
+        $normalized = strtolower($value);
+
+        return strpos($normalized, 'data:') === 0 || strpos($normalized, 'cid:') === 0;
     }
 
     /**
