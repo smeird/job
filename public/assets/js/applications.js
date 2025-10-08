@@ -131,9 +131,10 @@
      *
      * @param {string} markdownText The markdown text returned by the API.
      * @param {HTMLElement|null} container The container that receives rendered HTML.
+     * @param {boolean} [shouldReset=true] Indicates whether the container should be cleared before rendering.
      * @returns {boolean} Indicates whether any markdown content was rendered.
      */
-    const renderMarkdownContent = function (markdownText, container) {
+    const renderMarkdownContent = function (markdownText, container, shouldReset = true) {
         if (!container || typeof markdownText !== 'string' || markdownText.trim() === '') {
             return false;
         }
@@ -220,7 +221,10 @@
             return false;
         }
 
-        resetContent(container);
+        if (shouldReset) {
+            resetContent(container);
+        }
+
         container.appendChild(fragment);
 
         return true;
@@ -231,15 +235,18 @@
      *
      * @param {object} payload The payload returned from the API.
      * @param {HTMLElement|null} container The container that receives rendered HTML.
+     * @param {{append?: boolean}} [options] Optional rendering behaviour flags.
      * @returns {boolean} Indicates whether any structured content was rendered.
      */
-    const renderStructuredContent = function (payload, container) {
+    const renderStructuredContent = function (payload, container, options) {
         if (!container || !payload || typeof payload !== 'object') {
             return false;
         }
 
         const fragment = document.createDocumentFragment();
         let hasRendered = false;
+        const settings = options && typeof options === 'object' ? options : {};
+        const shouldAppend = settings.append === true;
 
         /**
          * Render a list of search results with titles and supporting snippets.
@@ -387,7 +394,10 @@
             return false;
         }
 
-        resetContent(container);
+        if (!shouldAppend) {
+            resetContent(container);
+        }
+
         container.appendChild(fragment);
 
         return true;
@@ -556,6 +566,10 @@
 
         let rendered = false;
 
+        if (elements.content) {
+            resetContent(elements.content);
+        }
+
         if (payload) {
             if (!rendered && typeof payload.markdown === 'string') {
                 rendered = renderMarkdownContent(payload.markdown, elements.content);
@@ -569,9 +583,13 @@
                 rendered = renderMarkdownContent(payload.content, elements.content);
             }
 
-            if (!rendered) {
-                rendered = renderStructuredContent(payload, elements.content);
-            }
+            const structuredRendered = renderStructuredContent(
+                payload,
+                elements.content,
+                { append: rendered }
+            );
+
+            rendered = structuredRendered || rendered;
         }
 
         if (!rendered && elements.content) {
