@@ -26,3 +26,7 @@
 - [ ] Add HTTP wiring for the delete flow, including a dedicated controller action that terminates the active session, calls the deletion service, expires authentication cookies, and redirects to a confirmation screen.
 - [ ] Extend the dashboard UI with a confirmation dialog and form that posts to the new endpoint using existing CSRF protections and accessible destructive-action styling.
 - [ ] Introduce automated verification that seeding test data and invoking the service wipes all related tables, and document manual QA steps for end-to-end validation.
+
+## 8. Resolve PHP lint warning in QR auth view
+- [ ] Remove the ineffective `use DateTimeInterface;` import from `resources/views/auth/qr.php` and switch the PHPDoc annotation to `\DateTimeInterface` so linting is warning-free.
+- [ ] Expand the lint script coverage so all PHP files are checked during routine verification, preventing view-level warnings from slipping through.
