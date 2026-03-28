@@ -160,13 +160,16 @@ class UsageService
         $key = strtolower($model);
 
         $aliases = [
-            'gpt-5-main' => 'gpt-5',
-            'gpt5-main' => 'gpt-5',
-            'gpt5' => 'gpt-5',
-            'gpt-5-strategist' => 'gpt-5',
-            'gpt-5.0-strategist' => 'gpt-5',
-            'gpt5-strategist' => 'gpt-5',
-            'gpt5.0-strategist' => 'gpt-5',
+            'gpt-5-main' => 'gpt-5.4',
+            'gpt5-main' => 'gpt-5.4',
+            'gpt5' => 'gpt-5.4',
+            'gpt-5' => 'gpt-5.4',
+            'gpt-5-mini' => 'gpt-5.4-mini',
+            'gpt-5-nano' => 'gpt-5.4-nano',
+            'gpt-5-strategist' => 'gpt-5.4',
+            'gpt-5.0-strategist' => 'gpt-5.4',
+            'gpt5-strategist' => 'gpt-5.4',
+            'gpt5.0-strategist' => 'gpt-5.4',
         ];
 
         if (isset($aliases[$key])) {

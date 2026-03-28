@@ -30,7 +30,7 @@ $wizardSteps = [
         'index' => 3,
         'title' => 'Set parameters',
         'summary' => 'Adjust the AI model and thinking time.',
-        'helper' => 'Higher thinking time gives GPT-5 more reasoning space.',
+        'helper' => 'Higher thinking time gives GPT-5.4 more reasoning space.',
     ],
     [
         'index' => 4,
@@ -252,7 +252,7 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
                             class="w-full accent-indigo-500"
                         >
                         <p class="text-xs text-slate-400">
-                            Give GPT-5 more time for complex roles. Thirty seconds is a balanced default.
+                            Give GPT-5.4 more time for complex roles. Thirty seconds is a balanced default.
                         </p>
                     </div>
                     <div class="space-y-2">
