@@ -144,12 +144,12 @@ $pdo->exec('CREATE TABLE api_usage (
 $settings = new SiteSettingsRepository($pdo);
 
 $firstFailure = new RequestException(
-    'response_format is unsupported',
+    'text.format is unsupported',
     new Request('POST', 'responses'),
     new Response(
         400,
         ['Content-Type' => 'application/json'],
-        json_encode(['error' => ['message' => 'response_format is unsupported on this model.']])
+        json_encode(['error' => ['message' => 'text.format is unsupported on this model.']])
     )
 );
 
@@ -199,16 +199,16 @@ if (count($requests) !== 2) {
 $firstRequestBody = json_decode($requests[0]['options']['body'], true);
 $secondRequestBody = json_decode($requests[1]['options']['body'], true);
 
-if (!is_array($firstRequestBody) || !isset($firstRequestBody['response_format'])) {
-    throw new RuntimeException('Initial request payload is missing response_format.');
+if (!is_array($firstRequestBody) || !isset($firstRequestBody['text']['format'])) {
+    throw new RuntimeException('Initial request payload is missing text.format.');
 }
 
 if (isset($secondRequestBody['response'])) {
     throw new RuntimeException('Fallback request should not include the legacy response key.');
 }
 
-if (isset($secondRequestBody['response_format'])) {
-    throw new RuntimeException('Fallback request should not include response_format after stripping.');
+if (isset($secondRequestBody['text']['format'])) {
+    throw new RuntimeException('Fallback request should not include text.format after stripping.');
 }
 
 $decoded = json_decode($plan, true);
@@ -253,7 +253,7 @@ if (!is_array($initialFallbackRequest) || $initialFallbackRequest['model'] !== '
     throw new RuntimeException('Initial plan request did not target the configured missing model.');
 }
 
-if (!is_array($secondFallbackRequest) || $secondFallbackRequest['model'] !== 'gpt-5-mini') {
+if (!is_array($secondFallbackRequest) || $secondFallbackRequest['model'] !== 'gpt-5.4-mini') {
     throw new RuntimeException('Fallback plan request did not target the expected default model.');
 }
 
@@ -269,7 +269,7 @@ $_ENV['OPENAI_MODEL_PLAN'] = 'gpt-5.0-strategist';
 $_SERVER['OPENAI_MODEL_PLAN'] = 'gpt-5.0-strategist';
 
 $aliasSuccessPayload = $successPayload;
-$aliasSuccessPayload['model'] = 'gpt-5';
+$aliasSuccessPayload['model'] = 'gpt-5.4';
 
 $aliasClient = new FakeClient([
     $firstFailure,
@@ -288,11 +288,11 @@ if (count($aliasRequests) !== 2) {
 $aliasFirstRequest = json_decode($aliasRequests[0]['options']['body'], true);
 $aliasSecondRequest = json_decode($aliasRequests[1]['options']['body'], true);
 
-if (!is_array($aliasFirstRequest) || $aliasFirstRequest['model'] !== 'gpt-5') {
+if (!is_array($aliasFirstRequest) || $aliasFirstRequest['model'] !== 'gpt-5.4') {
     throw new RuntimeException('Initial alias plan request did not normalise the marketing model name.');
 }
 
-if (!is_array($aliasSecondRequest) || $aliasSecondRequest['model'] !== 'gpt-5') {
+if (!is_array($aliasSecondRequest) || $aliasSecondRequest['model'] !== 'gpt-5.4') {
     throw new RuntimeException('Second alias plan request did not retain the normalised model identifier.');
 }
 

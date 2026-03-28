@@ -49,8 +49,8 @@ final class OpenAIProvider
     private const INITIAL_BACKOFF_MS = 200;
     private const MAX_BACKOFF_MS = 4000;
 
-    private const PLAN_MODEL_FALLBACKS = ['gpt-5-mini', 'gpt-5-nano'];
-    private const DRAFT_MODEL_FALLBACKS = ['gpt-5-mini', 'gpt-5-nano'];
+    private const PLAN_MODEL_FALLBACKS = ['gpt-5.4-mini', 'gpt-5.4-nano'];
+    private const DRAFT_MODEL_FALLBACKS = ['gpt-5.4-mini', 'gpt-5.4-nano'];
 
     /** @var ClientInterface */
     private $client;
@@ -191,7 +191,9 @@ PROMPT,
                 'model' => $model,
                 'input' => $this->formatMessagesForResponses($messages),
                 'max_output_tokens' => $this->maxTokens,
-                'response_format' => $this->buildPlanJsonSchema(),
+                'text' => [
+                    'format' => $this->buildPlanJsonSchema(),
+                ],
             ];
 
             try {
@@ -686,7 +688,7 @@ PROMPT,
     }
 
     /**
-     * Attempt plan generation while gracefully falling back through response_format permutations.
+     * Attempt plan generation while gracefully falling back through structured-output permutations.
      *
      * @param array<string, mixed> $payload
      * @return array{content: string, usage: array<string, int>, response: array<string, mixed>}
@@ -698,8 +700,8 @@ PROMPT,
         } catch (RuntimeException $exception) {
             if ($this->shouldFallbackToLegacyResponseFormat($exception)) {
                 $strippedPayload = $payload;
-                unset($strippedPayload['response_format']);
-                error_log('Retrying plan request without response_format parameter: ' . $exception->getMessage());
+                unset($strippedPayload['text']);
+                error_log('Retrying plan request without text.format parameter: ' . $exception->getMessage());
 
                 try {
                     return $this->performChatRequest($strippedPayload, 'plan', $streamHandler);
@@ -709,8 +711,8 @@ PROMPT,
                     }
 
                     $jsonObjectPayload = $payload;
-                    $jsonObjectPayload['response_format'] = ['type' => 'json_object'];
-                    error_log('Retrying plan request with json_object response format after stripped response_format failure: ' . $strippedException->getMessage());
+                    $jsonObjectPayload['text'] = ['format' => ['type' => 'json_object']];
+                    error_log('Retrying plan request with json_object text.format after stripped schema failure: ' . $strippedException->getMessage());
 
                     return $this->performChatRequest($jsonObjectPayload, 'plan', $streamHandler);
                 }
@@ -721,8 +723,8 @@ PROMPT,
             }
 
             $jsonObjectPayload = $payload;
-            $jsonObjectPayload['response_format'] = ['type' => 'json_object'];
-            error_log('Falling back to json_object response format after plan request failure: ' . $exception->getMessage());
+            $jsonObjectPayload['text'] = ['format' => ['type' => 'json_object']];
+            error_log('Falling back to json_object text.format after plan request failure: ' . $exception->getMessage());
 
             return $this->performChatRequest($jsonObjectPayload, 'plan', $streamHandler);
         }
@@ -1055,8 +1057,8 @@ PROMPT,
     /**
      * Rewrite configured model identifiers into the canonical API-supported format.
      *
-     * Marketing materials occasionally reference dotted variants such as
-     * "gpt-5.0-mini" even though the API only recognises "gpt-5-mini". By
+     * Marketing materials occasionally reference dotted or role-specific variants such as
+     * "gpt-5.0-mini" even though the API may expose newer identifiers like "gpt-5.4-mini". By
      * normalising the identifier at read time we guarantee that every request and
      * fallback attempt references a model name accepted by OpenAI. Marketing aliases
      * such as "gpt-5-strategist" are collapsed into the corresponding production
@@ -1083,10 +1085,16 @@ PROMPT,
         }
 
         $aliases = [
-            'gpt-5-strategist' => 'gpt-5',
-            'gpt-5.0-strategist' => 'gpt-5',
-            'gpt5-strategist' => 'gpt-5',
-            'gpt5.0-strategist' => 'gpt-5',
+            'gpt-5-strategist' => 'gpt-5.4',
+            'gpt-5.0-strategist' => 'gpt-5.4',
+            'gpt5-strategist' => 'gpt-5.4',
+            'gpt5.0-strategist' => 'gpt-5.4',
+            'gpt-5-main' => 'gpt-5.4',
+            'gpt5-main' => 'gpt-5.4',
+            'gpt5' => 'gpt-5.4',
+            'gpt-5' => 'gpt-5.4',
+            'gpt-5-mini' => 'gpt-5.4-mini',
+            'gpt-5-nano' => 'gpt-5.4-nano',
         ];
 
         if (isset($aliases[$lower])) {
@@ -1122,9 +1130,9 @@ PROMPT,
     /**
      * Normalise the outgoing payload to match the latest OpenAI Responses API expectations.
      *
-     * This helper safeguards against legacy configuration values that still populate the
-     * deprecated `response` structure by migrating any provided schema into the supported
-     * top-level `response_format` field while stripping unsupported keys.
+     * This helper safeguards against legacy configuration values by migrating deprecated
+     * schema containers onto the current `text.format` field while preserving fallbacks for
+     * older parameter names used in historical payload builders.
      *
      * @param array<string, mixed> $payload
      * @return array<string, mixed>
@@ -1145,10 +1153,26 @@ PROMPT,
 
             unset($payload['response']);
 
-            if ($format !== null && !array_key_exists('response_format', $payload)) {
-                $payload['response_format'] = $format;
+            if ($format !== null) {
+                if (!isset($payload['text']) || !is_array($payload['text'])) {
+                    $payload['text'] = [];
+                }
+
+                if (!array_key_exists('format', $payload['text'])) {
+                    $payload['text']['format'] = $format;
+                }
             }
         }
+
+        if (array_key_exists('response_format', $payload) && (!isset($payload['text']) || !is_array($payload['text']) || !array_key_exists('format', $payload['text']))) {
+            if (!isset($payload['text']) || !is_array($payload['text'])) {
+                $payload['text'] = [];
+            }
+
+            $payload['text']['format'] = $payload['response_format'];
+        }
+
+        unset($payload['response_format']);
 
         return $payload;
     }
@@ -1567,11 +1591,10 @@ PROMPT,
     }
 
     /**
-     * Determine whether the failure indicates that the legacy response_format parameter is required.
+     * Determine whether the failure indicates that the modern text.format parameter is unsupported.
      *
-     * Some OpenAI models continue to expect the historic response_format key rather than the newer
-     * response.format structure. When that situation is detected we retry the request using the legacy
-     * parameter to maintain compatibility.
+     * Some model families and proxies still reject text.format and require unstructured output.
+     * When that situation is detected we retry the request without the structured output declaration.
      */
     private function shouldFallbackToLegacyResponseFormat(RuntimeException $exception): bool
     {
@@ -1631,11 +1654,13 @@ PROMPT,
     }
 
     /**
-     * Detect whether the message indicates the modern response_format parameter is unsupported or has moved.
+     * Detect whether the message indicates the structured output parameter is unsupported or has moved.
      */
     private function mentionsUnsupportedLegacyResponseFormat(string $message): bool
     {
-        $mentionsResponseFormat = strpos($message, 'response_format') !== false;
+        $mentionsResponseFormat = strpos($message, 'response_format') !== false
+            || strpos($message, 'text.format') !== false
+            || strpos($message, 'text[format]') !== false;
         $mentionsUnsupported = strpos($message, 'unsupported parameter') !== false
             || strpos($message, 'is unsupported') !== false
             || strpos($message, 'not supported') !== false;
@@ -1659,6 +1684,7 @@ PROMPT,
     private function mentionsUnsupportedSchema(string $message): bool
     {
         return strpos($message, 'response_format') !== false
+            || strpos($message, 'text.format') !== false
             || strpos($message, 'response.format') !== false
             || strpos($message, 'json_schema') !== false
             || strpos($message, 'structured output') !== false;
