@@ -31,6 +31,9 @@ class JobApplicationService
     /** @var DocumentRepository */
     private $documentRepository;
 
+    /** @var JobPostingFetcher */
+    private $postingFetcher;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -39,11 +42,13 @@ class JobApplicationService
     public function __construct(
         JobApplicationRepository $repository,
         GenerationRepository $generationRepository,
-        DocumentRepository $documentRepository
+        DocumentRepository $documentRepository,
+        ?JobPostingFetcher $postingFetcher = null
     ) {
         $this->repository = $repository;
         $this->generationRepository = $generationRepository;
         $this->documentRepository = $documentRepository;
+        $this->postingFetcher = $postingFetcher ?? new JobPostingFetcher();
     }
 
     /**
@@ -228,6 +233,82 @@ class JobApplicationService
         return $this->repository->updateStatus($application, $normalisedStatus, $normalisedReason);
     }
 
+
+    /**
+     * Import a public job advert URL into a normalised draft posting payload.
+     *
+     * This gives the core workflow a single mechanism for pulling a description
+     * from the web before the user saves and tracks the opportunity.
+     * @return array{title: string, source_url: string, description: string}
+     */
+    public function fetchPostingFromUrl(string $url): array
+    {
+        return $this->postingFetcher->fetch($url);
+    }
+
+    /**
+     * Queue tailored documents for an existing tracked application and link the result.
+     *
+     * The method connects the prime workflow: saved advert, master CV, generated
+     * tailored CV and cover letter, then the application tracker record.
+     */
+    public function tailorApplication(int $userId, int $applicationId, int $cvDocumentId, string $model, int $thinkingTime, string $prompt): JobApplication
+    {
+        $application = $this->repository->findForUser($userId, $applicationId);
+
+        if ($application === null) {
+            throw new RuntimeException('The requested job application could not be found.');
+        }
+
+        $jobDocument = $this->findJobDescriptionDocument($application);
+        $cvDocument = $this->documentRepository->findForUserByType($userId, $cvDocumentId, 'cv');
+
+        if ($jobDocument === null) {
+            throw new RuntimeException('Save the job description before tailoring documents for this application.');
+        }
+
+        if ($cvDocument === null) {
+            throw new RuntimeException('Select a master CV that belongs to your workspace.');
+        }
+
+        $generation = $this->generationRepository->create($userId, $jobDocument, $cvDocument, $model, $thinkingTime, $prompt);
+        $generationId = isset($generation['id']) ? (int) $generation['id'] : 0;
+
+        if ($generationId <= 0) {
+            throw new RuntimeException('The tailoring job was queued but could not be linked to this application.');
+        }
+
+        return $this->repository->updateGeneration($application, $generationId);
+    }
+
+
+    /**
+     * List master CV documents available for application-specific tailoring.
+     *
+     * Keeping this lookup in the service preserves user ownership boundaries for controllers.
+     * @return array<int, array{id: int, label: string}>
+     */
+    public function cvOptionsForUser(int $userId): array
+    {
+        $options = [];
+        $documents = $this->documentRepository->listForUserAndType($userId, 'cv');
+
+        foreach ($documents as $document) {
+            $id = $document->id();
+
+            if ($id === null) {
+                continue;
+            }
+
+            $options[] = [
+                'id' => $id,
+                'label' => $document->filename(),
+            ];
+        }
+
+        return $options;
+    }
+
     /**
      * Handle the generation listing workflow.
      *
@@ -352,6 +433,42 @@ class JobApplicationService
         }
 
         return $key;
+    }
+
+
+    /**
+     * Locate the stored document that mirrors an application's current job description.
+     *
+     * Reusing the existing document keeps the Tailor wizard, generated outputs, and
+     * application tracker attached to the same source posting text.
+     */
+    private function findJobDescriptionDocument(JobApplication $application): ?Document
+    {
+        $description = $application->description();
+
+        if ($description === '' || $application->id() === null) {
+            return null;
+        }
+
+        $sha256 = hash('sha256', $description . '|' . (string) $application->id());
+        $documents = $this->documentRepository->listForUserAndType($application->userId(), 'job_description');
+
+        foreach ($documents as $document) {
+            if ($document->sha256() === $sha256) {
+                return $document;
+            }
+        }
+
+        $this->storeJobDescriptionDocument($application);
+        $documents = $this->documentRepository->listForUserAndType($application->userId(), 'job_description');
+
+        foreach ($documents as $document) {
+            if ($document->sha256() === $sha256) {
+                return $document;
+            }
+        }
+
+        return null;
     }
 
     /**

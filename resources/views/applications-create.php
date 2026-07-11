@@ -6,6 +6,7 @@
 /** @var array<string, string> $form */
 /** @var string|null $status */
 /** @var string|null $csrfToken */
+$additionalHead = '<script src="/assets/js/application-form.js" defer></script>';
 ?>
 <?php ob_start(); ?>
 <div class="space-y-8">
@@ -67,14 +68,18 @@
 
             <div class="space-y-2">
                 <label for="source_url" class="text-sm font-medium text-slate-200">Source URL</label>
-                <input
-                    type="url"
-                    id="source_url"
-                    name="source_url"
-                    value="<?= htmlspecialchars($form['source_url'] ?? '', ENT_QUOTES) ?>"
-                    placeholder="https://"
-                    class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                >
+                <div class="flex gap-2">
+                    <input
+                        type="url"
+                        id="source_url"
+                        name="source_url"
+                        value="<?= htmlspecialchars($form['source_url'] ?? '', ENT_QUOTES) ?>"
+                        placeholder="https://"
+                        class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    >
+                    <button type="button" data-fetch-description class="shrink-0 rounded-lg border border-indigo-400/50 bg-indigo-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-indigo-100 transition hover:border-indigo-300 hover:bg-indigo-500/20">Import</button>
+                </div>
+                <p data-fetch-description-status class="hidden text-xs text-indigo-200"></p>
                 <p class="text-xs text-slate-500">Storing the link lets you revisit the listing whenever you need more detail.</p>
             </div>
 

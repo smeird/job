@@ -6,6 +6,7 @@ use App\Bootstrap;
 use App\Controllers\AuthController;
 use App\Applications\JobApplicationRepository;
 use App\Applications\JobApplicationService;
+use App\Applications\JobPostingFetcher;
 use App\AI\OpenAIProvider;
 use App\Contacts\ContactDetailsRepository;
 use App\Contacts\ContactDetailsService;
@@ -116,11 +117,16 @@ $container->set(JobApplicationRepository::class, static function (Container $c):
     return new JobApplicationRepository($c->get(\PDO::class));
 });
 
+$container->set(JobPostingFetcher::class, static function (): JobPostingFetcher {
+    return new JobPostingFetcher();
+});
+
 $container->set(JobApplicationService::class, static function (Container $c): JobApplicationService {
     return new JobApplicationService(
         $c->get(JobApplicationRepository::class),
         $c->get(GenerationRepository::class),
-        $c->get(DocumentRepository::class)
+        $c->get(DocumentRepository::class),
+        $c->get(JobPostingFetcher::class)
     );
 });
 
