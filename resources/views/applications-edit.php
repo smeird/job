@@ -8,9 +8,13 @@
 /** @var array<string, string> $failureReasons */
 /** @var array<string, mixed> $application */
 /** @var array<int, array{id: int, label: string}> $generationOptions */
+/** @var array<int, array{id: int, label: string}> $cvOptions */
+/** @var array<int, array{value: string, label: string}> $modelOptions */
+/** @var string $defaultPrompt */
 /** @var array<string, mixed>|null $linkedGeneration */
 /** @var string|null $status */
 /** @var string|null $csrfToken */
+$additionalHead = '<script src="/assets/js/application-form.js" defer></script>';
 ?>
 <?php ob_start(); ?>
 <div class="space-y-8">
@@ -73,14 +77,18 @@
 
             <div class="space-y-2">
                 <label for="source_url" class="text-sm font-medium text-slate-200">Source URL</label>
-                <input
-                    type="url"
-                    id="source_url"
-                    name="source_url"
-                    value="<?= htmlspecialchars($form['source_url'] ?? '', ENT_QUOTES) ?>"
-                    placeholder="https://"
-                    class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-                >
+                <div class="flex gap-2">
+                    <input
+                        type="url"
+                        id="source_url"
+                        name="source_url"
+                        value="<?= htmlspecialchars($form['source_url'] ?? '', ENT_QUOTES) ?>"
+                        placeholder="https://"
+                        class="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+                    >
+                    <button type="button" data-fetch-description class="shrink-0 rounded-lg border border-indigo-400/50 bg-indigo-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-indigo-100 transition hover:border-indigo-300 hover:bg-indigo-500/20">Import</button>
+                </div>
+                <p data-fetch-description-status class="hidden text-xs text-indigo-200"></p>
                 <p class="text-xs text-slate-500">Keeping the original link handy makes it easy to revisit requirements.</p>
             </div>
 
@@ -220,6 +228,33 @@
                 <?php endif; ?>
             </section>
 
+
+            <section class="space-y-4 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-5 shadow-xl theme-light:border-emerald-200 theme-light:bg-emerald-50">
+                <header class="space-y-1">
+                    <p class="text-xs font-semibold uppercase tracking-[0.3em] text-emerald-200 theme-light:text-emerald-700">Prime workflow</p>
+                    <h4 class="text-base font-semibold text-white theme-light:text-slate-900">Tailor this application from your master CV</h4>
+                    <p class="text-xs text-emerald-100/80 theme-light:text-emerald-700">Queue a tailored CV and cover letter using this saved job description, then automatically link the result back to this tracker card.</p>
+                </header>
+                <form method="post" action="/applications/<?= urlencode((string) ($application['id'] ?? '')) ?>/tailor" class="space-y-3">
+                    <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
+                    <input type="hidden" name="model" value="gpt-5.4-mini">
+                    <input type="hidden" name="thinking_time" value="30">
+                    <textarea name="prompt" class="hidden"><?= htmlspecialchars((string) $defaultPrompt, ENT_QUOTES) ?></textarea>
+                    <label for="cv_document_id" class="text-xs font-semibold uppercase tracking-wide text-emerald-100 theme-light:text-emerald-700">Master CV</label>
+                    <select id="cv_document_id" name="cv_document_id" class="w-full rounded-lg border border-emerald-400/40 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-300 theme-light:border-emerald-200 theme-light:bg-white theme-light:text-slate-700" required>
+                        <option value="">Select your master CV</option>
+                        <?php foreach ($cvOptions as $option) : ?>
+                            <option value="<?= htmlspecialchars((string) $option['id'], ENT_QUOTES) ?>"><?= htmlspecialchars($option['label'], ENT_QUOTES) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <button type="submit" class="w-full rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400" <?= empty($cvOptions) ? 'disabled' : '' ?>>
+                        Queue tailored CV and link it
+                    </button>
+                    <?php if (empty($cvOptions)) : ?>
+                        <p class="text-xs text-emerald-100/80 theme-light:text-emerald-700">Upload a CV document first so this application can be tailored.</p>
+                    <?php endif; ?>
+                </form>
+            </section>
             <section class="space-y-3 rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 text-xs text-rose-100 theme-light:border-rose-200 theme-light:bg-rose-50 theme-light:text-rose-600">
                 <header class="space-y-1">
                     <h4 class="text-base font-semibold">Delete application</h4>

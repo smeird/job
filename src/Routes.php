@@ -108,6 +108,10 @@ class Routes
             return $container->get(JobApplicationController::class)->store($request, $response);
         });
 
+        $app->post('/applications/fetch-description', function (Request $request, Response $response) use ($container) {
+            return $container->get(JobApplicationController::class)->fetchDescription($request, $response);
+        });
+
         $app->get('/applications/{id}', function (Request $request, Response $response, array $args) use ($container) {
             return $container->get(JobApplicationController::class)->edit($request, $response, $args);
         });
@@ -122,6 +126,10 @@ class Routes
 
         $app->post('/applications/{id}/generation', function (Request $request, Response $response, array $args) use ($container) {
             return $container->get(JobApplicationController::class)->updateGeneration($request, $response, $args);
+        });
+
+        $app->post('/applications/{id}/tailor', function (Request $request, Response $response, array $args) use ($container) {
+            return $container->get(JobApplicationController::class)->tailor($request, $response, $args);
         });
 
         $app->post('/applications/{id}/research', function (Request $request, Response $response, array $args) use ($container) {

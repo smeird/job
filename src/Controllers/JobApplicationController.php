@@ -7,6 +7,7 @@ namespace App\Controllers;
 use App\Applications\JobApplication;
 use App\Applications\JobApplicationRepository;
 use App\Applications\JobApplicationService;
+use App\Prompts\PromptLibrary;
 use App\Research\CompanyResearchService;
 use App\Views\Renderer;
 use DateTimeImmutable;
@@ -182,6 +183,7 @@ final class JobApplicationController
         $statusMessage = $request->getQueryParams()['status'] ?? null;
         $generations = $this->service->generationsForUser($userId);
         $generationOptions = $this->mapGenerationOptions($generations);
+        $cvOptions = $this->service->cvOptionsForUser($userId);
         $generationIndex = $this->indexGenerations($generations);
         $linkedGeneration = null;
 
@@ -206,7 +208,8 @@ final class JobApplicationController
                 [],
                 $statusMessage,
                 $generationOptions,
-                $linkedGeneration
+                $linkedGeneration,
+                $cvOptions
             )
         );
     }
@@ -261,6 +264,7 @@ final class JobApplicationController
 
         $generations = $this->service->generationsForUser($userId);
         $generationOptions = $this->mapGenerationOptions($generations);
+        $cvOptions = $this->service->cvOptionsForUser($userId);
         $generationIndex = $this->indexGenerations($generations);
         $linkedGeneration = null;
         $current = $result['application']->generationId();
@@ -272,8 +276,67 @@ final class JobApplicationController
         return $this->renderer->render(
             $response->withStatus(422),
             'applications-edit',
-            $this->editViewPayload($result['application'], $preparedForm, $result['errors'], null, $generationOptions, $linkedGeneration)
+            $this->editViewPayload($result['application'], $preparedForm, $result['errors'], null, $generationOptions, $linkedGeneration, $cvOptions)
         );
+    }
+
+
+    /**
+     * Import a job description from a public URL for the application form.
+     *
+     * Returning JSON lets create and edit screens share the same web-to-tracker capture mechanism.
+     */
+    public function fetchDescription(ServerRequestInterface $request, ResponseInterface $response): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if ($user === null) {
+            return $this->jsonResponse($response, ['status' => 'error', 'message' => 'Authentication required.'], 401);
+        }
+
+        $data = $request->getParsedBody();
+        $url = is_array($data) && isset($data['source_url']) ? (string) $data['source_url'] : '';
+
+        try {
+            $posting = $this->service->fetchPostingFromUrl($url);
+        } catch (RuntimeException $exception) {
+            return $this->jsonResponse($response, ['status' => 'error', 'message' => $exception->getMessage()], 422);
+        }
+
+        return $this->jsonResponse($response, ['status' => 'ok', 'data' => $posting], 200);
+    }
+
+    /**
+     * Queue tailoring directly from a tracked job application.
+     *
+     * This endpoint keeps the advert, selected master CV, generated documents, and tracker link in one workflow.
+     * @param array<string, string> $args
+     */
+    public function tailor(ServerRequestInterface $request, ResponseInterface $response, array $args): ResponseInterface
+    {
+        $user = $request->getAttribute('user');
+
+        if ($user === null) {
+            return $response->withHeader('Location', '/auth/login')->withStatus(302);
+        }
+
+        $applicationId = isset($args['id']) ? (int) $args['id'] : 0;
+        $data = $request->getParsedBody();
+        $cvDocumentId = is_array($data) && isset($data['cv_document_id']) ? (int) $data['cv_document_id'] : 0;
+        $model = is_array($data) && isset($data['model']) ? trim((string) $data['model']) : 'gpt-5.4-mini';
+        $thinkingTime = is_array($data) && isset($data['thinking_time']) ? (int) $data['thinking_time'] : 30;
+        $prompt = is_array($data) && isset($data['prompt']) ? trim((string) $data['prompt']) : PromptLibrary::tailorPrompt();
+
+        try {
+            $this->service->tailorApplication((int) $user['user_id'], $applicationId, $cvDocumentId, $model, $thinkingTime, $prompt);
+            $message = 'Tailored CV job queued and linked to this application.';
+        } catch (RuntimeException $exception) {
+            $message = $exception->getMessage();
+        }
+
+        return $response
+            ->withHeader('Location', '/applications/' . $applicationId . '?status=' . rawurlencode($message))
+            ->withStatus(302);
     }
 
     /**
@@ -649,7 +712,8 @@ final class JobApplicationController
         array $errors,
         ?string $statusMessage,
         array $generationOptions,
-        ?array $linkedGeneration
+        ?array $linkedGeneration,
+        array $cvOptions = []
     ): array
     {
         $appliedAt = $application->appliedAt();
@@ -672,6 +736,9 @@ final class JobApplicationController
             'statusOptions' => $this->service->statusOptions(),
             'generationOptions' => $generationOptions,
             'linkedGeneration' => $linkedGeneration,
+            'cvOptions' => $cvOptions,
+            'modelOptions' => GenerationController::availableModels(),
+            'defaultPrompt' => PromptLibrary::tailorPrompt(),
             'application' => [
                 'id' => $application->id(),
                 'created_at' => $application->createdAt()->format('Y-m-d H:i'),
