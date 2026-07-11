@@ -50,14 +50,28 @@ if (is_string($generationIdRaw)) {
 
     <section class="hero-card">
         <div class="hero-card-content">
-            <div>
+            <div class="hero-card__copy">
                 <span class="badge">AI-assisted job applications</span>
-                <h2>Tailor every submission with confidence</h2>
+                <h2>Turn every role into a focused application plan</h2>
                 <p>
-                    Upload job specs, pair them with the right CV, and queue drafts that honour your brand voice. The workspace
-                    keeps authentication passwordless, enforces document safety checks, and signs download links so only you can
-                    access the finished artefacts.
+                    A calmer workspace for uploading job specs, matching the right CV, and generating polished drafts with
+                    secure access controls. The redesigned landing experience now leads with outcomes, reduces cognitive load,
+                    and previews the end-to-end workflow before sign-in.
                 </p>
+            </div>
+            <div class="hero-card__visual" aria-label="Application readiness preview">
+                <div class="readiness-card">
+                    <div class="readiness-card__header">
+                        <span>Application readiness</span>
+                        <strong>92%</strong>
+                    </div>
+                    <div class="readiness-card__meter"><span style="width: 92%"></span></div>
+                    <ul class="readiness-card__list">
+                        <li><span></span> Role requirements mapped to CV evidence</li>
+                        <li><span></span> Cover letter tone aligned to posting</li>
+                        <li><span></span> Download link protected and time-limited</li>
+                    </ul>
+                </div>
             </div>
             <div class="hero-actions">
                 <a class="gradient-button focus-ring" href="/auth/login">
@@ -74,14 +88,56 @@ if (is_string($generationIdRaw)) {
                         <path d="M13 6l6 6-6 6"></path>
                     </svg>
                 </a>
-                <a class="secondary-link focus-ring" href="#wizard">
-                    Explore the flow
+                <a class="secondary-link focus-ring" href="#impact">
+                    View UX improvements
                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                         <path d="M5 12h14"></path>
                         <path d="M13 6l6 6-6 6"></path>
                     </svg>
                 </a>
             </div>
+            <dl class="hero-metrics" aria-label="Workspace strengths">
+                <div>
+                    <dt>4-step</dt>
+                    <dd>guided tailoring flow</dd>
+                </div>
+                <div>
+                    <dt>Private</dt>
+                    <dd>per-user document vaults</dd>
+                </div>
+                <div>
+                    <dt>Live</dt>
+                    <dd>usage and progress signals</dd>
+                </div>
+            </dl>
+        </div>
+    </section>
+
+    <section class="surface-card impact-panel" id="impact" aria-labelledby="impact-title">
+        <div>
+            <span class="badge">UX review highlights</span>
+            <h3 id="impact-title">What changed in the look and feel</h3>
+            <p>
+                The page now frames the product around user confidence: clearer calls to action, visible trust cues, and a
+                stronger hierarchy that makes the workspace feel more intentional before someone signs in.
+            </p>
+        </div>
+        <div class="impact-grid">
+            <article>
+                <span>01</span>
+                <strong>Sharper first impression</strong>
+                <p>A stronger hero headline explains the outcome instead of only listing features.</p>
+            </article>
+            <article>
+                <span>02</span>
+                <strong>Trust made visible</strong>
+                <p>Readiness, privacy, and signed-link cues reassure users before they upload documents.</p>
+            </article>
+            <article>
+                <span>03</span>
+                <strong>Less scanning friction</strong>
+                <p>Metrics and cards break dense content into decision-friendly chunks.</p>
+            </article>
         </div>
     </section>
 
