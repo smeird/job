@@ -298,11 +298,9 @@ function verify_make_fixture_docx(): array
  */
 function verify_make_fixture_pdf(): array
 {
-    $dompdf = new \Dompdf\Dompdf();
-    $dompdf->loadHtml('<h1>Verification PDF</h1><p>This is a generated PDF used for upload validation.</p>');
-    $dompdf->setPaper('A4');
-    $dompdf->render();
-    $contents = $dompdf->output();
+    $mpdf = new \Mpdf\Mpdf(['tempDir' => sys_get_temp_dir()]);
+    $mpdf->WriteHTML('<h1>Verification PDF</h1><p>This is a generated PDF used for upload validation.</p>');
+    $contents = $mpdf->Output('', \Mpdf\Output\Destination::STRING_RETURN);
 
     return [
         'filename' => 'sample.pdf',

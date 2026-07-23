@@ -10,6 +10,7 @@ $navLinks = [
     ['href' => '/applications', 'label' => 'Applications', 'current' => false],
     ['href' => '/profile/contact-details', 'label' => 'Contact details', 'current' => false],
     ['href' => '/usage', 'label' => 'Usage', 'current' => true],
+    ['href' => '/settings/models', 'label' => 'Settings', 'current' => false],
     ['href' => '/retention', 'label' => 'Retention', 'current' => false],
 ];
 $additionalHead = <<<'HTML'
@@ -27,12 +28,12 @@ HTML;
             <div class="space-y-2">
                 <h1 class="text-4xl font-semibold text-slate-50 sm:text-5xl">Usage analytics</h1>
                 <p class="max-w-2xl text-lg text-slate-300">
-                    Monitor every run, keep an eye on spend, and understand how your team is engaging with language models.
+                    Review model calls, token volume, and tariff-based spend estimates for your workspace.
                 </p>
             </div>
             <div class="flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-sm text-indigo-200">
                 <span class="inline-flex h-2 w-2 rounded-full bg-emerald-400"></span>
-                <span>Live meter</span>
+                <span>Request log</span>
             </div>
         </div>
     </header>
@@ -91,7 +92,7 @@ HTML;
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-2xl font-semibold text-slate-100">Per-run breakdown</h2>
-                <p class="text-sm text-slate-400">Every API call with model usage, tokens in/out, and precise spend.</p>
+                <p class="text-sm text-slate-400">Every API call with model usage, tokens in/out, and tariff-based estimated spend.</p>
             </div>
         </div>
         <div class="rounded-3xl border border-white/5 bg-slate-900/60 p-4 shadow-[0_20px_45px_-40px_rgba(15,23,42,0.9)]">
@@ -112,7 +113,7 @@ HTML;
         <article class="space-y-3 rounded-3xl border border-white/5 bg-slate-900/60 p-6 shadow-[0_24px_60px_-50px_rgba(15,23,42,0.7)]">
             <header class="space-y-1">
                 <h2 class="text-xl font-semibold text-slate-100">Cost by month</h2>
-                <p class="text-sm text-slate-400">Model spend in GBP to keep budgets healthy.</p>
+                <p class="text-sm text-slate-400">Estimated model spend in GBP, based on configured tariffs.</p>
             </header>
             <div id="usage-cost-chart" class="h-64"></div>
         </article>

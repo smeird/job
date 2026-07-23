@@ -49,8 +49,8 @@ final class OpenAIProvider
     private const INITIAL_BACKOFF_MS = 200;
     private const MAX_BACKOFF_MS = 4000;
 
-    private const PLAN_MODEL_FALLBACKS = ['gpt-5.4-mini', 'gpt-5.4-nano'];
-    private const DRAFT_MODEL_FALLBACKS = ['gpt-5.4-mini', 'gpt-5.4-nano'];
+    private const PLAN_MODEL_FALLBACKS = ['gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4-mini'];
+    private const DRAFT_MODEL_FALLBACKS = ['gpt-5.6-terra', 'gpt-5.6-luna', 'gpt-5.4-mini'];
 
     /** @var ClientInterface */
     private $client;
@@ -79,6 +79,9 @@ final class OpenAIProvider
     /** @var int */
     private $userId;
 
+    /** @var int|null */
+    private $analysisDepth;
+
     /**
      * @var array<string, array{prompt: float, completion: float}>
      */
@@ -93,7 +96,10 @@ final class OpenAIProvider
         int $userId,
         ?ClientInterface $client = null,
         ?PDO $pdo = null,
-        ?SiteSettingsRepository $settingsRepository = null
+        ?SiteSettingsRepository $settingsRepository = null,
+        ?string $planModelOverride = null,
+        ?string $draftModelOverride = null,
+        ?int $analysisDepth = null
     ) {
         $this->userId = $userId;
 
@@ -107,8 +113,17 @@ final class OpenAIProvider
         $this->apiKey = $this->requireEnv('OPENAI_API_KEY');
         $baseUrl = $this->env('OPENAI_BASE_URL') ?? self::DEFAULT_BASE_URL;
         $this->baseUrl = rtrim($baseUrl, '/') . '/';
-        $this->modelPlan = $this->normaliseConfiguredModel($this->requireEnv('OPENAI_MODEL_PLAN'));
-        $this->modelDraft = $this->normaliseConfiguredModel($this->requireEnv('OPENAI_MODEL_DRAFT'));
+        $this->modelPlan = $this->normaliseConfiguredModel(
+            $planModelOverride !== null && trim($planModelOverride) !== ''
+                ? $planModelOverride
+                : $this->requireEnv('OPENAI_MODEL_PLAN')
+        );
+        $this->modelDraft = $this->normaliseConfiguredModel(
+            $draftModelOverride !== null && trim($draftModelOverride) !== ''
+                ? $draftModelOverride
+                : $this->requireEnv('OPENAI_MODEL_DRAFT')
+        );
+        $this->analysisDepth = $analysisDepth;
         $this->maxTokens = $this->resolveMaxTokens();
         $this->tariffs = $this->parseTariffs($this->env('OPENAI_TARIFF_JSON'));
 
@@ -126,7 +141,15 @@ final class OpenAIProvider
      */
     public function forUser(int $userId): self
     {
-        return new self($userId, $this->client, $this->pdo, $this->settingsRepository);
+        return new self(
+            $userId,
+            $this->client,
+            $this->pdo,
+            $this->settingsRepository,
+            $this->modelPlan,
+            $this->modelDraft,
+            $this->analysisDepth
+        );
     }
 
     /**
@@ -149,7 +172,7 @@ final class OpenAIProvider
             [
                 'role' => 'system',
                 'content' => <<<'PROMPT'
-You are a planning assistant that prepares tailored job application strategies for CV rewriting workflows. Respond strictly with a JSON object that matches this schema: {"summary": string, "strengths": string[], "gaps": string[], "next_steps": [{"task": string, "rationale": string, "priority": "high"|"medium"|"low", "estimated_minutes": int}]}. Every array must contain at least one item with specific, informative content. Use British English and do not add commentary outside the JSON object.
+You are an evidence-led CV analyst. Map the job's most important requirements to facts already present in the source CV, then prepare a concise strategy for rewriting that CV. Respond strictly with a JSON object that matches this schema: {"summary": string, "strengths": string[], "gaps": string[], "next_steps": [{"task": string, "rationale": string, "priority": "high"|"medium"|"low", "estimated_minutes": int}]}. Every strength must pair a job requirement with specific CV evidence. Treat a requirement as a gap only when the source CV contains no defensible evidence for it. Use gaps to control what the final draft must not claim. Next steps must be concrete editing decisions, not advice to the candidate. Every array must contain at least one specific item. Use British English and do not add commentary outside the JSON object.
 Input requirements:
 - job_target (string): The position or job title the applicant seeks.
 - applicant_background (object): Structured details covering education, experience, and skills drawn from the CV text.
@@ -557,20 +580,28 @@ PROMPT,
      * This guides the language model to produce presentation-ready prose in a
      * consistent format for display to end users.
      */
-    public function draft(string $plan, string $constraints, ?callable $streamHandler = null): string
+    public function draft(
+        string $plan,
+        string $constraints,
+        ?callable $streamHandler = null,
+        string $jobDescription = '',
+        string $sourceCv = ''
+    ): string
     {
         $messages = [
             [
                 'role' => 'system',
-                'content' => 'You are a professional writer assisting with job application materials. '
-                    . 'Draft polished markdown content that aligns with the provided plan. '
-                    . 'Use headings, bullet lists, and emphasis where helpful. '
-                    . 'Never include fenced code blocks unless explicitly requested.',
+                'content' => 'You are a senior CV editor working in British English. Produce a submission-ready, ATS-readable CV tailored to the supplied job description. '
+                    . 'The source CV is the only authority for employers, dates, education, certifications, responsibilities, achievements, and metrics. '
+                    . 'Prioritise the strongest evidenced matches, mirror job terminology only where it remains truthful, retain material career history, and remove generic or duplicated wording. '
+                    . 'Do not invent or imply unsupported experience. Do not mention gaps, the tailoring process, prompts, or AI. Return only the final CV in Markdown.',
             ],
             [
                 'role' => 'user',
                 'content' => sprintf(
-                    "Plan JSON:\n%s\n\nConstraints:\n%s\n\nProduce the draft in Markdown.",
+                    "Job description:\n%s\n\nSource CV:\n%s\n\nEvidence plan JSON:\n%s\n\nAdditional editing constraints:\n%s\n\nProduce the final CV in Markdown. Before returning, silently verify that every factual claim is traceable to the source CV.",
+                    trim($jobDescription),
+                    trim($sourceCv),
                     trim($plan),
                     trim($constraints)
                 ),
@@ -750,6 +781,12 @@ PROMPT,
         $requestPayload = $preserveLegacyResponseFormat
             ? $payload
             : $this->normaliseRequestPayload($payload);
+
+        $reasoning = $this->reasoningForModel(isset($payload['model']) ? (string) $payload['model'] : '');
+
+        if ($reasoning !== null && !isset($requestPayload['reasoning'])) {
+            $requestPayload['reasoning'] = ['effort' => $reasoning];
+        }
 
         if ($isStreaming) {
             $requestPayload['stream'] = true;
@@ -1052,6 +1089,29 @@ PROMPT,
         }
 
         return $sequence;
+    }
+
+    /**
+     * Translate the stored analysis-depth compatibility value into GPT-5.6 reasoning effort.
+     *
+     * Older model families retain their existing request shape, while GPT-5.6 receives an
+     * explicit effort so the UI control has a predictable effect on quality and latency.
+     */
+    private function reasoningForModel(string $model): ?string
+    {
+        if ($this->analysisDepth === null || strpos(strtolower($model), 'gpt-5.6') !== 0) {
+            return null;
+        }
+
+        if ($this->analysisDepth <= 15) {
+            return 'low';
+        }
+
+        if ($this->analysisDepth >= 50) {
+            return 'high';
+        }
+
+        return 'medium';
     }
 
     /**
@@ -1721,12 +1781,14 @@ PROMPT,
         $promptTokens = $usage['prompt_tokens'] ?? 0;
         $completionTokens = $usage['completion_tokens'] ?? 0;
         $totalTokens = $usage['total_tokens'] ?? ($promptTokens + $completionTokens);
-        $cost = $this->calculateCost($model, $promptTokens, $completionTokens);
+        $preciseCost = $this->calculateCost($model, $promptTokens, $completionTokens);
+        $storedCost = $preciseCost === null ? 0 : (int) round($preciseCost);
 
         $metadata['prompt_tokens'] = $promptTokens;
         $metadata['completion_tokens'] = $completionTokens;
         $metadata['total_tokens'] = $totalTokens;
-        $metadata['cost_minor_units'] = $cost;
+        $metadata['cost_pence_precise'] = $preciseCost;
+        $metadata['cost_available'] = $preciseCost !== null;
 
         try {
             $statement = $this->pdo->prepare(
@@ -1739,7 +1801,7 @@ PROMPT,
                 ':provider' => self::PROVIDER,
                 ':endpoint' => $endpoint,
                 ':tokens_used' => $totalTokens,
-                ':cost_pence' => $cost,
+                ':cost_pence' => $storedCost,
                 ':metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
             ]);
         } catch (Throwable $exception) {
@@ -1752,19 +1814,19 @@ PROMPT,
      *
      * Keeping the formula together prevents duplication across services.
      */
-    private function calculateCost(string $model, int $promptTokens, int $completionTokens): int
+    private function calculateCost(string $model, int $promptTokens, int $completionTokens): ?float
     {
         $key = strtolower($model);
         $tariff = $this->tariffs[$key] ?? null;
 
         if ($tariff === null) {
-            return 0;
+            return null;
         }
 
         $promptCost = ($promptTokens / 1000) * $tariff['prompt'];
         $completionCost = ($completionTokens / 1000) * $tariff['completion'];
 
-        return (int) round($promptCost + $completionCost);
+        return $promptCost + $completionCost;
     }
 
     /**
@@ -1964,6 +2026,14 @@ PROMPT,
      */
     private function env(string $key): ?string
     {
+        if (in_array($key, ['OPENAI_MODEL_PLAN', 'OPENAI_MODEL_DRAFT'], true)) {
+            $storedModel = $this->settingsRepository->findValue($this->normaliseSettingKey($key));
+
+            if ($storedModel !== null && trim($storedModel) !== '') {
+                return trim($storedModel);
+            }
+        }
+
         $value = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
 
         if ($value !== false && $value !== null) {

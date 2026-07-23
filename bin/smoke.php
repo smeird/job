@@ -142,6 +142,73 @@ namespace League\CommonMark {
     }
 }
 
+namespace ParagonIE\ConstantTime {
+    /**
+     * Minimal RFC 4648 Base32 implementation used by the isolated smoke harness.
+     */
+    final class Base32
+    {
+        private const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+        /**
+         * Encode binary input with the uppercase RFC 4648 alphabet and no padding.
+         */
+        public static function encodeUpper(string $input): string
+        {
+            $buffer = 0;
+            $bits = 0;
+            $output = '';
+            $length = strlen($input);
+
+            for ($index = 0; $index < $length; $index++) {
+                $buffer = ($buffer << 8) | ord($input[$index]);
+                $bits += 8;
+
+                while ($bits >= 5) {
+                    $bits -= 5;
+                    $output .= self::ALPHABET[($buffer >> $bits) & 31];
+                }
+            }
+
+            if ($bits > 0) {
+                $output .= self::ALPHABET[($buffer << (5 - $bits)) & 31];
+            }
+
+            return $output;
+        }
+
+        /**
+         * Decode an uppercase RFC 4648 Base32 value into its original binary form.
+         */
+        public static function decodeUpper(string $input): string
+        {
+            $normalised = rtrim(strtoupper($input), '=');
+            $buffer = 0;
+            $bits = 0;
+            $output = '';
+            $length = strlen($normalised);
+
+            for ($index = 0; $index < $length; $index++) {
+                $value = strpos(self::ALPHABET, $normalised[$index]);
+
+                if ($value === false) {
+                    throw new \RangeException('Invalid Base32 character.');
+                }
+
+                $buffer = ($buffer << 5) | $value;
+                $bits += 5;
+
+                if ($bits >= 8) {
+                    $bits -= 8;
+                    $output .= chr(($buffer >> $bits) & 255);
+                }
+            }
+
+            return $output;
+        }
+    }
+}
+
 namespace Psr\Http\Message {
     interface StreamInterface
     {
@@ -308,7 +375,6 @@ use App\DB;
 use App\Documents\DocumentRepository;
 use App\Documents\DocumentService;
 use App\Documents\DocumentValidator;
-use App\Extraction\Extractor;
 use App\Generations\GenerationDownloadService;
 use App\Queue\Handler\TailorCvJobHandler;
 use App\Queue\Job;
@@ -327,7 +393,7 @@ use Ramsey\Uuid\Uuid;
 use PDO as GlobalPDO;
 
 spl_autoload_register(static function (string $class): void {
-    if (str_starts_with($class, 'App\\')) {
+    if (strpos($class, 'App\\') === 0) {
         $path = __DIR__ . '/../src/' . str_replace('\\', '/', substr($class, 4)) . '.php';
 
         if (is_file($path)) {
@@ -808,34 +874,40 @@ final class SmokeSchema
 
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS documents (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            document_type TEXT NOT NULL,
             filename TEXT NOT NULL,
             mime_type TEXT NOT NULL,
             size_bytes INTEGER NOT NULL,
             sha256 TEXT NOT NULL UNIQUE,
             content BLOB NOT NULL,
-            extracted_text TEXT NULL,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
         )');
 
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS generations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id INTEGER NOT NULL,
-            document_id INTEGER NULL,
+            job_document_id INTEGER NOT NULL,
+            cv_document_id INTEGER NOT NULL,
             model TEXT NOT NULL,
-            prompt TEXT NOT NULL,
-            status TEXT NOT NULL DEFAULT "pending",
+            thinking_time INTEGER NOT NULL DEFAULT 30,
+            status TEXT NOT NULL DEFAULT "queued",
             progress_percent INTEGER NOT NULL DEFAULT 0,
             cost_pence INTEGER NOT NULL DEFAULT 0,
             error_message TEXT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL,
             FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
-            FOREIGN KEY(document_id) REFERENCES documents(id) ON DELETE SET NULL
+            FOREIGN KEY(job_document_id) REFERENCES documents(id) ON DELETE CASCADE,
+            FOREIGN KEY(cv_document_id) REFERENCES documents(id) ON DELETE CASCADE
         )');
 
         $this->pdo->exec('CREATE TABLE IF NOT EXISTS generation_outputs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             generation_id INTEGER NOT NULL,
+            artifact TEXT NOT NULL DEFAULT "cv",
             mime_type TEXT NULL,
             content BLOB NULL,
             output_text TEXT NULL,
@@ -873,6 +945,16 @@ final class SmokeSchema
             status TEXT NOT NULL DEFAULT "pending",
             error TEXT NULL,
             created_at TEXT NOT NULL
+        )');
+
+        $this->pdo->exec('CREATE TABLE IF NOT EXISTS user_contact_details (
+            user_id INTEGER PRIMARY KEY,
+            address TEXT NOT NULL,
+            phone TEXT NULL,
+            email TEXT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
         )');
     }
 }
@@ -956,19 +1038,7 @@ final class SmokeDocuments
         $uploaded = SmokeUploadedFile::fromString('cv.md', 'text/markdown', $content);
         $document = $documentService->storeUploadedDocument($uploaded, $userId, 'cv');
 
-        $tempFile = tempnam(sys_get_temp_dir(), 'smoke-cv-');
-
-        if ($tempFile === false) {
-            throw new RuntimeException('Unable to create temporary file for extractor.');
-        }
-
-        file_put_contents($tempFile, $content);
-
-        $extractor = new Extractor($this->pdo);
-        $extractor->handleUpload($document->id(), $tempFile, 'cv.md', 'text/markdown');
-        unlink($tempFile);
-
-        $statement = $this->pdo->prepare('SELECT extracted_text FROM documents WHERE id = :id');
+        $statement = $this->pdo->prepare('SELECT content FROM documents WHERE id = :id');
         $statement->execute(['id' => $document->id()]);
         $extracted = (string) $statement->fetchColumn();
 
@@ -1025,7 +1095,13 @@ final class SmokeFakeOpenAIProvider
      *
      * Documenting this helper clarifies its role within the wider workflow.
      */
-    public function draft(string $plan, string $constraints, ?callable $streamHandler = null): string
+    public function draft(
+        string $plan,
+        string $constraints,
+        ?callable $streamHandler = null,
+        string $jobDescription = '',
+        string $sourceCv = ''
+    ): string
     {
         $this->recordUsage('draft');
 
@@ -1039,6 +1115,16 @@ final class SmokeFakeOpenAIProvider
 1. Sync accomplishments with plan items.
 2. Keep tone confident and concise.
 MARKDOWN;
+    }
+
+    /**
+     * Produce a deterministic cover letter so the queue handler can exercise both artifact paths.
+     */
+    public function draftCoverLetter(string $instructions, ?callable $streamHandler = null): string
+    {
+        $this->recordUsage('cover_letter');
+
+        return "## Dear Hiring Manager\n\nI am applying for the Automation Lead role.\n\nYours faithfully,\nSample Candidate";
     }
 
     /**
@@ -1094,15 +1180,18 @@ final class SmokeGeneration
             'job_title' => 'Automation Lead',
             'company' => 'Smeird Corp',
             'competencies' => ['Process optimisation', 'Leadership'],
+            'model' => 'gpt-5.6-sol',
+            'thinking_time' => 30,
         ];
 
-        $insertGeneration = $this->pdo->prepare('INSERT INTO generations (user_id, document_id, model, prompt, status, progress_percent, cost_pence, created_at, updated_at) VALUES (:user_id, :document_id, :model, :prompt, :status, 0, 0, :created_at, :updated_at)');
+        $insertGeneration = $this->pdo->prepare('INSERT INTO generations (user_id, job_document_id, cv_document_id, model, thinking_time, status, progress_percent, cost_pence, created_at, updated_at) VALUES (:user_id, :job_document_id, :cv_document_id, :model, :thinking_time, :status, 0, 0, :created_at, :updated_at)');
         $insertGeneration->execute([
             'user_id' => $userId,
-            'document_id' => $document['document_id'],
-            'model' => 'gpt-5-mini',
-            'prompt' => 'Tailor CV',
-            'status' => 'pending',
+            'job_document_id' => $document['document_id'],
+            'cv_document_id' => $document['document_id'],
+            'model' => 'gpt-5.6-sol',
+            'thinking_time' => 30,
+            'status' => 'queued',
             'created_at' => $now,
             'updated_at' => $now,
         ]);
@@ -1163,17 +1252,13 @@ final class SmokeGeneration
 
         $downloadService = new GenerationDownloadService($this->pdo);
         $downloadService->fetch($generationId, $userId, 'cv', 'md');
-        $downloadService->fetch($generationId, $userId, 'cv', 'docx');
-        $downloadService->fetch($generationId, $userId, 'cv', 'pdf');
         $downloadService->fetch($generationId, $userId, 'cover_letter', 'md');
-        $downloadService->fetch($generationId, $userId, 'cover_letter', 'docx');
-        $downloadService->fetch($generationId, $userId, 'cover_letter', 'pdf');
 
         return [
             'generation_id' => $generationId,
             'downloads' => [
-                'cv' => ['md' => 1, 'docx' => 1, 'pdf' => 1],
-                'cover_letter' => ['md' => 1, 'docx' => 1, 'pdf' => 1],
+                'cv' => ['md' => 1],
+                'cover_letter' => ['md' => 1],
             ],
         ];
     }
@@ -1203,7 +1288,7 @@ final class SmokePurge
     {
         $old = (new GlobalDateTimeImmutable('-10 days'))->format('Y-m-d H:i:s');
 
-        $this->pdo->exec("INSERT INTO documents (filename, mime_type, size_bytes, sha256, content, extracted_text, created_at) VALUES ('old.txt', 'text/plain', 12, 'hash-old', 'old', 'old', '$old')");
+        $this->pdo->exec("INSERT INTO documents (user_id, document_type, filename, mime_type, size_bytes, sha256, content, created_at, updated_at) VALUES (1, 'cv', 'old.txt', 'text/plain', 12, 'hash-old', 'old', '$old', '$old')");
         $this->pdo->exec("INSERT INTO generation_outputs (generation_id, artifact, mime_type, content, output_text, tokens_used, created_at) VALUES (1, 'cv', 'text/plain', 'legacy', 'legacy', 0, '$old')");
         $this->pdo->exec("INSERT INTO api_usage (user_id, provider, endpoint, tokens_used, cost_pence, metadata, created_at) VALUES (1, 'openai', '/responses', 10, 1, '{}', '$old')");
         $this->pdo->exec("INSERT INTO audit_logs (user_id, email, action, ip_address, user_agent, details, created_at) VALUES (1, 'smoke@example.com', 'test', '127.0.0.1', 'smoke', '{}', '$old')");

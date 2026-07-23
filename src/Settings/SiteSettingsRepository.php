@@ -53,4 +53,38 @@ final class SiteSettingsRepository
             throw new RuntimeException('Unable to read site setting value.', 0, $exception);
         }
     }
+
+    /**
+     * Persist a shared configuration value using the database driver's native upsert syntax.
+     *
+     * Keeping writes beside reads gives model configuration and catalogue caching one
+     * consistent storage path across the web process and queue worker.
+     */
+    public function saveValue(string $key, ?string $value): void
+    {
+        try {
+            $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+
+            if ($driver === 'mysql') {
+                $statement = $this->pdo->prepare(
+                    'INSERT INTO site_settings (name, value, created_at, updated_at) '
+                    . 'VALUES (:name, :value, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) '
+                    . 'ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = CURRENT_TIMESTAMP'
+                );
+            } else {
+                $statement = $this->pdo->prepare(
+                    'INSERT INTO site_settings (name, value, created_at, updated_at) '
+                    . 'VALUES (:name, :value, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) '
+                    . 'ON CONFLICT(name) DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP'
+                );
+            }
+
+            $statement->execute([
+                ':name' => $key,
+                ':value' => $value,
+            ]);
+        } catch (PDOException $exception) {
+            throw new RuntimeException('Unable to save site setting value.', 0, $exception);
+        }
+    }
 }

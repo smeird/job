@@ -1,171 +1,98 @@
-# job.smeird.com Application Guide
+# Job Tune
 
-This repository contains the production code that powers the job.smeird.com workspace. It is a Slim 4/PHP&nbsp;7.4 application that provides passcode-based authentication, CV and job description ingestion, AI-assisted drafting, secure download links, usage analytics, and automated retention tooling.
+Job Tune turns a master CV and a job description into an evidence-led, ATS-readable tailored CV and optional cover letter. It is a Slim 4 application designed for PHP 7.4 and MySQL 8+, with queued OpenAI generation, authenticated downloads, usage reporting, and configurable retention.
 
-## Overview of capabilities
+## What it does
 
-* **Passwordless authentication and recovery.** Registration and login rely on short-lived QR-delivered passcodes, are rate-limited, and produce sessions plus downloadable backup codes for break-glass access.【F:src/Services/AuthService.php†L39-L205】【F:resources/views/auth/qr.php†L1-L78】
-* **Safe document handling.** Uploads are capped at 1&nbsp;MiB, are limited to DOCX/PDF/Markdown/Text formats, and undergo structure checks (e.g. macro detection) before storage.【F:src/Documents/DocumentValidator.php†L11-L154】
-* **Generation workflow with permanent downloads.** Tailored CVs and cover letters are produced through queued jobs and exposed through authenticated links that remain available for the owning user across all generated formats.【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:src/Controllers/GenerationDownloadController.php†L29-L119】【F:src/Controllers/DocumentController.php†L446-L517】
-* **Spend and token insight.** A Tailwind/Tabulator/Highcharts dashboard visualises per-call usage, running totals, and monthly aggregates sourced from the `api_usage` table.【F:resources/views/usage.php†L10-L112】【F:src/Services/UsageService.php†L20-L134】【F:src/Routes.php†L153-L154】
-* **Retention governance.** A dedicated `retention_settings` table captures purge policy state and drives the CLI purge utility that clears documents, generation outputs, usage rows, and audit logs after the configured number of days.【F:src/Services/RetentionPolicyService.php†L13-L182】【F:bin/purge.php†L18-L63】
-
-## Architecture at a glance
-
-* A PHP-DI container wires controllers, services, repositories, and middleware inside `public/index.php`, including QR passcode provisioning and rate limiters for protected areas of the site.【F:public/index.php†L53-L159】
-* Runtime bootstrap loads environment variables and normalises the application URL for downstream consumers.【F:src/Bootstrap.php†L12-L43】
-* Every HTTP request runs lightweight database migrations so runtime tables (users, pending passcodes, sessions, documents, generations, generation_outputs, api_usage, backup codes, audit logs, retention settings, jobs) exist before handling traffic.【F:public/index.php†L181-L186】【F:src/Infrastructure/Database/Migrator.php†L19-L205】
-* Additional SQL migrations live in `database/migrations` and can be applied out-of-band through the `bin/migrate.php` helper, which tracks state via the `schema_migrations` table.【F:bin/migrate.php†L21-L76】
-* Background work is dispatched into the `jobs` table and processed by the `bin/worker.php` daemon, which requires `pcntl` and graceful signal handling.【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:bin/worker.php†L1-L68】
-* OpenAI interactions read model configuration, tariff data, and max token limits from environment variables and persist usage rows for reporting.【F:src/AI/OpenAIProvider.php†L52-L117】【F:src/Services/UsageService.php†L20-L102】
-
-### Authentication & session lifecycle
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Browser
-    participant WebApp as Slim Web App
-    participant DB as Database
-
-    User->>Browser: Request QR login link
-    Browser->>WebApp: POST /auth/request-passcode
-    WebApp->>DB: Store pending passcode + rate limit entry
-    WebApp-->>Browser: 200 + QR payload
-    Browser-->>User: Display QR code
-    User->>Browser: Scan QR / enter code
-    Browser->>WebApp: POST /auth/verify
-    WebApp->>DB: Validate passcode + issue session + backup codes
-    WebApp-->>Browser: Set secure session cookie
-    Browser-->>User: Redirect to landing dashboard
-```
-
-This diagram highlights how the QR passcode flow issues authenticated sessions while keeping validation and rate-limiting logic inside the Slim-powered application.【F:public/index.php†L53-L167】【F:src/Services/AuthService.php†L39-L205】
-
-### Document generation pipeline
-
-```mermaid
-flowchart LR
-    subgraph Ingestion
-        A[Upload Document] --> B[DocumentValidator]
-        B -->|Valid| C[(documents table)]
-    end
-
-    subgraph Drafting
-        C --> D[Queue tailor_cv job]
-        D --> E[(jobs table)]
-        E --> F[worker.php daemon]
-        F --> G[OpenAIProvider]
-    end
-
-    subgraph Delivery
-        G --> H[(generation_outputs table)]
-        H --> I[GenerationDownloadController]
-        I --> J[Permanent link to user]
-    end
-
-    J --> K[UsageService aggregates analytics]
-```
-
-The flowchart shows how validated uploads move through queued generation work, surface permanent download artefacts, and feed analytics summarised for the dashboard.【F:src/Documents/DocumentValidator.php†L11-L154】【F:bin/worker.php†L1-L68】【F:src/AI/OpenAIProvider.php†L52-L117】【F:src/Controllers/GenerationDownloadController.php†L29-L119】【F:src/Services/UsageService.php†L20-L134】
+- Uploads and validates CVs and job descriptions in DOCX, PDF, Markdown, or text format.
+- Builds a requirement-to-evidence plan before drafting, keeping the source CV as the factual authority.
+- Produces Markdown, DOCX, and PDF outputs.
+- Lets an authenticated user choose separate OpenAI models for analysis and drafting at `/settings/models`.
+- Refreshes the selectable GPT model list from `GET /models` and retains a current fallback catalogue when the API is unavailable.
+- Records prompt/completion tokens and precise estimated costs for `/usage`; models without a configured tariff are marked as unpriced instead of being reported as free.
+- Purges retained documents, outputs, usage rows, and audit data according to the configured policy.
 
 ## Requirements
 
-### Server prerequisites
+- PHP 7.4 with `pdo_mysql`, `mbstring`, `zip`, `fileinfo`, and `pcntl`
+- MySQL 8+
+- Composer
+- An OpenAI API key for real generation and remote model refresh
 
-* **PHP&nbsp;7.4 CLI** – the codebase makes use of typed properties, arrow functions, and other PHP&nbsp;7.4 language features.【F:bin/verify.helpers.php†L37-L121】
-* **Database** – MySQL 8.x (production) or SQLite for local experimentation; configure via DSN/driver variables.【F:src/DB.php†L36-L78】
-* **Composer** – to install PHP dependencies.
-* **Web server** – Apache or Nginx configured to serve the `public/` directory.
+SQLite is used only by the isolated smoke test. The web application and CLI migrations should be run against MySQL.
 
-### PHP extensions
+## Local setup
 
-Enable or install the following extensions:
+```bash
+git clone https://github.com/smeird/job.git
+cd job
+composer install
+cp .env.example .env
+php bin/migrate.php
+composer start-dev
+```
 
-* `pdo_mysql` (or `pdo_sqlite` when using SQLite) for persistence.【F:src/DB.php†L36-L69】
-* `mbstring` for multi-byte validation and extraction logic across middleware and extractors.【F:src/Middleware/InputValidationMiddleware.php†L62-L109】【F:src/Extraction/Extractor.php†L296-L319】
-* `zip` and `fileinfo` to validate DOCX/PDF uploads.【F:src/Documents/DocumentValidator.php†L51-L154】
-* `pcntl` for the long-running worker process.【F:bin/worker.php†L13-L34】
+The development server listens on `http://127.0.0.1:8080`. The built-in router serves static assets directly and sends application requests to Slim.
 
-### Optional tooling
+Run the queue worker in a second process:
 
-* Node.js is only necessary when rebuilding or customising the pre-built Tailwind assets that live under `public/assets/`.
+```bash
+php bin/worker.php
+```
 
-## Installation
+Production should point Apache or Nginx at `public/` and run the worker under a supervisor such as systemd.
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/smeird/job.git /var/www/job
-   cd /var/www/job
-   ```
-2. **Install PHP dependencies**
-   ```bash
-   composer install --no-dev --optimize-autoloader
-   ```
-3. **Bootstrap environment variables**
-   ```bash
-   cp .env.example .env
-   ```
-   Edit `.env` to match your environment (see the configuration table below). The bootstrapper automatically reads it on each request.【F:src/Bootstrap.php†L20-L43】
-4. **Run database migrations**
-   ```bash
-   php bin/migrate.php
-   ```
-   This applies the SQL migrations in `database/migrations/` so the schema matches production before traffic hits the runtime migrator.【F:bin/migrate.php†L21-L76】
-5. **Set directory permissions**
-   Ensure the web server user can read the codebase and write to the storage directories used for logs and cached artifacts.
+## Important configuration
 
-After these steps, point your virtual host at `public/index.php` and restart PHP-FPM or Apache so new environment variables take effect.
+| Variable | Purpose |
+| --- | --- |
+| `APP_ENV`, `APP_DEBUG`, `APP_URL` | Runtime environment and canonical application URL |
+| `APP_COOKIE_DOMAIN` | Optional production cookie domain; leave empty for local development |
+| `DB_DSN` or `DB_*` variables | MySQL connection details, including optional socket and port |
+| `OPENAI_API_KEY` | OpenAI API credential |
+| `OPENAI_BASE_URL` | API base URL, normally `https://api.openai.com/v1` |
+| `OPENAI_MODEL_PLAN` | Environment fallback for the analysis model |
+| `OPENAI_MODEL_DRAFT` | Environment fallback for the drafting model |
+| `OPENAI_TARIFF_JSON` | Price map in pence per 1,000 prompt and completion tokens |
+| `OPENAI_MAX_TOKENS` | Maximum generated tokens per request |
 
-## Configuration reference
+Model choices saved in `/settings/models` take precedence over the environment model fallbacks. A model selected for an individual tailoring run overrides the saved drafting default for that run only.
 
-| Variable | Purpose | Reference |
-| --- | --- | --- |
-| `APP_ENV`, `APP_DEBUG` | Standard Slim environment flags. | 【F:src/Bootstrap.php†L12-L43】 |
-| `APP_URL` | Canonical URL used in redirects and CSPs. | 【F:src/Bootstrap.php†L35-L43】 |
-| `APP_COOKIE_DOMAIN` | Domain used when setting secure session cookies. | 【F:public/index.php†L40-L47】 |
-| `DB_DSN` or `DB_DRIVER` + `DB_HOST`/`DB_PORT`/`DB_DATABASE`/`DB_SOCKET`/`DB_CHARSET`/`DB_USERNAME`/`DB_PASSWORD` | Database connection settings. | 【F:src/DB.php†L36-L78】 |
-| `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OPENAI_MODEL_PLAN`, `OPENAI_MODEL_DRAFT`, `OPENAI_TARIFF_JSON`, `OPENAI_MAX_TOKENS` | OpenAI credentials, endpoints, tariff data, and token ceilings. | 【F:src/AI/OpenAIProvider.php†L52-L117】 |
+Example tariff configuration:
 
-The application also respects `DB_DATABASE=':memory:'` when `DB_DRIVER=sqlite`, which is convenient for smoke testing.【F:src/DB.php†L41-L58】
+```dotenv
+OPENAI_TARIFF_JSON='{"gpt-5.6-sol":{"prompt":0.20,"completion":0.80}}'
+```
 
-## Database and background jobs
+Keep tariff values current when models or pricing change. Unknown models remain visible in analytics with `Not configured` pricing.
 
-* The runtime migrator now provisions authentication, document, generation, analytics, retention, and job tables in lock-step with the SQL definitions, adding columns when legacy installs are detected.【F:src/Infrastructure/Database/Migrator.php†L19-L205】
-* SQL migrations mirror the runtime schema so CLI-driven installs and on-request migrations converge on identical structures for analytics, retention, and background jobs.【F:database/migrations/20240326000000_initial.php†L7-L139】【F:database/migrations/20240401000000_jobs_overhaul.php†L6-L20】【F:database/migrations/20240718000001_add_generation_stream_columns.php†L1-L13】
-* Run the worker under a supervisor (systemd, supervisord, etc.) using `php bin/worker.php` so queued `tailor_cv` jobs are processed continuously.【F:bin/worker.php†L29-L68】
-* Example unit and environment definitions live in `resources/systemd/` to speed up provisioning of a managed worker service.【F:resources/systemd/job-worker.service.example†L1-L20】【F:resources/systemd/job-worker.env.example†L1-L16】
-* Configure a cron entry to execute `php bin/purge.php` daily. It honours the active retention policy and reports how many rows were removed per resource.【F:bin/purge.php†L18-L63】
+## Generation pipeline
 
-## Usage analytics & retention
+1. A validated job description and master CV are stored as documents.
+2. The tailor form queues a `tailor_cv` job with the selected draft model and analysis depth.
+3. The worker asks the analysis model for a structured evidence plan.
+4. The drafting model receives the full source CV, full job description, and evidence plan.
+5. Outputs are stored and exposed as authenticated Markdown, DOCX, and PDF downloads.
+6. Each API request records model and token usage for analytics.
 
-* `/usage` renders a Tailwind-styled dashboard that fetches data from `/usage/data`; both routes require an authenticated session.【F:resources/views/usage.php†L10-L112】【F:src/Controllers/UsageController.php†L20-L47】【F:src/Routes.php†L153-L154】
-* The analytics service aggregates per-call token counts, costs, and month-to-date totals, and falls back gracefully when metadata is missing.【F:src/Services/UsageService.php†L35-L134】
-* Retention settings are stored in `retention_settings` with JSON lists of the resources to purge; invalid configurations are rejected and sensible defaults (30 days, all resources) are provided when no row exists, and the `/retention` route exposes the configuration UI.【F:src/Services/RetentionPolicyService.php†L15-L139】【F:src/Routes.php†L153-L162】
+The prompts live in `prompts/`; orchestration is in `src/Queue/Handler/TailorCvJobHandler.php` and `src/AI/OpenAIProvider.php`.
 
-## Document workflow highlights
+## Verification
 
-* Authenticated uploads are throttled at the middleware layer and validated server-side to ensure content integrity before insertion into the `documents` table.【F:src/Middleware/PathThrottleMiddleware.php†L49-L107】【F:src/Documents/DocumentValidator.php†L11-L154】
-* Generation downloads rely on session authentication and per-user database checks so completed outputs stay permanently available across markdown, DOCX, and PDF variants.【F:src/Controllers/GenerationDownloadController.php†L29-L119】【F:src/Generations/GenerationDownloadService.php†L32-L71】
+```bash
+composer test
+php bin/smoke.php
+composer audit --locked
+```
 
-## Testing & verification
+`composer test` covers planning and drafting request construction, model catalogue behaviour, precise usage aggregation, and database schema verification. The smoke test uses an isolated SQLite database and fake AI provider to exercise authentication, ingestion, queued CV/cover-letter generation, downloads, and retention purge without spending API credits.
 
-* **Static checks** – run `composer test` to execute the bundled PHP lint targets defined in `composer.json`.【F:composer.json†L28-L36】
-* **Smoke test** – execute `php bin/smoke.php` locally; it boots an isolated environment with in-memory dependencies and walks through authentication, document ingestion, AI generation, downloads, and retention purge paths.【F:bin/smoke.php†L594-L729】
+For a production release, also run one controlled generation with a real API key, download every format, and confirm the resulting API rows on `/usage`.
 
-Both scripts rely on PHP&nbsp;7.4 features and expect the same extensions listed in the requirements section.【F:bin/verify.helpers.php†L37-L121】
+## Operations
 
-## Deployment checklist
-
-1. Deploy application code and vendor assets to your host.
-2. Ensure environment variables (.env or server-level) are populated with the configuration values above.
-3. Ensure any log/cache directories referenced by your environment are writable by the web server.
-4. Run `php bin/migrate.php` after every deployment that ships new migrations.【F:bin/migrate.php†L21-L76】
-5. Restart PHP-FPM/Apache and queue workers so new configuration takes effect.
-6. Verify the deployment by signing in, uploading a document, submitting a generation, downloading each output, and confirming analytics/retention pages render as expected.【F:src/Controllers/AuthController.php†L20-L338】【F:src/Documents/DocumentRepository.php†L23-L109】【F:src/Controllers/GenerationController.php†L78-L142】【F:resources/views/usage.php†L10-L112】
-
-## Support & further reading
-
-* Prompts powering the OpenAI planner/drafter live under `prompts/`.【F:prompts/system.txt†L1-L3】
-* Tailwind theming for the marketing landing page and supporting UI components is in `public/assets/css/theme.css`.【F:public/assets/css/theme.css†L1-L30】
-* Queue handlers (`src/Queue/Handler`) and generation services (`src/Generations`) provide extension points for additional automation.【F:src/Queue/Handler/TailorCvJobHandler.php†L5-L175】
+- Apply migrations after each deployment with `php bin/migrate.php`.
+- Run `php bin/worker.php` continuously for queued jobs.
+- Run `php bin/purge.php` daily from cron.
+- Restart PHP-FPM/Apache and queue workers after environment or code changes.
+- Keep `.env`, generated documents, and API credentials out of version control.

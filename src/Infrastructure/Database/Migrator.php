@@ -118,7 +118,6 @@ class Migrator
         SQL;
 
         $this->pdo->exec($sql);
-        $this->ensureGenerationOutputsArtifactColumn();
     }
 
     /**
@@ -301,6 +300,7 @@ class Migrator
         SQL;
 
         $this->pdo->exec($sql);
+        $this->ensureGenerationOutputsArtifactColumn();
     }
 
     /**

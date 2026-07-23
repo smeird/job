@@ -71,6 +71,8 @@ final class TailorCvJobHandler implements JobHandlerInterface
         $userId = $this->extractInt($payload, 'user_id');
         $jobDescription = $this->extractString($payload, 'job_description');
         $cvMarkdown = $this->extractString($payload, 'cv_markdown');
+        $model = $this->extractString($payload, 'model');
+        $thinkingTime = $this->extractInt($payload, 'thinking_time');
         $contactDetails = $this->extractContactDetails($payload);
 
         error_log(sprintf(
@@ -83,11 +85,19 @@ final class TailorCvJobHandler implements JobHandlerInterface
 
         $this->updateGenerationStatus($generationId, 'processing');
 
-        $provider = new OpenAIProvider($userId, null, $this->pdo, $this->settingsRepository);
+        $provider = new OpenAIProvider(
+            $userId,
+            null,
+            $this->pdo,
+            $this->settingsRepository,
+            null,
+            $model,
+            $thinkingTime
+        );
 
         $plan = $this->generatePlan($provider, $jobDescription, $cvMarkdown);
         $constraints = $this->buildConstraints($payload, $cvMarkdown);
-        $draft = $this->generateDraft($provider, $plan, $constraints);
+        $draft = $this->generateDraft($provider, $plan, $constraints, $jobDescription, $cvMarkdown);
         $converted = $this->convertDraft($draft);
 
         $coverLetterPrompt = $this->buildCoverLetterPrompt($payload, $plan, $jobDescription, $cvMarkdown, $contactDetails);
@@ -154,10 +164,16 @@ final class TailorCvJobHandler implements JobHandlerInterface
      *
      * Documenting this helper clarifies its role within the wider workflow.
      */
-    private function generateDraft(OpenAIProvider $provider, string $plan, string $constraints): string
+    private function generateDraft(
+        OpenAIProvider $provider,
+        string $plan,
+        string $constraints,
+        string $jobDescription,
+        string $cvMarkdown
+    ): string
     {
         try {
-            return $provider->draft($plan, $constraints);
+            return $provider->draft($plan, $constraints, null, $jobDescription, $cvMarkdown);
         } catch (Throwable $exception) {
             throw new TransientJobException('Failed to generate tailored draft: ' . $exception->getMessage(), 0, $exception);
         }

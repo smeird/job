@@ -429,7 +429,7 @@ class AuthController
     private function expireSessionCookie(ResponseInterface $response): ResponseInterface
     {
         $expires = gmdate('D, d M Y H:i:s T', time() - 3600);
-        $cookie = sprintf('job_session=deleted; Path=/; Domain=%s; Expires=%s; HttpOnly; Secure; SameSite=Lax', $this->cookieDomain(), $expires);
+        $cookie = $this->buildSessionCookie('deleted', $expires);
 
         return $response->withHeader('Set-Cookie', $cookie);
     }
@@ -441,7 +441,33 @@ class AuthController
     {
         $expires = gmdate('D, d M Y H:i:s T', $expiresAt->getTimestamp());
 
-        return sprintf('job_session=%s; Path=/; Domain=%s; Expires=%s; HttpOnly; Secure; SameSite=Lax', rawurlencode($token), $this->cookieDomain(), $expires);
+        return $this->buildSessionCookie(rawurlencode($token), $expires);
+    }
+
+    /**
+     * Assemble a session cookie that remains secure in production and works on an HTTP localhost origin.
+     */
+    private function buildSessionCookie(string $value, string $expires): string
+    {
+        $attributes = [
+            'job_session=' . $value,
+            'Path=/',
+            'Expires=' . $expires,
+            'HttpOnly',
+        ];
+        $domain = $this->cookieDomain();
+
+        if ($domain !== '') {
+            $attributes[] = 'Domain=' . $domain;
+        }
+
+        if ($this->cookieSecure()) {
+            $attributes[] = 'Secure';
+        }
+
+        $attributes[] = 'SameSite=Lax';
+
+        return implode('; ', $attributes);
     }
 
     /**
@@ -450,7 +476,23 @@ class AuthController
      */
     private function cookieDomain(): string
     {
-        return $_ENV['APP_COOKIE_DOMAIN'] ?? getenv('APP_COOKIE_DOMAIN') ?: 'job.smeird.com';
+        if (array_key_exists('APP_COOKIE_DOMAIN', $_ENV)) {
+            return trim((string) $_ENV['APP_COOKIE_DOMAIN']);
+        }
+
+        $configured = getenv('APP_COOKIE_DOMAIN');
+
+        return $configured === false ? 'job.smeird.com' : trim((string) $configured);
+    }
+
+    /**
+     * Use the Secure cookie attribute whenever the configured application origin uses HTTPS.
+     */
+    private function cookieSecure(): bool
+    {
+        $appUrl = $_ENV['APP_URL'] ?? getenv('APP_URL') ?: 'https://job.smeird.com';
+
+        return parse_url((string) $appUrl, PHP_URL_SCHEME) === 'https';
     }
 
     /**

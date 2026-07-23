@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\AI\ModelCatalogService;
 use App\Applications\JobApplication;
 use App\Applications\JobApplicationRepository;
 use App\Applications\JobApplicationService;
@@ -32,6 +33,9 @@ final class JobApplicationController
     /** @var CompanyResearchService */
     private $researchService;
 
+    /** @var ModelCatalogService */
+    private $modelCatalog;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -41,12 +45,14 @@ final class JobApplicationController
         Renderer $renderer,
         JobApplicationRepository $repository,
         JobApplicationService $service,
-        CompanyResearchService $researchService
+        CompanyResearchService $researchService,
+        ModelCatalogService $modelCatalog
     ) {
         $this->renderer = $renderer;
         $this->repository = $repository;
         $this->service = $service;
         $this->researchService = $researchService;
+        $this->modelCatalog = $modelCatalog;
     }
 
     /**
@@ -323,11 +329,21 @@ final class JobApplicationController
         $applicationId = isset($args['id']) ? (int) $args['id'] : 0;
         $data = $request->getParsedBody();
         $cvDocumentId = is_array($data) && isset($data['cv_document_id']) ? (int) $data['cv_document_id'] : 0;
-        $model = is_array($data) && isset($data['model']) ? trim((string) $data['model']) : 'gpt-5.4-mini';
+        $model = is_array($data) && isset($data['model'])
+            ? trim((string) $data['model'])
+            : $this->modelCatalog->defaultModel();
         $thinkingTime = is_array($data) && isset($data['thinking_time']) ? (int) $data['thinking_time'] : 30;
         $prompt = is_array($data) && isset($data['prompt']) ? trim((string) $data['prompt']) : PromptLibrary::tailorPrompt();
 
         try {
+            if (!$this->modelCatalog->isSelectable($model)) {
+                throw new RuntimeException('Choose a model from the current catalogue.');
+            }
+
+            if (!in_array($thinkingTime, [15, 30, 50], true)) {
+                throw new RuntimeException('Choose a valid analysis depth.');
+            }
+
             $this->service->tailorApplication((int) $user['user_id'], $applicationId, $cvDocumentId, $model, $thinkingTime, $prompt);
             $message = 'Tailored CV job queued and linked to this application.';
         } catch (RuntimeException $exception) {
@@ -664,6 +680,7 @@ final class JobApplicationController
             'applications' => ['href' => '/applications', 'label' => 'Applications'],
             'contact' => ['href' => '/profile/contact-details', 'label' => 'Contact details'],
             'usage' => ['href' => '/usage', 'label' => 'Usage'],
+            'settings' => ['href' => '/settings/models', 'label' => 'Settings'],
             'retention' => ['href' => '/retention', 'label' => 'Retention'],
         ];
 
@@ -737,7 +754,8 @@ final class JobApplicationController
             'generationOptions' => $generationOptions,
             'linkedGeneration' => $linkedGeneration,
             'cvOptions' => $cvOptions,
-            'modelOptions' => GenerationController::availableModels(),
+            'modelOptions' => $this->modelCatalog->models(),
+            'defaultModel' => $this->modelCatalog->defaultModel(),
             'defaultPrompt' => PromptLibrary::tailorPrompt(),
             'application' => [
                 'id' => $application->id(),

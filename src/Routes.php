@@ -16,6 +16,7 @@ use App\Controllers\RetentionController;
 use App\Controllers\UsageController;
 use App\Controllers\ContactDetailsController;
 use App\Controllers\SchemaTestController;
+use App\Controllers\ModelSettingsController;
 use App\Prompts\PromptLibrary;
 use App\Validation\DraftValidator;
 use InvalidArgumentException;
@@ -275,6 +276,18 @@ class Routes
 
         $app->get('/settings/schema-test', function (Request $request, Response $response) use ($container) {
             return $container->get(SchemaTestController::class)->show($request, $response);
+        });
+
+        $app->get('/settings/models', function (Request $request, Response $response) use ($container) {
+            return $container->get(ModelSettingsController::class)->show($request, $response);
+        });
+
+        $app->post('/settings/models', function (Request $request, Response $response) use ($container) {
+            return $container->get(ModelSettingsController::class)->update($request, $response);
+        });
+
+        $app->post('/settings/models/refresh', function (Request $request, Response $response) use ($container) {
+            return $container->get(ModelSettingsController::class)->refresh($request, $response);
         });
 
         $app->post('/retention', function (Request $request, Response $response) use ($container) {

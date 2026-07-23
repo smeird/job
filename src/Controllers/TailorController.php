@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\AI\ModelCatalogService;
 use App\Documents\DocumentRepository;
 use App\Generations\GenerationDownloadService;
 use App\Generations\GenerationLogRepository;
@@ -31,6 +32,9 @@ final class TailorController
     /** @var GenerationDownloadService */
     private $generationDownloadService;
 
+    /** @var ModelCatalogService */
+    private $modelCatalog;
+
     /**
      * Construct the object with its required dependencies.
      *
@@ -41,7 +45,8 @@ final class TailorController
         DocumentRepository $documentRepository,
         GenerationRepository $generationRepository,
         GenerationLogRepository $generationLogRepository,
-        GenerationDownloadService $generationDownloadService
+        GenerationDownloadService $generationDownloadService,
+        ModelCatalogService $modelCatalog
 
     ) {
         $this->renderer = $renderer;
@@ -49,6 +54,7 @@ final class TailorController
         $this->generationRepository = $generationRepository;
         $this->generationLogRepository = $generationLogRepository;
         $this->generationDownloadService = $generationDownloadService;
+        $this->modelCatalog = $modelCatalog;
     }
 
     /**
@@ -76,7 +82,8 @@ final class TailorController
             'cvDocuments' => $this->mapDocuments($this->documentRepository->listForUserAndType($userId, 'cv')),
             'generations' => $this->mapGenerations($this->generationRepository->listForUser($userId)),
             'generationLogs' => $this->generationLogRepository->listRecentForUser($userId),
-            'modelOptions' => GenerationController::availableModels(),
+            'modelOptions' => $this->modelCatalog->models(),
+            'defaultModel' => $this->modelCatalog->defaultModel(),
             'defaultPrompt' => PromptLibrary::tailorPrompt(),
         ]);
     }
@@ -206,6 +213,7 @@ final class TailorController
             'applications' => ['href' => '/applications', 'label' => 'Applications'],
             'contact' => ['href' => '/profile/contact-details', 'label' => 'Contact details'],
             'usage' => ['href' => '/usage', 'label' => 'Usage'],
+            'settings' => ['href' => '/settings/models', 'label' => 'Settings'],
             'retention' => ['href' => '/retention', 'label' => 'Retention'],
         ];
 

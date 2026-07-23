@@ -281,6 +281,7 @@
         };
 
         const defaultThinkingTime = normaliseNumber(config && config.defaultThinkingTime, 30);
+        const defaultModel = config && typeof config.defaultModel === 'string' ? config.defaultModel : '';
         const defaultPrompt = config && typeof config.prompt === 'string' ? config.prompt : '';
         let steps = buildSteps(config && config.steps);
 
@@ -304,6 +305,7 @@
             generations: toArray(config && config.generations).map(normaliseGeneration),
             processingLogs: toArray(config && config.logs),
             defaultThinkingTime: defaultThinkingTime,
+            defaultModel: defaultModel,
             defaultPrompt: defaultPrompt,
             form: {
                 job_document_id: null,
@@ -319,14 +321,10 @@
             isCleaning: false,
 
             /**
-             * Initialise the wizard with default selections and contextual messaging.
+             * Initialise the wizard with its default selections.
              */
             initialise() {
                 this.resetForm();
-
-                if (this.isDisabled) {
-                    this.errorMessage = 'Upload at least one job description and CV to get started.';
-                }
             },
 
             /**
@@ -339,9 +337,12 @@
 
                 this.form.job_document_id = null;
                 this.form.cv_document_id = null;
-                this.form.model = this.models.length > 0 && typeof this.models[0].value === 'string'
-                    ? this.models[0].value
+                const configuredDefault = this.models.some((item) => item && item.value === this.defaultModel)
+                    ? this.defaultModel
                     : '';
+                this.form.model = configuredDefault !== ''
+                    ? configuredDefault
+                    : (this.models.length > 0 && typeof this.models[0].value === 'string' ? this.models[0].value : '');
                 this.form.thinking_time = this.defaultThinkingTime;
                 this.form.prompt = this.defaultPrompt;
 
@@ -486,6 +487,23 @@
 
 
                 return this.form.model;
+            },
+
+            /**
+             * Translate the stored compatibility value into the analysis-depth label shown in review screens.
+             *
+             * @returns {string} The user-facing analysis depth.
+             */
+            get analysisDepthLabel() {
+                if (this.form.thinking_time <= 15) {
+                    return 'Fast';
+                }
+
+                if (this.form.thinking_time >= 50) {
+                    return 'Thorough';
+                }
+
+                return 'Standard';
             },
 
             /**

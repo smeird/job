@@ -10,6 +10,7 @@
 /** @var array<int, array{href: string, label: string, current: bool}> $navLinks */
 /** @var string|null $csrfToken */
 /** @var string $defaultPrompt */
+/** @var string $defaultModel */
 
 $fullWidth = true;
 
@@ -28,9 +29,9 @@ $wizardSteps = [
     ],
     [
         'index' => 3,
-        'title' => 'Set parameters',
-        'summary' => 'Adjust the AI model and thinking time.',
-        'helper' => 'Higher thinking time gives GPT-5.4 more reasoning space.',
+        'title' => 'Set drafting options',
+        'summary' => 'Choose the model and analysis depth.',
+        'helper' => 'Use a stronger model or deeper analysis for demanding roles.',
     ],
     [
         'index' => 4,
@@ -48,6 +49,7 @@ $wizardState = [
     'logs' => $generationLogs,
     'steps' => $wizardSteps,
     'defaultThinkingTime' => 30,
+    'defaultModel' => $defaultModel,
     'prompt' => $defaultPrompt,
 ];
 
@@ -73,7 +75,7 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
             </p>
             <h2 class="mt-2 text-3xl font-semibold tracking-tight text-white">Tailor a CV and cover letter</h2>
             <p class="mt-2 text-base text-slate-400">
-                Choose a job description, pick the seed CV, set the AI parameters, and queue the request to generate both documents.
+                Choose a job description, select a master CV, and generate evidence-led documents for the role.
             </p>
         </div>
         <div class="flex flex-col gap-3 md:items-end">
@@ -233,27 +235,23 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
                                     @click="setModel(model.value)"
                                 >
                                     <p class="font-semibold" x-text="model.label"></p>
-                                    <p class="mt-1 text-xs text-slate-400" x-text="model.value"></p>
+                                    <p class="mt-1 text-xs text-slate-400" x-text="model.description || model.value"></p>
                                 </button>
                             </template>
                         </div>
                     </div>
                     <div class="space-y-2">
-                        <div class="flex items-center justify-between text-sm text-slate-200">
-                            <span>Thinking time (seconds)</span>
-                            <span class="font-semibold text-indigo-200" x-text="form.thinking_time + 's'"></span>
-                        </div>
-                        <input
-                            type="range"
-                            min="5"
-                            max="60"
-                            step="5"
+                        <label for="analysis-depth" class="text-sm font-medium text-slate-200">Analysis depth</label>
+                        <select
+                            id="analysis-depth"
                             x-model.number="form.thinking_time"
-                            class="w-full accent-indigo-500"
+                            class="w-full rounded-xl border border-slate-700 bg-slate-950/40 px-4 py-3 text-sm text-slate-100 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                         >
-                        <p class="text-xs text-slate-400">
-                            Give GPT-5.4 more time for complex roles. Thirty seconds is a balanced default.
-                        </p>
+                            <option value="15">Fast — lower latency</option>
+                            <option value="30">Standard — balanced</option>
+                            <option value="50">Thorough — quality first</option>
+                        </select>
+                        <p class="text-xs text-slate-400">Analysis depth maps to the model's reasoning effort when supported.</p>
                     </div>
                     <div class="space-y-2">
                         <div class="flex items-center justify-between">
@@ -288,8 +286,8 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
                                 <dd class="font-medium text-right" x-text="selectedModelLabel"></dd>
                             </div>
                             <div class="flex items-start justify-between gap-4">
-                                <dt class="text-slate-400">Thinking time</dt>
-                                <dd class="font-medium text-right" x-text="form.thinking_time + 's'"></dd>
+                                <dt class="text-slate-400">Analysis depth</dt>
+                                <dd class="font-medium text-right" x-text="analysisDepthLabel"></dd>
                             </div>
                         </dl>
                     </div>

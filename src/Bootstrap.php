@@ -31,7 +31,7 @@ class Bootstrap
      * directory and .env file are available, defaulting to a safe load so the
      * application can continue when optional values are missing.
      */
-    private static function loadEnvironment(string $rootPath): void
+    public static function loadEnvironment(string $rootPath): void
     {
         if (!is_dir($rootPath)) {
             return;

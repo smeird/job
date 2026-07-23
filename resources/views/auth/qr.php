@@ -1,6 +1,5 @@
 <?php
 
-use DateTimeInterface;
 
 /** @var string $title */
 /** @var string $subtitle */
@@ -11,7 +10,7 @@ use DateTimeInterface;
 /** @var string $totpSecret */
 /** @var string $qrValue */
 /** @var string $instructions */
-/** @var DateTimeInterface $expiresAt */
+/** @var \DateTimeInterface $expiresAt */
 /** @var string $resendUrl */
 /** @var string $resendLabel */
 /** @var string|null $csrfToken */
