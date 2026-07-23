@@ -80,6 +80,12 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
         </div>
         <div class="flex flex-col gap-3 md:items-end">
             <a
+                href="/settings/models"
+                class="inline-flex items-center gap-2 rounded-lg border border-indigo-500/50 bg-indigo-500/10 px-4 py-2 text-sm font-medium text-indigo-100 transition hover:border-indigo-400 hover:bg-indigo-500/20"
+            >
+                AI model settings
+            </a>
+            <a
                 href="/"
                 class="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-4 py-2 text-sm font-medium text-slate-200 transition hover:border-slate-500 hover:bg-slate-800"
             >
@@ -225,7 +231,15 @@ $additionalHead = '<script src="/assets/js/tailor.js" defer></script>';
 
                 <div x-show="step === 3" x-cloak class="space-y-6">
                     <div class="space-y-3">
-                        <p class="text-sm font-medium text-slate-200">Model</p>
+                        <div class="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                            <div>
+                                <p class="text-sm font-medium text-slate-200">Drafting model for this application</p>
+                                <p class="text-xs text-slate-400">This selection overrides the saved drafting default for this run.</p>
+                            </div>
+                            <a href="/settings/models" class="text-xs font-medium text-indigo-300 hover:text-indigo-200">
+                                Change analysis and default models
+                            </a>
+                        </div>
                         <div class="grid gap-3 md:grid-cols-3">
                             <template x-for="model in models" :key="model.value">
                                 <button

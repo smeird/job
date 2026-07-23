@@ -170,7 +170,7 @@ final class ModelSettingsController
             ['href' => '/documents', 'label' => 'Documents', 'current' => false],
             ['href' => '/applications', 'label' => 'Applications', 'current' => false],
             ['href' => '/usage', 'label' => 'Usage', 'current' => false],
-            ['href' => '/settings/models', 'label' => 'Settings', 'current' => true],
+            ['href' => '/settings/models', 'label' => 'AI models', 'current' => true],
         ];
     }
 }

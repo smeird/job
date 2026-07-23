@@ -10,7 +10,7 @@ $navLinks = [
     ['href' => '/applications', 'label' => 'Applications', 'current' => false],
     ['href' => '/profile/contact-details', 'label' => 'Contact details', 'current' => false],
     ['href' => '/usage', 'label' => 'Usage', 'current' => true],
-    ['href' => '/settings/models', 'label' => 'Settings', 'current' => false],
+    ['href' => '/settings/models', 'label' => 'AI models', 'current' => false],
     ['href' => '/retention', 'label' => 'Retention', 'current' => false],
 ];
 $additionalHead = <<<'HTML'
