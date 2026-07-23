@@ -7,6 +7,7 @@ namespace App\Conversion;
 use App\DB;
 use DateTimeImmutable;
 use DOMDocument;
+use DOMXPath;
 use League\CommonMark\CommonMarkConverter;
 use League\CommonMark\ConverterInterface;
 use League\CommonMark\Output\RenderedContentInterface;
@@ -280,43 +281,70 @@ class Converter
             LIBXML_HTML_NODEFDTD
         );
 
-        if ($loaded === true) {
-            $images = $document->getElementsByTagName('img');
-            $removals = [];
+        if ($loaded !== true) {
+            libxml_clear_errors();
+            libxml_use_internal_errors($priorSetting);
 
-            foreach ($images as $image) {
-                $source = $image->getAttribute('src');
+            return $html;
+        }
 
-                if ($source === '') {
-                    continue;
-                }
+        $xpath = new DOMXPath($document);
+        $resourceTags = [
+            'img',
+            'audio',
+            'video',
+            'source',
+            'track',
+            'iframe',
+            'embed',
+            'object',
+            'link',
+            'script',
+        ];
+        $attributeNames = ['src', 'href', 'poster', 'xlink:href', 'data'];
+        $queryParts = [];
 
-                if ($this->isRemotePath($source)) {
-                    $removals[] = $image;
+        foreach ($resourceTags as $tag) {
+            $queryParts[] = sprintf('local-name() = "%s"', $tag);
+        }
+
+        $nodes = $xpath->query(sprintf('//*[%s]', implode(' or ', $queryParts)));
+        $removals = [];
+
+        if ($nodes !== false) {
+            foreach ($nodes as $node) {
+                foreach ($attributeNames as $attribute) {
+                    if (!$node->hasAttribute($attribute)) {
+                        continue;
+                    }
+
+                    $value = trim($node->getAttribute($attribute));
+
+                    if ($value === '' || $this->isSafeEmbeddedResourceUrl($value)) {
+                        continue;
+                    }
+
+                    $removals[] = $node;
+                    break;
                 }
             }
+        }
 
-            foreach ($removals as $image) {
-                $parentNode = $image->parentNode;
-
-                if ($parentNode !== null) {
-                    $parentNode->removeChild($image);
-                }
+        foreach ($removals as $node) {
+            if ($node->parentNode !== null) {
+                $node->parentNode->removeChild($node);
             }
+        }
 
-            $body = $document->getElementsByTagName('body')->item(0);
+        $body = $document->getElementsByTagName('body')->item(0);
+        $sanitized = '';
 
-            if ($body !== null) {
-                $sanitized = '';
-
-                foreach ($body->childNodes as $childNode) {
-                    $sanitized .= $document->saveHTML($childNode);
-                }
-            } else {
-                $sanitized = $document->saveHTML();
+        if ($body !== null) {
+            foreach ($body->childNodes as $childNode) {
+                $sanitized .= $document->saveHTML($childNode);
             }
         } else {
-            $sanitized = $html;
+            $sanitized = $document->saveHTML();
         }
 
         libxml_clear_errors();
@@ -326,36 +354,17 @@ class Converter
     }
 
     /**
-     * Determine whether a given path references a remote or local resource with a scheme.
+     * Determine whether a referenced resource is safe to embed in a generated document.
      *
-     * PhpWord follows URLs that contain schemes or protocol relative prefixes, so the
-     * method identifies these patterns to block external resource fetching.
+     * Only self-contained data and CID resources are accepted. Relative paths and
+     * every externally resolvable scheme are rejected to prevent network and local
+     * filesystem access during DOCX or PDF rendering.
      */
-    private function isRemotePath(string $path): bool
+    private function isSafeEmbeddedResourceUrl(string $value): bool
     {
-        $trimmedPath = trim($path);
+        $normalized = strtolower(trim($value));
 
-        if ($trimmedPath === '') {
-            return false;
-        }
-
-        if (strpos($trimmedPath, '//') === 0) {
-            return true;
-        }
-
-        $scheme = parse_url($trimmedPath, PHP_URL_SCHEME);
-
-        if ($scheme === false || $scheme === null || $scheme === '') {
-            return false;
-        }
-
-        $normalizedScheme = strtolower($scheme);
-
-        if ($normalizedScheme === 'data') {
-            return false;
-        }
-
-        return in_array($normalizedScheme, ['http', 'https', 'ftp', 'ftps', 'file'], true);
+        return strpos($normalized, 'data:') === 0 || strpos($normalized, 'cid:') === 0;
     }
 
     /**

@@ -32,6 +32,7 @@
             "@php tests/OpenAIProviderDraftTest.php",
             "@php tests/ModelCatalogServiceTest.php",
             "@php tests/UsageServiceTest.php",
+            "@php tests/ConverterSecurityTest.php",
             "@php tests/DatabaseSchemaVerifierTest.php"
         ],
         "cs-fix": "@php -r \"echo 'Code style fixer not configured yet.' . PHP_EOL;\"",
