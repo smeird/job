@@ -77,7 +77,7 @@ return [
             output_text LONGTEXT NULL,
             tokens_used INT UNSIGNED NULL,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            CONSTRAINT fk_generation_outputs_generation (generation_id) REFERENCES generations(id) ON DELETE CASCADE,
+            CONSTRAINT fk_generation_outputs_generation FOREIGN KEY (generation_id) REFERENCES generations(id) ON DELETE CASCADE,
             INDEX idx_generation_outputs_generation_created (generation_id, created_at)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         "CREATE TABLE IF NOT EXISTS api_usage (
@@ -98,7 +98,7 @@ return [
             code_hash VARCHAR(255) NOT NULL,
             used_at DATETIME DEFAULT NULL,
             created_at DATETIME NOT NULL,
-            CONSTRAINT fk_backup_codes_user (user_id) REFERENCES users(id) ON DELETE CASCADE
+            CONSTRAINT fk_backup_codes_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         "CREATE TABLE IF NOT EXISTS audit_logs (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

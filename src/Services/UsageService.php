@@ -31,7 +31,7 @@ class UsageService
     public function getUsageForUser(int $userId): array
     {
         [$perRun, $totals] = $this->fetchPerRun($userId);
-        $monthly = $this->fetchMonthlySummary($userId);
+        $monthly = $this->buildMonthlySummary($perRun);
 
         return [
             'per_run' => $perRun,
@@ -44,13 +44,13 @@ class UsageService
      * Fetch the per run from its provider.
      *
      * Centralised fetching makes upstream integrations easier to evolve.
-     * @return array{0: array<int, array<string, int|string|null>>, 1: array{current_month: array<string, int>, lifetime: array<string, int>}}
+     * @return array{0: array<int, array<string, mixed>>, 1: array{current_month: array<string, mixed>, lifetime: array<string, mixed>}}
      */
     private function fetchPerRun(int $userId): array
     {
         $statement = $this->pdo->prepare(
             'SELECT id, provider, endpoint, tokens_used, cost_pence, metadata, created_at '
-            . 'FROM api_usage WHERE user_id = :user_id ORDER BY created_at DESC'
+            . 'FROM api_usage WHERE user_id = :user_id ORDER BY created_at DESC, id DESC'
         );
         $statement->execute(['user_id' => $userId]);
 
@@ -63,6 +63,7 @@ class UsageService
             'completion_tokens' => 0,
             'total_tokens' => 0,
             'cost_pence' => 0,
+            'cost_complete' => true,
         ];
         $lifetimeTotals = $monthTotals;
 
@@ -73,7 +74,12 @@ class UsageService
             $promptTokens = (int) ($metadata['prompt_tokens'] ?? 0);
             $completionTokens = (int) ($metadata['completion_tokens'] ?? 0);
             $totalTokens = (int) ($metadata['total_tokens'] ?? $row['tokens_used'] ?? 0);
-            $costPence = (int) ($row['cost_pence'] ?? 0);
+            $costAvailable = isset($metadata['cost_available'])
+                ? (bool) $metadata['cost_available']
+                : true;
+            $costPence = $costAvailable && isset($metadata['cost_pence_precise'])
+                ? (float) $metadata['cost_pence_precise']
+                : ($costAvailable ? (float) ($row['cost_pence'] ?? 0) : null);
             $model = $this->resolveModelFromMetadata($metadata);
 
             $entry = [
@@ -85,6 +91,7 @@ class UsageService
                 'completion_tokens' => $completionTokens,
                 'total_tokens' => $totalTokens,
                 'cost_pence' => $costPence,
+                'cost_available' => $costAvailable,
                 'created_at' => $createdAt !== null ? $createdAt->format(DATE_ATOM) : null,
             ];
 
@@ -97,13 +104,19 @@ class UsageService
             $lifetimeTotals['prompt_tokens'] += $promptTokens;
             $lifetimeTotals['completion_tokens'] += $completionTokens;
             $lifetimeTotals['total_tokens'] += $totalTokens;
-            $lifetimeTotals['cost_pence'] += $costPence;
+            if ($costPence !== null) {
+                $lifetimeTotals['cost_pence'] += $costPence;
+            }
+            $lifetimeTotals['cost_complete'] = $lifetimeTotals['cost_complete'] && $costAvailable;
 
             if ($createdAt !== null && $createdAt >= $currentMonthStart) {
                 $monthTotals['prompt_tokens'] += $promptTokens;
                 $monthTotals['completion_tokens'] += $completionTokens;
                 $monthTotals['total_tokens'] += $totalTokens;
-                $monthTotals['cost_pence'] += $costPence;
+                if ($costPence !== null) {
+                    $monthTotals['cost_pence'] += $costPence;
+                }
+                $monthTotals['cost_complete'] = $monthTotals['cost_complete'] && $costAvailable;
             }
         }
 
@@ -183,44 +196,43 @@ class UsageService
      * Fetch the monthly summary from its provider.
      *
      * Centralised fetching makes upstream integrations easier to evolve.
-     * @return array<int, array{month: string, total_tokens: int, cost_pence: int}>
+     * @return array<int, array{month: string, total_tokens: int, cost_pence: float, cost_complete: bool}>
      */
-    private function fetchMonthlySummary(int $userId): array
+    private function buildMonthlySummary(array $perRun): array
     {
-        $driver = (string) $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $months = [];
 
-        if ($driver === 'sqlite') {
-            $monthExpression = "strftime('%Y-%m-01', created_at)";
-        } else {
-            $monthExpression = "DATE_FORMAT(created_at, '%Y-%m-01')";
-        }
+        foreach ($perRun as $row) {
+            $createdAt = $this->normaliseDate(isset($row['created_at']) ? $row['created_at'] : null);
 
-        $sql = sprintf(
-            'SELECT %s AS month_start, SUM(tokens_used) AS total_tokens, SUM(cost_pence) AS total_cost '
-            . 'FROM api_usage WHERE user_id = :user_id GROUP BY month_start ORDER BY month_start',
-            $monthExpression
-        );
-
-        $statement = $this->pdo->prepare($sql);
-        $statement->execute(['user_id' => $userId]);
-
-        $summary = [];
-
-        while ($row = $statement->fetch(PDO::FETCH_ASSOC)) {
-            $monthStart = isset($row['month_start']) ? (string) $row['month_start'] : null;
-
-            if ($monthStart === null || $monthStart === '') {
+            if ($createdAt === null) {
                 continue;
             }
 
-            $summary[] = [
-                'month' => $monthStart,
-                'total_tokens' => (int) ($row['total_tokens'] ?? 0),
-                'cost_pence' => (int) ($row['total_cost'] ?? 0),
-            ];
+            $month = $createdAt->format('Y-m-01');
+
+            if (!isset($months[$month])) {
+                $months[$month] = [
+                    'month' => $month,
+                    'total_tokens' => 0,
+                    'cost_pence' => 0.0,
+                    'cost_complete' => true,
+                ];
+            }
+
+            $months[$month]['total_tokens'] += (int) ($row['total_tokens'] ?? 0);
+
+            if (isset($row['cost_pence']) && $row['cost_pence'] !== null) {
+                $months[$month]['cost_pence'] += (float) $row['cost_pence'];
+            }
+
+            $months[$month]['cost_complete'] = $months[$month]['cost_complete']
+                && !empty($row['cost_available']);
         }
 
-        return $summary;
+        ksort($months);
+
+        return array_values($months);
     }
 
     /**

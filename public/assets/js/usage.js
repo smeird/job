@@ -10,6 +10,10 @@
             return cell.getValue();
         }
 
+        if (cell && typeof cell === 'object' && Object.prototype.hasOwnProperty.call(cell, 'value')) {
+            return cell.value;
+        }
+
         return cell ?? null;
     }
 
@@ -28,7 +32,11 @@
     }
 
     function formatCostFromPence(value) {
-        const amount = (typeof value === 'number' ? value : 0) / 100;
+        if (typeof value !== 'number') {
+            return 'Not configured';
+        }
+
+        const amount = value / 100;
 
         return currencyFormatter.format(amount);
     }
@@ -86,11 +94,15 @@
         const lifetimeCost = document.querySelector('[data-summary="lifetime-cost"]');
 
         if (monthCost) {
-            monthCost.textContent = formatCostFromPence(current.cost_pence ?? 0);
+            monthCost.textContent = current.cost_complete === false
+                ? 'Partial pricing'
+                : formatCostFromPence(current.cost_pence ?? 0);
         }
 
         if (lifetimeCost) {
-            lifetimeCost.textContent = formatCostFromPence(lifetime.cost_pence ?? 0);
+            lifetimeCost.textContent = lifetime.cost_complete === false
+                ? 'Partial pricing'
+                : formatCostFromPence(lifetime.cost_pence ?? 0);
         }
     }
 
@@ -197,7 +209,7 @@
 
         const categories = monthData.map((item) => formatMonthLabel(item.month));
         const tokens = monthData.map((item) => item.total_tokens ?? 0);
-        const costs = monthData.map((item) => (item.cost_pence ?? 0) / 100);
+        const costs = monthData.map((item) => typeof item.cost_pence === 'number' ? item.cost_pence / 100 : null);
 
         if (typeof Highcharts !== 'undefined') {
             if (document.getElementById('usage-tokens-chart')) {

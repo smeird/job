@@ -5,12 +5,12 @@
     "require": {
         "php": "^7.4",
         "slim/slim": "^4.12",
-        "slim/psr7": "^1.7",
+        "slim/psr7": "^1.6.2",
         "vlucas/phpdotenv": "^5.6",
-        "respect/validation": "^2.3",
+        "respect/validation": "^2.2.4",
         "guzzlehttp/guzzle": "^7.9",
-        "league/commonmark": "^1.6",
-        "dompdf/dompdf": "^1.2",
+        "league/commonmark": "^2.4",
+        "mpdf/mpdf": "^8.3.1",
         "phpoffice/phpword": "^0.18.3",
         "ramsey/uuid": "^4.2",
         "paragonie/constant_time_encoding": "^2.6",
@@ -26,14 +26,21 @@
         ]
     },
     "scripts": {
-        "start-dev": "php -S localhost:8080 -t public public/index.php",
+        "start-dev": "php -S 127.0.0.1:8080 -t public public/router.php",
         "test": [
-            "@php -l public/index.php",
-            "@php -l src/Bootstrap.php",
-            "@php -l src/Routes.php"
+            "@php tests/OpenAIProviderPlanTest.php",
+            "@php tests/OpenAIProviderDraftTest.php",
+            "@php tests/ModelCatalogServiceTest.php",
+            "@php tests/UsageServiceTest.php",
+            "@php tests/DatabaseSchemaVerifierTest.php"
         ],
         "cs-fix": "@php -r \"echo 'Code style fixer not configured yet.' . PHP_EOL;\"",
         "verify": "php bin/verify.php --interactive=0 --timeout=180"
+    },
+    "config": {
+        "platform": {
+            "php": "7.4.33"
+        }
     },
     "minimum-stability": "stable",
     "prefer-stable": true

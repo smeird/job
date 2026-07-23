@@ -87,6 +87,7 @@ class HomeController
             'applications' => ['href' => '/applications', 'label' => 'Applications'],
             'contact' => ['href' => '/profile/contact-details', 'label' => 'Contact details'],
             'usage' => ['href' => '/usage', 'label' => 'Usage'],
+            'settings' => ['href' => '/settings/models', 'label' => 'Settings'],
             'retention' => ['href' => '/retention', 'label' => 'Retention'],
         ];
 

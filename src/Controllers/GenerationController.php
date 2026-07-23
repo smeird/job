@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Controllers;
 
+use App\AI\ModelCatalogService;
 use App\Documents\DocumentRepository;
 use App\Generations\GenerationRepository;
 use App\Prompts\PromptLibrary;
@@ -14,18 +15,14 @@ use Slim\Exception\HttpBadRequestException;
 
 final class GenerationController
 {
-    /** @var array<int, array{value: string, label: string}> */
-    private const MODELS = [
-        ['value' => 'gpt-5.4-mini', 'label' => 'GPT-5.4 Mini · Balanced performance'],
-        ['value' => 'gpt-5.4', 'label' => 'GPT-5.4 · Highest quality'],
-        ['value' => 'gpt-5.4-nano', 'label' => 'GPT-5.4 Nano · Fastest responses'],
-    ];
-
     /** @var GenerationRepository */
     private $generationRepository;
 
     /** @var DocumentRepository */
     private $documentRepository;
+
+    /** @var ModelCatalogService */
+    private $modelCatalog;
 
     /**
      * Construct the object with its required dependencies.
@@ -34,10 +31,12 @@ final class GenerationController
      */
     public function __construct(
         GenerationRepository $generationRepository,
-        DocumentRepository $documentRepository
+        DocumentRepository $documentRepository,
+        ModelCatalogService $modelCatalog
     ) {
         $this->generationRepository = $generationRepository;
         $this->documentRepository = $documentRepository;
+        $this->modelCatalog = $modelCatalog;
     }
 
     /**
@@ -77,12 +76,12 @@ final class GenerationController
             throw new HttpBadRequestException($request, 'Both job and CV documents are required.');
         }
 
-        if (!in_array($model, array_column(self::MODELS, 'value'), true)) {
+        if (!$this->modelCatalog->isSelectable($model)) {
             throw new HttpBadRequestException($request, 'Unknown model selection.');
         }
 
         if ($thinkingTime === null || $thinkingTime < 5 || $thinkingTime > 60) {
-            throw new HttpBadRequestException($request, 'Thinking time must be between 5 and 60 seconds.');
+            throw new HttpBadRequestException($request, 'Choose a valid analysis depth.');
         }
 
         $userId = (int) $user['user_id'];
@@ -169,17 +168,6 @@ final class GenerationController
         }
 
         return $this->json($response, $generation);
-    }
-
-    /**
-     * Handle the available models workflow.
-     *
-     * This helper keeps the available models logic centralised for clarity and reuse.
-     * @return array<int, array{value: string, label: string}>
-     */
-    public static function availableModels(): array
-    {
-        return self::MODELS;
     }
 
     /**

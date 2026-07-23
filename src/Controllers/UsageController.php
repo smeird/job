@@ -6,9 +6,9 @@ namespace App\Controllers;
 
 use App\Services\UsageService;
 use App\Views\Renderer;
-use JsonException;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
+use Throwable;
 
 class UsageController
 {
@@ -66,9 +66,10 @@ class UsageController
         try {
             $dataset = $this->usageService->getUsageForUser((int) $user['user_id']);
             $payload = json_encode($dataset, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-        } catch (JsonException $exception) {
+        } catch (Throwable $exception) {
+            error_log('Unable to load usage analytics: ' . $exception->getMessage());
             $response->getBody()->write((string) json_encode(
-                ['error' => 'Unable to encode response.'],
+                ['error' => 'Unable to load usage analytics.'],
                 JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
             ));
 

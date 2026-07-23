@@ -114,6 +114,10 @@ html[data-theme='light'] .bg-slate-900\/60 {
     background-color: rgba(241, 245, 249, 0.78) !important;
 }
 
+html[data-theme='light'] .bg-slate-900\/40 {
+    background-color: rgba(241, 245, 249, 0.68) !important;
+}
+
 html[data-theme='light'] .bg-slate-800 {
     background-color: #e2e8f0 !important;
 }
@@ -127,7 +131,12 @@ html[data-theme='light'] .border-slate-700 {
     border-color: rgba(148, 163, 184, 0.4) !important;
 }
 
+html[data-theme='light'] .border-white\/5 {
+    border-color: rgba(148, 163, 184, 0.3) !important;
+}
+
 html[data-theme='light'] .text-white,
+html[data-theme='light'] .text-slate-50,
 html[data-theme='light'] .text-slate-100 {
     color: #0b1220 !important;
 }

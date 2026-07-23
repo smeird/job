@@ -7,11 +7,11 @@ namespace App\Conversion;
 use App\DB;
 use DateTimeImmutable;
 use DOMDocument;
-use Dompdf\Dompdf;
-use Dompdf\Options;
 use League\CommonMark\CommonMarkConverter;
 use League\CommonMark\ConverterInterface;
 use League\CommonMark\Output\RenderedContentInterface;
+use Mpdf\Mpdf;
+use Mpdf\Output\Destination;
 use PDO;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
@@ -276,8 +276,8 @@ class Converter
         $priorSetting = libxml_use_internal_errors(true);
         $document = new DOMDocument('1.0', 'UTF-8');
         $loaded = $document->loadHTML(
-            '<?xml encoding="utf-8" ?>' . $html,
-            LIBXML_HTML_NOIMPLIED | LIBXML_HTML_NODEFDTD
+            '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>' . $html . '</body></html>',
+            LIBXML_HTML_NODEFDTD
         );
 
         if ($loaded === true) {
@@ -367,10 +367,7 @@ class Converter
      */
     private function convertMarkdownToPdf(string $markdown, bool $includeDate = false): string
     {
-        $html = $this->renderMarkdownToHtml($markdown);
-
-        $options = new Options();
-        $options->set('isRemoteEnabled', false);
+        $html = $this->sanitizeHtmlForDocx($this->renderMarkdownToHtml($markdown));
 
         $styles = <<<'CSS'
 @page {
@@ -516,12 +513,13 @@ CSS;
 </html>
 HTML;
 
-        $dompdf = new Dompdf($options);
-        $dompdf->loadHtml($template);
-        $dompdf->setPaper('A4', 'portrait');
-        $dompdf->render();
+        $mpdf = new Mpdf([
+            'format' => 'A4',
+            'tempDir' => sys_get_temp_dir(),
+        ]);
+        $mpdf->WriteHTML($template);
 
-        return $dompdf->output();
+        return $mpdf->Output('', Destination::STRING_RETURN);
     }
 
     /**

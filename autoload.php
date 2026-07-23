@@ -2,6 +2,11 @@
 
 declare(strict_types=1);
 
+// PHP-DI 6 is the PHP 7.4-compatible release and emits engine deprecations on PHP 8.5+.
+if (PHP_VERSION_ID >= 80500) {
+    error_reporting(E_ALL & ~E_DEPRECATED & ~E_USER_DEPRECATED);
+}
+
 require __DIR__ . '/src/Support/mbstring_polyfill.php';
 
 $autoloadPath = __DIR__ . '/vendor/autoload.php';

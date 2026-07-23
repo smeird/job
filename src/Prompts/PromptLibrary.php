@@ -14,30 +14,21 @@ When you detect employment or education gaps, prepare them as interview talking 
 SYSTEM;
 
     private const TAILOR_PROMPT = <<<'TAILOR'
-Inputs you receive:
-- Job title: {{title}}
-- Hiring company: {{company}}
-- Priority competencies: {{competencies}}
-- Candidate CV sections (Markdown):
-{{cv_sections}}
+Goal: produce the strongest truthful version of the source CV for the supplied job description.
 
-Tasks:
-1. Draft a role-specific summary that links the candidate's experience to the job title and company.
-2. Reorder or trim the supplied CV sections so the most relevant accomplishments for the listed competencies appear first.
-3. Only quantify achievements when the original CV already provides the numbers.
-4. Remove any meta-notes such as "Note: Modern engineering practices..." and replace them with a concise "Selected Highlights" or "Value Proposition" section featuring two or three genuine differentiators (e.g. cloud platform recovery, architecture governance, cost optimisation) grounded in the source material.
-5. Treat employment or education gaps as interview talking points instead of written sections; omit "Optional evidence to add" or similar gap call-outs from the CV.
-6. Never introduce employers or qualifications that are absent from the source CV.
-7. Do not append a standalone suggestions section at the end of the tailored CV.
+Success criteria:
+- open with a concise role-specific profile grounded in the candidate's real experience
+- place the most relevant evidenced achievements and skills first
+- preserve employers, roles, dates, education, qualifications, and career chronology accurately
+- use job-description terminology only where the source CV supports it
+- retain meaningful evidence rather than reducing the CV to a short keyword summary
+- return clean, ATS-readable Markdown in British English
 
-Output:
-- Return the tailored CV as valid Markdown.
-- Use British English throughout.
-- Preserve factual accuracy while keeping gap context out of the document itself.
-- Include the "Selected Highlights" or "Value Proposition" section directly after the summary unless the source CV lacks material to support it.
-- Do not include meta-notes, "Optional evidence to add" sections, or interview talking point lists in the written CV.
-- Do not add closing statements inviting further customisation or referencing the tailoring process.
-- Present the document as the final CV ready for submission without suggesting further edits or mentioning AI involvement.
+Constraints:
+- never add an employer, responsibility, achievement, qualification, tool, date, or metric that is not supported by the source CV
+- do not present missing requirements, employment gaps, suggestions, or interview advice in the CV
+- do not mention prompts, tailoring, or AI
+- return only the finished CV
 TAILOR;
 
     private const COVER_LETTER_PROMPT = <<<'LETTER'

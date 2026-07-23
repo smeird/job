@@ -51,7 +51,11 @@ if (!isset($migration['down']) || !is_array($migration['down'])) {
 
 echo sprintf("Rolling back migration %s...\n", $migrationId);
 
-$pdo->beginTransaction();
+$supportsTransactionalDdl = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql';
+
+if ($supportsTransactionalDdl) {
+    $pdo->beginTransaction();
+}
 
 try {
     foreach ($migration['down'] as $sql) {
@@ -61,9 +65,13 @@ try {
     $delete = $pdo->prepare('DELETE FROM schema_migrations WHERE migration = :migration');
     $delete->execute(['migration' => $migrationId]);
 
-    $pdo->commit();
+    if ($pdo->inTransaction()) {
+        $pdo->commit();
+    }
 } catch (Throwable $throwable) {
-    $pdo->rollBack();
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
 
     throw $throwable;
 }

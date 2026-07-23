@@ -8,6 +8,39 @@ use Dotenv\Dotenv;
 
 require __DIR__ . '/../autoload.php';
 
+/**
+ * Execute one migration statement while emulating portable ADD COLUMN IF NOT EXISTS support on MySQL.
+ */
+function execute_migration_statement(PDO $pdo, string $sql): void
+{
+    $driver = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+    $pattern = '/^\s*ALTER\s+TABLE\s+`?([A-Za-z0-9_]+)`?\s+ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+`?([A-Za-z0-9_]+)`?\s+(.+)$/is';
+
+    if ($driver === 'mysql' && preg_match($pattern, $sql, $matches) === 1) {
+        $check = $pdo->prepare(
+            'SELECT COUNT(*) FROM information_schema.columns '
+            . 'WHERE table_schema = DATABASE() AND table_name = :table_name AND column_name = :column_name'
+        );
+        $check->execute([
+            ':table_name' => $matches[1],
+            ':column_name' => $matches[2],
+        ]);
+
+        if ((int) $check->fetchColumn() > 0) {
+            return;
+        }
+
+        $sql = sprintf(
+            'ALTER TABLE `%s` ADD COLUMN `%s` %s',
+            $matches[1],
+            $matches[2],
+            $matches[3]
+        );
+    }
+
+    $pdo->exec($sql);
+}
+
 $rootPath = dirname(__DIR__);
 
 if (is_dir($rootPath)) {
@@ -55,19 +88,27 @@ foreach ($files as $file) {
 
     echo sprintf("Applying migration %s...\n", $migrationId);
 
-    $pdo->beginTransaction();
+    $supportsTransactionalDdl = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'mysql';
+
+    if ($supportsTransactionalDdl) {
+        $pdo->beginTransaction();
+    }
 
     try {
         foreach ($migration['up'] as $sql) {
-            $pdo->exec($sql);
+            execute_migration_statement($pdo, $sql);
         }
 
         $insert = $pdo->prepare('INSERT INTO schema_migrations (migration) VALUES (:migration)');
         $insert->execute(['migration' => $migrationId]);
 
-        $pdo->commit();
+        if ($pdo->inTransaction()) {
+            $pdo->commit();
+        }
     } catch (Throwable $throwable) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
 
         throw $throwable;
     }

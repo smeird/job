@@ -237,8 +237,6 @@ $additionalHead = '<script src="/assets/js/application-form.js" defer></script>'
                 </header>
                 <form method="post" action="/applications/<?= urlencode((string) ($application['id'] ?? '')) ?>/tailor" class="space-y-3">
                     <input type="hidden" name="_token" value="<?= htmlspecialchars((string) $csrfToken, ENT_QUOTES) ?>">
-                    <input type="hidden" name="model" value="gpt-5.4-mini">
-                    <input type="hidden" name="thinking_time" value="30">
                     <textarea name="prompt" class="hidden"><?= htmlspecialchars((string) $defaultPrompt, ENT_QUOTES) ?></textarea>
                     <label for="cv_document_id" class="text-xs font-semibold uppercase tracking-wide text-emerald-100 theme-light:text-emerald-700">Master CV</label>
                     <select id="cv_document_id" name="cv_document_id" class="w-full rounded-lg border border-emerald-400/40 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-300 theme-light:border-emerald-200 theme-light:bg-white theme-light:text-slate-700" required>
@@ -246,6 +244,20 @@ $additionalHead = '<script src="/assets/js/application-form.js" defer></script>'
                         <?php foreach ($cvOptions as $option) : ?>
                             <option value="<?= htmlspecialchars((string) $option['id'], ENT_QUOTES) ?>"><?= htmlspecialchars($option['label'], ENT_QUOTES) ?></option>
                         <?php endforeach; ?>
+                    </select>
+                    <label for="application_model" class="text-xs font-semibold uppercase tracking-wide text-emerald-100 theme-light:text-emerald-700">Model</label>
+                    <select id="application_model" name="model" class="w-full rounded-lg border border-emerald-400/40 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-300 theme-light:border-emerald-200 theme-light:bg-white theme-light:text-slate-700">
+                        <?php foreach ($modelOptions as $option) : ?>
+                            <option value="<?= htmlspecialchars((string) $option['value'], ENT_QUOTES) ?>" <?= $defaultModel === $option['value'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars((string) $option['label'], ENT_QUOTES) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <label for="application_thinking_time" class="text-xs font-semibold uppercase tracking-wide text-emerald-100 theme-light:text-emerald-700">Analysis depth</label>
+                    <select id="application_thinking_time" name="thinking_time" class="w-full rounded-lg border border-emerald-400/40 bg-slate-950 px-3 py-2 text-sm text-slate-100 focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-300 theme-light:border-emerald-200 theme-light:bg-white theme-light:text-slate-700">
+                        <option value="15">Fast</option>
+                        <option value="30" selected>Standard</option>
+                        <option value="50">Thorough</option>
                     </select>
                     <button type="submit" class="w-full rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-400" <?= empty($cvOptions) ? 'disabled' : '' ?>>
                         Queue tailored CV and link it

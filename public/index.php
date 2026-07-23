@@ -8,6 +8,7 @@ use App\Applications\JobApplicationRepository;
 use App\Applications\JobApplicationService;
 use App\Applications\JobPostingFetcher;
 use App\AI\OpenAIProvider;
+use App\AI\ModelCatalogService;
 use App\Contacts\ContactDetailsRepository;
 use App\Contacts\ContactDetailsService;
 use App\Controllers\DocumentController;
@@ -20,6 +21,7 @@ use App\Controllers\TailorController;
 use App\Controllers\ContactDetailsController;
 use App\Controllers\RetentionController;
 use App\Controllers\SchemaTestController;
+use App\Controllers\ModelSettingsController;
 use App\Documents\DocumentPreviewer;
 use App\Documents\DocumentRepository;
 use App\Documents\DocumentService;
@@ -41,6 +43,7 @@ use App\Services\DatabaseSchemaVerifier;
 use App\Services\RateLimiter;
 use App\Services\RetentionPolicyService;
 use App\Services\UsageService;
+use App\Settings\SiteSettingsRepository;
 use App\Views\Renderer;
 use DI\Container;
 use Slim\Factory\AppFactory;
@@ -53,14 +56,25 @@ require_once __DIR__ . '/../autoload.php';
 
 $rootPath = dirname(__DIR__);
 
+// Load .env before session and database initialisation so local configuration is honoured.
+Bootstrap::loadEnvironment($rootPath);
+
 ini_set('upload_max_filesize', '1M');
 ini_set('post_max_size', '2M');
+
+$configuredAppUrl = $_ENV['APP_URL'] ?? $_SERVER['APP_URL'] ?? getenv('APP_URL') ?: 'https://job.smeird.com';
+$configuredCookieDomain = $_ENV['APP_COOKIE_DOMAIN'] ?? $_SERVER['APP_COOKIE_DOMAIN'] ?? getenv('APP_COOKIE_DOMAIN');
+$cookieHost = parse_url((string) $configuredAppUrl, PHP_URL_HOST);
+$cookieDomain = $configuredCookieDomain === false || $configuredCookieDomain === null
+    ? (is_string($cookieHost) ? $cookieHost : 'job.smeird.com')
+    : trim((string) $configuredCookieDomain);
+$cookieSecure = parse_url((string) $configuredAppUrl, PHP_URL_SCHEME) === 'https';
 
 session_set_cookie_params([
     'lifetime' => 0,
     'path' => '/',
-    'domain' => $_ENV['APP_COOKIE_DOMAIN'] ?? getenv('APP_COOKIE_DOMAIN') ?: 'job.smeird.com',
-    'secure' => true,
+    'domain' => $cookieDomain,
+    'secure' => $cookieSecure,
     'httponly' => true,
     'samesite' => 'Lax',
 ]);
@@ -79,6 +93,14 @@ $container->set(\PDO::class, static function (): \PDO {
 
 $container->set(Renderer::class, static function () use ($rootPath): Renderer {
     return new Renderer($rootPath . '/resources/views');
+});
+
+$container->set(SiteSettingsRepository::class, static function (Container $c): SiteSettingsRepository {
+    return new SiteSettingsRepository($c->get(\PDO::class));
+});
+
+$container->set(ModelCatalogService::class, static function (Container $c): ModelCatalogService {
+    return new ModelCatalogService($c->get(SiteSettingsRepository::class));
 });
 
 $container->set(DocumentRepository::class, static function (Container $c): DocumentRepository {
@@ -151,7 +173,8 @@ $container->set(JobApplicationController::class, static function (Container $c):
         $c->get(Renderer::class),
         $c->get(JobApplicationRepository::class),
         $c->get(JobApplicationService::class),
-        $c->get(CompanyResearchService::class)
+        $c->get(CompanyResearchService::class),
+        $c->get(ModelCatalogService::class)
     );
 });
 
@@ -221,7 +244,8 @@ $container->set(TailorController::class, static function (Container $c): TailorC
         $c->get(DocumentRepository::class),
         $c->get(GenerationRepository::class),
         $c->get(GenerationLogRepository::class),
-        $c->get(GenerationDownloadService::class)
+        $c->get(GenerationDownloadService::class),
+        $c->get(ModelCatalogService::class)
     );
 });
 
@@ -235,7 +259,16 @@ $container->set(ContactDetailsController::class, static function (Container $c):
 $container->set(GenerationController::class, static function (Container $c): GenerationController {
     return new GenerationController(
         $c->get(GenerationRepository::class),
-        $c->get(DocumentRepository::class)
+        $c->get(DocumentRepository::class),
+        $c->get(ModelCatalogService::class)
+    );
+});
+
+$container->set(ModelSettingsController::class, static function (Container $c): ModelSettingsController {
+    return new ModelSettingsController(
+        $c->get(Renderer::class),
+        $c->get(ModelCatalogService::class),
+        $c->get(SiteSettingsRepository::class)
     );
 });
 
@@ -275,17 +308,6 @@ $container->set(SchemaTestController::class, static function (Container $c): Sch
     return new SchemaTestController(
         $c->get(Renderer::class),
         $c->get(DatabaseSchemaVerifier::class)
-    );
-});
-
-$container->set(RetentionPolicyService::class, static function (Container $c): RetentionPolicyService {
-    return new RetentionPolicyService($c->get(\PDO::class));
-});
-
-$container->set(RetentionController::class, static function (Container $c): RetentionController {
-    return new RetentionController(
-        $c->get(Renderer::class),
-        $c->get(RetentionPolicyService::class)
     );
 });
 
