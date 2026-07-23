@@ -15,6 +15,8 @@ function execute_migration_statement(PDO $pdo, string $sql): void
 {
     $driver = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
     $pattern = '/^\s*ALTER\s+TABLE\s+`?([A-Za-z0-9_]+)`?\s+ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+`?([A-Za-z0-9_]+)`?\s+(.+)$/is';
+    $indexPattern = '/^\s*ALTER\s+TABLE\s+`?([A-Za-z0-9_]+)`?\s+ADD\s+(?:INDEX|KEY)\s+IF\s+NOT\s+EXISTS\s+`?([A-Za-z0-9_]+)`?\s+(.+)$/is';
+    $constraintPattern = '/^\s*ALTER\s+TABLE\s+`?([A-Za-z0-9_]+)`?\s+ADD\s+CONSTRAINT\s+IF\s+NOT\s+EXISTS\s+`?([A-Za-z0-9_]+)`?\s+(.+)$/is';
 
     if ($driver === 'mysql' && preg_match($pattern, $sql, $matches) === 1) {
         $check = $pdo->prepare(
@@ -32,6 +34,46 @@ function execute_migration_statement(PDO $pdo, string $sql): void
 
         $sql = sprintf(
             'ALTER TABLE `%s` ADD COLUMN `%s` %s',
+            $matches[1],
+            $matches[2],
+            $matches[3]
+        );
+    } elseif ($driver === 'mysql' && preg_match($indexPattern, $sql, $matches) === 1) {
+        $check = $pdo->prepare(
+            'SELECT COUNT(*) FROM information_schema.statistics '
+            . 'WHERE table_schema = DATABASE() AND table_name = :table_name AND index_name = :index_name'
+        );
+        $check->execute([
+            ':table_name' => $matches[1],
+            ':index_name' => $matches[2],
+        ]);
+
+        if ((int) $check->fetchColumn() > 0) {
+            return;
+        }
+
+        $sql = sprintf(
+            'ALTER TABLE `%s` ADD INDEX `%s` %s',
+            $matches[1],
+            $matches[2],
+            $matches[3]
+        );
+    } elseif ($driver === 'mysql' && preg_match($constraintPattern, $sql, $matches) === 1) {
+        $check = $pdo->prepare(
+            'SELECT COUNT(*) FROM information_schema.table_constraints '
+            . 'WHERE constraint_schema = DATABASE() AND table_name = :table_name AND constraint_name = :constraint_name'
+        );
+        $check->execute([
+            ':table_name' => $matches[1],
+            ':constraint_name' => $matches[2],
+        ]);
+
+        if ((int) $check->fetchColumn() > 0) {
+            return;
+        }
+
+        $sql = sprintf(
+            'ALTER TABLE `%s` ADD CONSTRAINT `%s` %s',
             $matches[1],
             $matches[2],
             $matches[3]

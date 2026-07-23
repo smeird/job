@@ -581,13 +581,14 @@ final class GenerationRepository
         }
 
         $statement = $this->pdo->prepare(
-            'INSERT INTO jobs (type, payload_json, run_after, attempts, status, created_at)'
-                . ' VALUES (:type, :payload_json, :run_after, 0, :status, :created_at)'
+            'INSERT INTO jobs (type, payload_json, runtime_queue, run_after, attempts, status, created_at)'
+                . ' VALUES (:type, :payload_json, :runtime_queue, :run_after, 0, :status, :created_at)'
         );
 
         $statement->execute([
             ':type' => 'tailor_cv',
             ':payload_json' => json_encode($payload, JSON_THROW_ON_ERROR),
+            ':runtime_queue' => 'php',
             ':run_after' => $queuedAt,
             ':status' => 'pending',
             ':created_at' => $queuedAt,

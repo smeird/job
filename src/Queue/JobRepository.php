@@ -48,7 +48,7 @@ final class JobRepository
 
             $sql = 'SELECT id, type, payload_json, run_after, attempts, status, created_at '
                 . 'FROM jobs '
-                . 'WHERE status = :status AND run_after <= :now '
+                . 'WHERE status = :status AND runtime_queue = :runtime_queue AND run_after <= :now '
                 . 'ORDER BY run_after ASC, id ASC '
                 . 'LIMIT 1';
 
@@ -60,6 +60,7 @@ final class JobRepository
 
             $statement->execute([
                 ':status' => 'pending',
+                ':runtime_queue' => 'php',
                 ':now' => $this->currentTimestamp(),
             ]);
             $row = $statement->fetch(PDO::FETCH_ASSOC);

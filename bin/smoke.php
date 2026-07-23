@@ -940,6 +940,7 @@ final class SmokeSchema
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             type TEXT NOT NULL,
             payload_json TEXT NOT NULL,
+            runtime_queue TEXT NOT NULL DEFAULT "php",
             run_after TEXT NOT NULL,
             attempts INTEGER NOT NULL DEFAULT 0,
             status TEXT NOT NULL DEFAULT "pending",
@@ -1199,10 +1200,11 @@ final class SmokeGeneration
         $generationId = (int) $this->pdo->lastInsertId();
         $payload['generation_id'] = $generationId;
 
-        $insertJob = $this->pdo->prepare('INSERT INTO jobs (type, payload_json, run_after, attempts, status, created_at) VALUES (:type, :payload_json, :run_after, 0, :status, :created_at)');
+        $insertJob = $this->pdo->prepare('INSERT INTO jobs (type, payload_json, runtime_queue, run_after, attempts, status, created_at) VALUES (:type, :payload_json, :runtime_queue, :run_after, 0, :status, :created_at)');
         $insertJob->execute([
             'type' => 'tailor_cv',
             'payload_json' => json_encode($payload, JSON_THROW_ON_ERROR),
+            'runtime_queue' => 'php',
             'run_after' => $now,
             'status' => 'pending',
             'created_at' => $now,

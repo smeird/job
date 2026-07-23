@@ -1,0 +1,61 @@
+name: TypeScript migration
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: job_test
+          MYSQL_PASSWORD: job_test
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_USER: job_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      APP_ENV: test
+      APP_KEY: ci-only-secret-that-is-long-enough-for-signing
+      APP_URL: http://127.0.0.1:3000
+      DB_DATABASE: job_test
+      DB_DSN: mysql:host=127.0.0.1;port=3306;dbname=job_test
+      DB_HOST: 127.0.0.1
+      DB_PASSWORD: job_test
+      DB_PORT: 3306
+      DB_USERNAME: job_test
+      MAIL_LOG_PATH: /tmp/job-mail.log
+      OPENAI_API_KEY: ""
+      RUN_MYSQL_INTEGRATION: "true"
+      RUN_E2E_FULL: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          cache: npm
+          node-version: 24
+      - uses: shivammathur/setup-php@v2
+        with:
+          extensions: mbstring, pdo_mysql, zip
+          php-version: "7.4"
+      - run: composer install --no-interaction --prefer-dist
+      - run: php bin/migrate.php
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run test:integration
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - run: npm run audit:dependencies
+      - run: composer test

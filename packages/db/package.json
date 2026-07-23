@@ -1,0 +1,30 @@
+{
+  "name": "@job/db",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*.ts",
+    "./migrations": "./src/migrations/index.ts",
+    "./repositories/*": "./src/repositories/*.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "migrate": "tsx src/cli.ts migrate",
+    "characterize": "tsx src/cli.ts characterize",
+    "purge": "tsx src/cli.ts purge",
+    "queue-status": "tsx src/cli.ts queue-status",
+    "rollback": "tsx src/cli.ts rollback",
+    "verify": "tsx src/cli.ts verify",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "kysely": "0.29.4",
+    "mysql2": "^3.14.4",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.5"
+  }
+}

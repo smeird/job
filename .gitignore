@@ -4,3 +4,17 @@
 /.idea/
 .DS_Store
 /database/smoke.sqlite
+/node_modules/
+/.next/
+/apps/*/.next/
+/apps/*/dist/
+/packages/*/dist/
+/coverage/
+/playwright-report/
+/test-results/
+/tmp/docs/*
+/tmp/pdfs/*
+!/tmp/docs/.gitkeep
+!/tmp/pdfs/.gitkeep
+.eslintcache
+*.tsbuildinfo

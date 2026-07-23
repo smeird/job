@@ -1,6 +1,6 @@
 # Job Tune
 
-Job Tune turns a master CV and a job description into an evidence-led, ATS-readable tailored CV and optional cover letter. It is a Slim 4 application designed for PHP 7.4 and MySQL 8+, with queued OpenAI generation, authenticated downloads, usage reporting, and configurable retention.
+Job Tune turns a master CV and a job description into an evidence-led, ATS-readable tailored CV and cover letter. The replacement runtime is a strict-TypeScript npm workspace: a self-hosted Next.js 16 web app, a separate Node queue worker, shared Kysely repositories, and native document renderers. The PHP application remains temporarily as a route-by-route rollback target during cutover.
 
 ## What it does
 
@@ -14,10 +14,11 @@ Job Tune turns a master CV and a job description into an evidence-led, ATS-reada
 
 ## Requirements
 
-- PHP 7.4 with `pdo_mysql`, `mbstring`, `zip`, `fileinfo`, and `pcntl`
+- Node.js 24 LTS and npm 11+
 - MySQL 8+
-- Composer
 - An OpenAI API key for real generation and remote model refresh
+
+PHP 7.4 and Composer are required only during the coexistence and seven-day observation stages.
 
 SQLite is used only by the isolated smoke test. The web application and CLI migrations should be run against MySQL.
 
@@ -26,21 +27,24 @@ SQLite is used only by the isolated smoke test. The web application and CLI migr
 ```bash
 git clone https://github.com/smeird/job.git
 cd job
-composer install
+nvm use
+npm ci
 cp .env.example .env
-php bin/migrate.php
-composer start-dev
+# For local work, set APP_ENV=development, APP_URL=http://127.0.0.1:3000,
+# and leave APP_COOKIE_DOMAIN empty. Development supplies a local-only signing key.
+npm run db:migrate
+npm run dev:web
 ```
 
-The development server listens on `http://127.0.0.1:8080`. The built-in router serves static assets directly and sends application requests to Slim.
+The Next.js development server listens on `http://127.0.0.1:3000`.
 
 Run the queue worker in a second process:
 
 ```bash
-php bin/worker.php
+npm run dev:worker
 ```
 
-Production should point Apache or Nginx at `public/` and run the worker under a supervisor such as systemd.
+Production keeps Apache as the public TLS reverse proxy and runs the web and worker processes under systemd. See [the cutover runbook](docs/typescript-cutover.md).
 
 ## Important configuration
 
@@ -75,24 +79,27 @@ Keep tariff values current when models or pricing change. Unknown models remain 
 5. Outputs are stored and exposed as authenticated Markdown, DOCX, and PDF downloads.
 6. Each API request records model and token usage for analytics.
 
-The prompts live in `prompts/`; orchestration is in `src/Queue/Handler/TailorCvJobHandler.php` and `src/AI/OpenAIProvider.php`.
+The prompt contracts and OpenAI Responses orchestration live in `packages/core`; the queue handler lives in `apps/worker`. Generated Markdown is parsed into a restricted document tree before native DOCX and PDF rendering in `packages/documents`.
 
 ## Verification
 
 ```bash
-composer test
-php bin/smoke.php
-composer audit --locked
+npm run lint
+npm run typecheck
+npm test
+npm run build
+npm run audit:dependencies
 ```
 
-`composer test` covers planning and drafting request construction, model catalogue behaviour, precise usage aggregation, and database schema verification. The smoke test uses an isolated SQLite database and fake AI provider to exercise authentication, ingestion, queued CV/cover-letter generation, downloads, and retention purge without spending API credits.
+MySQL integration tests are deliberately guarded by `RUN_MYSQL_INTEGRATION=true` so they cannot run against a production database accidentally. Playwright tests use `npm run test:e2e` after a disposable test schema is configured.
 
 For a production release, also run one controlled generation with a real API key, download every format, and confirm the resulting API rows on `/usage`.
 
 ## Operations
 
-- Apply migrations after each deployment with `php bin/migrate.php`.
-- Run `php bin/worker.php` continuously for queued jobs.
-- Run `php bin/purge.php` daily from cron.
-- Restart PHP-FPM/Apache and queue workers after environment or code changes.
+- Apply migrations after each deployment with `npm run db:migrate`.
+- Run `npm run db:verify` after migration and `npm run db:queue-status` before final cutover.
+- Run the compiled TypeScript worker continuously using the supplied systemd unit.
+- Run `npm run retention:purge` daily from a systemd timer or cron.
+- Restart the Node web/worker services after environment or code changes; reload Apache only when proxy groups change.
 - Keep `.env`, generated documents, and API credentials out of version control.
