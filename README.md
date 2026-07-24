@@ -46,6 +46,15 @@ npm run dev:worker
 
 Production keeps Apache as the public TLS reverse proxy and runs the web and worker processes under systemd. See [the cutover runbook](docs/typescript-cutover.md).
 
+After merging a production release, deploy it from the Ubuntu checkout with:
+
+```bash
+git pull --ff-only origin main # First run only, to obtain the deployment script.
+./bin/deploy-production.sh --cutover
+```
+
+After that bootstrap pull, subsequent releases need only the script command; the script performs its own pull, verification, build, database backup and migration, systemd installation, Apache cutover, queue gate, and health checks. Run it as the normal deployment user; it requests `sudo` for the individual privileged operations.
+
 ## Important configuration
 
 | Variable | Purpose |

@@ -2,6 +2,21 @@
 
 The Next.js web process and TypeScript worker are designed to run alongside PHP until the final observation gate. MySQL remains the system of record throughout.
 
+## Automated production deployment
+
+On the Ubuntu web server, run the deployment as the normal checkout owner from the repository root:
+
+```bash
+git pull --ff-only origin main # First run only, to obtain the deployment script.
+./bin/deploy-production.sh --cutover
+```
+
+The initial manual pull is needed only because an older checkout does not contain the script yet. On every later release, run only `./bin/deploy-production.sh --cutover`; its first deployment action is a fast-forward-only pull from `origin/main`. The script then validates the checkout and production environment, installs locked dependencies, tests and builds the applications, audits production dependencies, backs up and characterises MySQL, applies and verifies migrations, installs the Node services, configures the existing Apache HTTPS vhost, checks the private and public health endpoints, and stops the PHP worker only after its queue reaches zero. It discovers the Apache vhost from `APP_URL`; pass `--apache-vhost /etc/apache2/sites-available/example.conf` if the server has an ambiguous layout.
+
+Use `--phased` for the coexistence stage. This starts the TypeScript services and exposes only `/_next/*` and `/__ts/healthz`, leaving PHP as the public application. The TypeScript worker is deliberately installed as `job-typescript-worker.service` so an existing `job-worker.service` PHP process is never overwritten.
+
+The command must not be run as root. It requests `sudo` only for protected deployment operations. Use `--skip-tests` or `--skip-db-dump` only during a deliberate recovery deployment; neither is the normal release path.
+
 ## Build and deploy dormant services
 
 1. Install Node.js 24 LTS and run `npm ci` followed by `npm run build`.

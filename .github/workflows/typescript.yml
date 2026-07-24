@@ -50,6 +50,7 @@ jobs:
       - run: composer install --no-interaction --prefer-dist
       - run: php bin/migrate.php
       - run: npm ci
+      - run: bash -n bin/deploy-production.sh
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
