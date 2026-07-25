@@ -9,6 +9,8 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
+    "deploy:production": "bash bin/deploy-production.sh",
+    "deploy:dry-run": "bash bin/deploy-production.sh --dry-run",
     "db:migrate": "tsx src/migrate.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc",

@@ -36,6 +36,26 @@ Open `http://127.0.0.1:3000`, create an account, and upload a `.docx` CV. `npm r
 
 Use [deploy/apache/job-tune.conf.example](deploy/apache/job-tune.conf.example) as a starting point. It assumes Apache reverse-proxies to a separately supervised Node process running `npm run start`. Set real database and session values in protected Apache configuration; never commit them. Enable Apache's `proxy`, `proxy_http`, and `headers` modules, terminate TLS in the production virtual host, and set `X-Forwarded-Proto` to `https` there.
 
+## Post-deploy update
+
+After `git pull --ff-only`, run this from the repository checkout:
+
+```bash
+npm run deploy:production
+```
+
+It uses `npm ci` to install exactly the dependency versions in `package-lock.json`, type-checks and compiles the TypeScript application, then runs the idempotent SQL migration files. It does not print `.env` or Apache environment values.
+
+The repository deliberately does not assume a Node service or Apache unit name. After the script finishes, restart the Node process with the server's existing supervisor. To include known restart operations in the same command without adding their names to the repository, set commands in the shell running the deploy:
+
+```bash
+JOB_TUNE_RESTART_COMMAND='sudo systemctl restart your-node-service' \
+JOB_TUNE_APACHE_RELOAD_COMMAND='sudo systemctl reload your-apache-service' \
+npm run deploy:production
+```
+
+Only set the Apache command when the virtual-host configuration changed; ordinary application releases only need the Node process restarted. Preview project commands without changing dependencies, the database, or services with `npm run deploy:dry-run`.
+
 ## Rebuild guardrails
 
 - Keep every user-owned resource scoped by `user_id` and enforce that scope in queries.
