@@ -14,9 +14,12 @@ An authenticated user uploads a Word (`.docx`) CV and pastes a job description c
 - Editable DOCX and PDF downloads generated from each output.
 - A mobile-ready job application tracker with status, dates, job links, notes, and linked source/tailored documents.
 - A reusable document library, generated cover letters, contact profile, selectable AI models, and optional Word-document email delivery.
+- Searchable document management with custom names, recoverable trash, restore, and guarded permanent deletion.
 - A safe no-key local fallback: it preserves the original CV verbatim, identifies matching terms already in it, and labels the output as `local_fallback`.
 
 The AI prompt explicitly treats the uploaded CV as the only factual authority. Review the generated change summary before use; automated text generation cannot replace user review.
+
+Document deletion is recoverable by default: **Move to trash** hides an item without removing its stored file or links. Permanent deletion is available only from Trash and requires typing `DELETE`. A master CV cannot be permanently deleted while any tailored application pack still depends on it.
 
 ## Local verification
 

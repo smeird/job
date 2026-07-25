@@ -17,4 +17,7 @@ body { min-width: 320px; }
 .button-primary:hover { background: rgb(14 116 144); }
 .button-secondary { display: inline-flex; min-height: 2.65rem; align-items: center; justify-content: center; border: 1px solid rgb(203 213 225); border-radius: .8rem; background: white; padding: .65rem 1rem; color: rgb(30 41 59); font-weight: 650; }
 .dark .button-secondary { border-color: rgb(71 85 105); background: rgb(30 41 59); color: white; }
+.button-danger { display: inline-flex; min-height: 2.65rem; align-items: center; justify-content: center; border: 1px solid rgb(254 202 202); border-radius: .8rem; background: rgb(255 241 242); padding: .65rem 1rem; color: rgb(190 18 60); font-weight: 700; }
+.button-danger:hover { background: rgb(255 228 230); }
+.dark .button-danger { border-color: rgb(136 19 55); background: rgb(76 5 25); color: rgb(253 164 175); }
 @media (max-width: 767px) { input, select, textarea { font-size: 16px !important; } }
