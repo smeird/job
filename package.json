@@ -12,6 +12,7 @@
     "deploy:production": "bash bin/deploy-production.sh",
     "deploy:dry-run": "bash bin/deploy-production.sh --dry-run",
     "db:migrate": "tsx src/migrate.ts",
+    "documents:samples": "tsx scripts/generate-document-samples.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc",
     "test": "tsx --test tests/*.test.ts",
