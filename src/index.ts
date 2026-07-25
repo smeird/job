@@ -1,10 +1,12 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
+import { generateAuthenticationOptions, generateRegistrationOptions, verifyAuthenticationResponse, verifyRegistrationResponse, type AuthenticationResponseJSON, type AuthenticatorTransportFuture, type RegistrationResponseJSON } from '@simplewebauthn/server';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import dotenv from 'dotenv';
 import express, { NextFunction, Request, Response } from 'express';
 import mammoth from 'mammoth';
 import multer from 'multer';
-import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { createDatabasePool } from './db';
@@ -20,7 +22,8 @@ app.use(express.json());
 type User = { id: number; email: string };
 type Cv = RowDataPacket & { id: number; original_filename: string; extracted_text: string; version_number: number };
 type Tailored = RowDataPacket & { id: number; tailored_text: string; change_summary: string; generation_mode: string; job_description: string; original_filename: string; created_at: Date };
-type PasscodeChallenge = RowDataPacket & { id: number; email: string; code_hash: string; attempts: number };
+type WebAuthnChallenge = RowDataPacket & { id: number; ceremony: 'registration' | 'authentication'; challenge: string; email: string | null; user_id: number | null; user_handle: Buffer | null };
+type PasskeyCredential = RowDataPacket & { credential_id: string; user_id: number; credential_public_key: Buffer; counter: number; transports: string | null };
 
 /** Escapes untrusted strings before placing them in server-rendered HTML. */
 function escapeHtml(value: string): string { return value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' }[character] || character)); }
@@ -28,37 +31,40 @@ function escapeHtml(value: string): string { return value.replace(/[&<>'"]/g, (c
 /** Reads a named cookie without bringing a client-session dependency into the application. */
 function cookie(request: Request, name: string): string | undefined { return request.headers.cookie?.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1); }
 
-/** Returns the server-only secret used to hash passcodes and opaque challenges. */
+/** Returns the server-only secret used to hash opaque WebAuthn ceremony tokens. */
 function authSecret(): string {
   const secret = process.env.AUTH_SECRET || process.env.SESSION_SECRET || '';
   if (process.env.NODE_ENV === 'production' && secret.length < 32) throw new Error('AUTH_SECRET must contain at least 32 characters in production.');
   return secret || 'development-only-job-tune-auth-secret';
 }
 
-/** Produces a one-way HMAC so passcodes and client challenges are never stored in plaintext. */
+/** Produces a one-way HMAC so client ceremony tokens are never stored in plaintext. */
 function authenticationHash(purpose: string, value: string): string { return crypto.createHmac('sha256', authSecret()).update(`${purpose}:${value}`).digest('hex'); }
 
-/** Compares fixed-length hexadecimal hashes without leaking useful timing information. */
-function hashesMatch(first: string, second: string): boolean { const left = Buffer.from(first, 'hex'); const right = Buffer.from(second, 'hex'); return left.length === right.length && crypto.timingSafeEqual(left, right); }
-
-/** Reports whether a configured SMTP server can deliver production passcodes. */
-function smtpIsConfigured(): boolean { return Boolean(process.env.SMTP_HOST && process.env.SMTP_FROM); }
-
-/** Allows deliberately visible passcodes only for explicit, non-production local development. */
-function developmentPasscodeIsEnabled(): boolean { return process.env.NODE_ENV !== 'production' && process.env.DEV_SHOW_PASSCODE === 'true'; }
-
-/** Sends a short-lived login passcode without logging its value. */
-async function sendPasscode(email: string, code: string): Promise<void> {
-  if (!smtpIsConfigured()) throw new Error('SMTP delivery is not configured.');
-  const transport = nodemailer.createTransport({ host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT || 587), secure: process.env.SMTP_SECURE === 'true', auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD } : undefined });
-  await transport.sendMail({ from: process.env.SMTP_FROM, to: email, subject: 'Your Job Tune sign-in code', text: `Your Job Tune sign-in code is ${code}. It expires in 10 minutes and can be used once. If you did not request it, ignore this email.` });
+/** Returns and validates the WebAuthn relying-party settings for this deployment. */
+function webAuthnConfig(): { rpID: string; origin: string; rpName: string } {
+  const rpID = process.env.WEBAUTHN_RP_ID || 'localhost';
+  const origin = process.env.WEBAUTHN_ORIGIN || `http://${rpID}:${process.env.PORT || 3000}`;
+  if (process.env.NODE_ENV === 'production' && (!process.env.WEBAUTHN_RP_ID || !process.env.WEBAUTHN_ORIGIN || !origin.startsWith('https://'))) throw new Error('Production passkeys require WEBAUTHN_RP_ID and an HTTPS WEBAUTHN_ORIGIN.');
+  return { rpID, origin: origin.replace(/\/$/, ''), rpName: process.env.WEBAUTHN_RP_NAME || 'Job Tune' };
 }
 
-/** Renders the passcode-entry form for a newly created opaque challenge. */
-function passcodeForm(challenge: string, developmentCode?: string): string {
-  const notice = developmentCode ? `<div class="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"><b>Development only:</b> your passcode is ${escapeHtml(developmentCode)}.</div>` : '<p class="mb-5 text-sm text-slate-300">Check your email for a six-digit code. It expires in 10 minutes.</p>';
-  return page('Enter passcode', `<div class="mx-auto max-w-md rounded-2xl bg-slate-900 p-7">${notice}<h1 class="text-2xl font-bold">Enter your passcode</h1><form class="mt-5" method="post" action="/auth/passcode/verify"><input type="hidden" name="challenge" value="${escapeHtml(challenge)}"><label class="block text-sm font-medium">Six-digit code<input class="mt-2 w-full rounded p-3 text-center font-mono text-2xl tracking-[.35em] text-slate-900" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus></label><button class="mt-5 w-full rounded bg-cyan-400 px-4 py-3 font-semibold text-slate-950">Sign in securely</button></form><a class="mt-5 block text-center text-sm text-cyan-300" href="/login">Request another code</a></div>`);
+/** Creates an opaque, single-use database record for a WebAuthn ceremony. */
+async function storeWebAuthnChallenge(ceremony: 'registration' | 'authentication', challenge: string, details: { email?: string; userId?: number; userHandle?: Buffer; requestIpHash: string }): Promise<string> {
+  const token = crypto.randomBytes(32).toString('hex');
+  await pool.query('DELETE FROM webauthn_challenges WHERE expires_at < DATE_SUB(NOW(), INTERVAL 1 DAY)');
+  await pool.query('INSERT INTO webauthn_challenges (token_hash,ceremony,challenge,email,user_id,user_handle,request_ip_hash,expires_at) VALUES (?,?,?,?,?,?,?,DATE_ADD(NOW(), INTERVAL 5 MINUTE))', [authenticationHash('webauthn-token', token), ceremony, challenge, details.email || null, details.userId || null, details.userHandle || null, details.requestIpHash]);
+  return token;
 }
+
+/** Applies a coarse IP throttle to anonymous challenge creation without storing raw addresses. */
+async function passkeyRequestIsRateLimited(request: Request): Promise<boolean> { const requestIpHash = authenticationHash('webauthn-ip', request.ip || 'unknown'); const [rows] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) AS requests FROM webauthn_challenges WHERE request_ip_hash=? AND created_at>DATE_SUB(NOW(), INTERVAL 15 MINUTE)', [requestIpHash]); return Number(rows[0].requests) >= 30; }
+
+/** Safely decodes the optional JSON list of transports stored with a credential. */
+function credentialTransports(value: string | null): AuthenticatorTransportFuture[] | undefined { if (!value) return undefined; try { return JSON.parse(value) as AuthenticatorTransportFuture[]; } catch { return undefined; } }
+
+/** Returns local browser scripts that run passkey ceremonies from native button clicks. */
+function passkeyBrowserScript(): string { return '<script src="/assets/simplewebauthn.js"></script><script src="/assets/passkeys.js"></script>'; }
 
 /** Looks up the authenticated user from the server-side MySQL session. */
 async function currentUser(request: Request): Promise<User | null> {
@@ -79,7 +85,7 @@ async function startSession(response: Response, userId: number): Promise<void> {
 }
 
 /** Renders the shared Tailwind-based page shell. */
-function page(title: string, body: string, user?: User): string { return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://cdn.tailwindcss.com"></script><title>${escapeHtml(title)} · Job Tune</title></head><body class="min-h-screen bg-slate-950 text-slate-100"><main class="mx-auto max-w-6xl px-5 py-8"><nav class="mb-12 flex items-center justify-between"><a href="/" class="text-xl font-bold tracking-tight text-cyan-300">Job Tune</a>${user ? `<span class="text-sm text-slate-300">${escapeHtml(user.email)} · <a class="text-cyan-300" href="/logout">Log out</a></span>` : ''}</nav>${body}</main></body></html>`; }
+function page(title: string, body: string, user?: User): string { return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><script src="https://cdn.tailwindcss.com"></script><title>${escapeHtml(title)} · Job Tune</title></head><body class="min-h-screen bg-slate-950 text-slate-100"><main class="mx-auto max-w-6xl px-5 py-8"><nav class="mb-12 flex items-center justify-between"><a href="/" class="text-xl font-bold tracking-tight text-cyan-300">Job Tune</a>${user ? `<span class="text-sm text-slate-300">${escapeHtml(user.email)} · <a class="text-cyan-300" href="/passkeys">Passkeys</a> · <a class="text-cyan-300" href="/logout">Log out</a></span>` : ''}</nav>${body}</main></body></html>`; }
 
 /** Preserves the input CV exactly when AI is unavailable while plainly identifying the limitation. */
 function localFallback(cvText: string, jobDescription: string): { tailoredText: string; summary: string; mode: string } {
@@ -108,74 +114,116 @@ async function pdfBuffer(text: string): Promise<Buffer> { const pdf = new PDFDoc
 /** Shows the post-login hero and the user's stored CV versions and tailored documents. */
 app.get('/', requireUser, async (request, response) => { const user = response.locals.user as User; const [cvs] = await pool.query<Cv[]>('SELECT id,original_filename,version_number,created_at FROM cv_documents WHERE user_id=? ORDER BY version_number DESC', [user.id]); const [outputs] = await pool.query<Tailored[]>('SELECT t.*, c.original_filename FROM tailored_cvs t JOIN cv_documents c ON c.id=t.source_cv_id WHERE t.user_id=? ORDER BY t.created_at DESC LIMIT 10', [user.id]); response.send(page('Workspace', `<section class="grid gap-8 lg:grid-cols-[1.1fr_.9fr]"><div><p class="mb-3 font-medium text-cyan-300">Factual tailoring, under your control</p><h1 class="text-5xl font-bold tracking-tight">Make each application feel written for the role.</h1><p class="mt-5 max-w-xl text-lg text-slate-300">Upload your Word CV, add a job description, review every proposed change, then download editable Word and submission-ready PDF files.</p></div><form class="rounded-3xl bg-white p-6 text-slate-900 shadow-2xl" action="/cvs" method="post" enctype="multipart/form-data"><h2 class="text-xl font-bold">1. Upload your CV</h2><label class="mt-4 block text-sm font-medium">Word .docx file<input required accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" name="cv" type="file" class="mt-2 block w-full rounded border p-2"></label><button class="mt-5 rounded bg-slate-950 px-4 py-2 font-semibold text-white">Save CV version</button></form></section><section class="mt-12 grid gap-8 lg:grid-cols-2"><div><h2 class="text-2xl font-bold">Your CV versions</h2><div class="mt-4 space-y-3">${cvs.length ? cvs.map((cv) => `<form class="rounded-xl bg-slate-900 p-4" action="/tailor" method="post"><input type="hidden" name="cvId" value="${cv.id}"><b>${escapeHtml(cv.original_filename)}</b> <span class="text-sm text-slate-400">Version ${cv.version_number}</span><textarea required name="jobDescription" class="mt-3 h-28 w-full rounded border border-slate-700 bg-slate-800 p-2" placeholder="Paste the job description copied from the website"></textarea><button class="mt-3 rounded bg-cyan-400 px-4 py-2 font-semibold text-slate-950">Create tailored CV</button></form>`).join('') : '<p class="text-slate-400">No CV uploaded yet.</p>'}</div></div><div><h2 class="text-2xl font-bold">Recent tailored CVs</h2><div class="mt-4 space-y-3">${outputs.length ? outputs.map((output) => `<div class="rounded-xl bg-slate-900 p-4"><b>${escapeHtml(output.original_filename)}</b><p class="mt-1 text-sm text-slate-400">${escapeHtml(output.generation_mode)}</p><a class="mt-3 inline-block text-cyan-300" href="/tailored/${output.id}">Review changes and download →</a></div>`).join('') : '<p class="text-slate-400">Your reviewed outputs will appear here.</p>'}</div></div></section>`, user)); });
 
-/** Displays one passwordless form for both new and returning users. */
-app.get('/login', (_request, response) => response.send(page('Sign in', `<div class="mx-auto max-w-md rounded-2xl bg-slate-900 p-7"><p class="text-sm font-medium text-cyan-300">Passwordless access</p><h1 class="mt-2 text-3xl font-bold">Sign in with a passcode</h1><p class="mt-3 text-sm leading-6 text-slate-300">Enter your email and we will send a single-use code. New users are created after their email is verified.</p><form class="mt-6" method="post" action="/auth/passcode/request"><label class="block text-sm font-medium">Email address<input class="mt-2 w-full rounded p-3 text-slate-900" name="email" type="email" autocomplete="email" required autofocus></label><button class="mt-5 w-full rounded bg-cyan-400 px-4 py-3 font-semibold text-slate-950">Send passcode</button></form></div>`)));
+/** Serves the pinned browser helper locally instead of loading authentication code from a CDN. */
+app.get('/assets/simplewebauthn.js', (_request, response) => response.type('application/javascript').send(fs.readFileSync(path.resolve(__dirname, '..', 'node_modules', '@simplewebauthn', 'browser', 'dist', 'bundle', 'index.umd.min.js'))));
 
-/** Creates and delivers a rate-limited, short-lived passcode challenge. */
-app.post('/auth/passcode/request', async (request, response) => {
-  const email = String(request.body.email || '').trim().toLowerCase();
-  if (!/^\S+@\S+\.\S+$/.test(email)) { response.status(400).send('Enter a valid email address.'); return; }
-  if (!smtpIsConfigured() && !developmentPasscodeIsEnabled()) { response.status(503).send(page('Email unavailable', '<div class="mx-auto max-w-md rounded-2xl bg-slate-900 p-7"><h1 class="text-2xl font-bold">Email sign-in is not configured</h1><p class="mt-3 text-slate-300">Ask the administrator to configure SMTP delivery, then try again.</p></div>')); return; }
-  const requestIpHash = authenticationHash('ip', request.ip || 'unknown');
-  const [limits] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) AS requests FROM login_passcodes WHERE created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE) AND (email=? OR request_ip_hash=?)', [email, requestIpHash]);
-  if (Number(limits[0].requests) >= 5) { response.status(429).send('Too many passcode requests. Wait 15 minutes and try again.'); return; }
-  const code = crypto.randomInt(0, 1000000).toString().padStart(6, '0');
-  const challenge = crypto.randomBytes(32).toString('hex');
-  const challengeHash = authenticationHash('challenge', challenge);
-  await pool.query('DELETE FROM login_passcodes WHERE expires_at < DATE_SUB(NOW(), INTERVAL 1 DAY)');
-  await pool.query('INSERT INTO login_passcodes (email,challenge_hash,code_hash,request_ip_hash,expires_at) VALUES (?,?,?,?,DATE_ADD(NOW(), INTERVAL 10 MINUTE))', [email, challengeHash, authenticationHash('code', `${challenge}:${code}`), requestIpHash]);
-  try {
-    if (smtpIsConfigured()) await sendPasscode(email, code);
-  } catch (error) {
-    await pool.query('DELETE FROM login_passcodes WHERE challenge_hash=?', [challengeHash]);
-    console.error(`Passcode delivery failed: ${(error as Error).message}`);
-    response.status(502).send('The sign-in email could not be sent. Try again later.');
-    return;
+/** Serves the application-owned browser orchestration for registration and sign-in. */
+app.get('/assets/passkeys.js', (_request, response) => response.type('application/javascript').send(fs.readFileSync(path.resolve(__dirname, '..', 'public', 'passkeys.js'))));
+
+/** Displays passkey sign-in and secure first-account registration controls. */
+app.get('/login', (_request, response) => response.send(page('Sign in', `<div class="mx-auto grid max-w-3xl gap-6 md:grid-cols-2"><section class="rounded-2xl bg-slate-900 p-7"><p class="text-sm font-medium text-cyan-300">Returning user</p><h1 class="mt-2 text-3xl font-bold">Sign in with a passkey</h1><p class="mt-3 text-sm leading-6 text-slate-300">Use Face ID, Touch ID, Windows Hello, your device PIN, or a security key.</p><button id="passkey-sign-in" class="mt-6 w-full rounded bg-cyan-400 px-4 py-3 font-semibold text-slate-950">Use my passkey</button></section><section class="rounded-2xl bg-white p-7 text-slate-900"><p class="text-sm font-medium text-cyan-700">New user</p><h2 class="mt-2 text-2xl font-bold">Create your first passkey</h2><label class="mt-4 block text-sm font-medium">Email address<input id="passkey-email" class="mt-2 w-full rounded border p-3" type="email" autocomplete="email" required></label><button id="passkey-register" class="mt-5 w-full rounded bg-slate-950 px-4 py-3 font-semibold text-white">Create passkey</button></section></div><p id="passkey-status" class="mx-auto mt-4 max-w-3xl text-sm text-slate-400">Passkeys require a supported browser and HTTPS on the public site.</p>${passkeyBrowserScript()}`)));
+
+/** Displays a signed-in page for adding another passkey without risking account takeover. */
+app.get('/passkeys', requireUser, (_request, response) => response.send(page('Passkeys', `<div class="mx-auto max-w-xl rounded-2xl bg-slate-900 p-7"><p class="text-sm font-medium text-cyan-300">Account security</p><h1 class="mt-2 text-3xl font-bold">Add another passkey</h1><p class="mt-3 text-slate-300">A second device or hardware security key can prevent account loss.</p><button id="passkey-register" class="mt-6 rounded bg-cyan-400 px-4 py-3 font-semibold text-slate-950">Add passkey</button><p id="passkey-status" class="mt-4 text-sm text-slate-400"></p></div>${passkeyBrowserScript()}`, response.locals.user)));
+
+/** Generates registration options for a new user or the currently authenticated user. */
+app.post('/auth/passkeys/register/options', async (request, response) => {
+  if (await passkeyRequestIsRateLimited(request)) { response.status(429).json({ error: 'Too many passkey requests. Wait 15 minutes and try again.' }); return; }
+  const signedInUser = await currentUser(request);
+  let email = signedInUser?.email || String(request.body.email || '').trim().toLowerCase();
+  let userId = signedInUser?.id;
+  let userHandle: Buffer;
+  let excludeCredentials: Array<{ id: string; transports?: AuthenticatorTransportFuture[] }> = [];
+  if (!signedInUser && !/^\S+@\S+\.\S+$/.test(email)) { response.status(400).json({ error: 'Enter a valid email address.' }); return; }
+  if (signedInUser) {
+    const [users] = await pool.query<RowDataPacket[]>('SELECT webauthn_user_id FROM users WHERE id=?', [userId]);
+    userHandle = users[0].webauthn_user_id ? Buffer.from(users[0].webauthn_user_id) : crypto.randomBytes(32);
+    if (!users[0].webauthn_user_id) {
+      await pool.query('UPDATE users SET webauthn_user_id=? WHERE id=? AND webauthn_user_id IS NULL', [userHandle, userId]);
+      const [updatedUsers] = await pool.query<RowDataPacket[]>('SELECT webauthn_user_id FROM users WHERE id=?', [userId]);
+      userHandle = Buffer.from(updatedUsers[0].webauthn_user_id);
+    }
+    const [credentials] = await pool.query<PasskeyCredential[]>('SELECT credential_id,transports FROM webauthn_credentials WHERE user_id=?', [userId]);
+    excludeCredentials = credentials.map((credential) => ({ id: credential.credential_id, transports: credentialTransports(credential.transports) }));
+  } else {
+    const [existing] = await pool.query<RowDataPacket[]>('SELECT id FROM users WHERE email=?', [email]);
+    if (existing.length) { response.status(409).json({ error: 'This account already exists. Sign in with its passkey.' }); return; }
+    userHandle = crypto.randomBytes(32);
   }
-  response.send(passcodeForm(challenge, developmentPasscodeIsEnabled() && !smtpIsConfigured() ? code : undefined));
+  const config = webAuthnConfig();
+  const options = await generateRegistrationOptions({ rpName: config.rpName, rpID: config.rpID, userName: email, userDisplayName: email, userID: new Uint8Array(userHandle), attestationType: 'none', excludeCredentials, authenticatorSelection: { residentKey: 'required', userVerification: 'required' }, supportedAlgorithmIDs: [-7, -257] });
+  const token = await storeWebAuthnChallenge('registration', options.challenge, { email, userId, userHandle, requestIpHash: authenticationHash('webauthn-ip', request.ip || 'unknown') });
+  response.json({ token, options });
 });
 
-/** Consumes a valid passcode atomically, creates the user if needed, and starts a session. */
-app.post('/auth/passcode/verify', async (request, response) => {
-  const challenge = String(request.body.challenge || '');
-  const code = String(request.body.code || '').trim();
-  if (!/^[a-f0-9]{64}$/.test(challenge) || !/^\d{6}$/.test(code)) { response.status(400).send('Enter the six-digit code from your email.'); return; }
+/** Verifies a registration ceremony and stores only the public credential material. */
+app.post('/auth/passkeys/register/verify', async (request, response) => {
+  const token = String(request.body.token || '');
+  if (!/^[a-f0-9]{64}$/.test(token) || !request.body.credential) { response.status(400).json({ error: 'Invalid registration response.' }); return; }
+  const tokenHash = authenticationHash('webauthn-token', token);
+  const [challenges] = await pool.query<WebAuthnChallenge[]>('SELECT * FROM webauthn_challenges WHERE token_hash=? AND ceremony=? AND consumed_at IS NULL AND expires_at>NOW()', [tokenHash, 'registration']);
+  const challenge = challenges[0];
+  if (!challenge || !challenge.email || !challenge.user_handle) { response.status(401).json({ error: 'Registration expired. Start again.' }); return; }
+  const config = webAuthnConfig();
+  const verification = await verifyRegistrationResponse({ response: request.body.credential as RegistrationResponseJSON, expectedChallenge: challenge.challenge, expectedOrigin: config.origin, expectedRPID: config.rpID, requireUserVerification: true });
+  if (!verification.verified || !verification.registrationInfo) { response.status(401).json({ error: 'Passkey registration could not be verified.' }); return; }
+  const signedInUser = await currentUser(request);
+  if (challenge.user_id && signedInUser?.id !== challenge.user_id) { response.status(403).json({ error: 'Sign in again before adding a passkey.' }); return; }
   const connection = await pool.getConnection();
-  let userId: number | null = null;
+  let userId = challenge.user_id;
   try {
     await connection.beginTransaction();
-    const challengeHash = authenticationHash('challenge', challenge);
-    const [rows] = await connection.query<PasscodeChallenge[]>('SELECT id,email,code_hash,attempts FROM login_passcodes WHERE challenge_hash=? AND consumed_at IS NULL AND expires_at > NOW() FOR UPDATE', [challengeHash]);
-    const record = rows[0];
-    if (!record || record.attempts >= 5) { await connection.rollback(); response.status(401).send('This passcode is invalid or expired. Request a new one.'); return; }
-    const submittedHash = authenticationHash('code', `${challenge}:${code}`);
-    if (!hashesMatch(record.code_hash, submittedHash)) {
-      await connection.query('UPDATE login_passcodes SET attempts=attempts+1, consumed_at=IF(attempts+1>=5,NOW(),consumed_at) WHERE id=?', [record.id]);
-      await connection.commit();
-      response.status(401).send('This passcode is invalid or expired. Request a new one.');
-      return;
+    const [consumed] = await connection.query<ResultSetHeader>('UPDATE webauthn_challenges SET consumed_at=NOW() WHERE id=? AND consumed_at IS NULL', [challenge.id]);
+    if (consumed.affectedRows !== 1) throw new Error('Registration challenge was already used.');
+    if (!userId) {
+      const [created] = await connection.query<ResultSetHeader>('INSERT INTO users (email,password_hash,webauthn_user_id) VALUES (?,NULL,?)', [challenge.email, challenge.user_handle]);
+      userId = created.insertId;
     }
-    await connection.query('INSERT INTO users (email,password_hash) VALUES (?,NULL) ON DUPLICATE KEY UPDATE email=VALUES(email)', [record.email]);
-    const [users] = await connection.query<RowDataPacket[]>('SELECT id FROM users WHERE email=?', [record.email]);
-    userId = Number(users[0].id);
-    await connection.query('UPDATE login_passcodes SET consumed_at=NOW() WHERE id=?', [record.id]);
+    const credential = verification.registrationInfo.credential;
+    await connection.query('INSERT INTO webauthn_credentials (credential_id,user_id,credential_public_key,signature_counter,transports,device_type,backed_up) VALUES (?,?,?,?,?,?,?)', [credential.id, userId, Buffer.from(credential.publicKey), credential.counter, credential.transports ? JSON.stringify(credential.transports) : null, verification.registrationInfo.credentialDeviceType, verification.registrationInfo.credentialBackedUp ? 1 : 0]);
     await connection.commit();
-  } catch (error) {
-    await connection.rollback();
-    throw error;
-  } finally {
-    connection.release();
-  }
-  if (userId === null) { response.status(500).send('Sign-in could not be completed.'); return; }
-  await startSession(response, userId);
-  response.redirect('/');
+  } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
+  await startSession(response, Number(userId));
+  response.json({ verified: true });
 });
 
-/** Keeps old bookmarks and forms on the new passcode request route. */
-app.post('/login', (request, response) => { response.redirect(307, '/auth/passcode/request'); });
+/** Generates username-free authentication options for discoverable passkeys. */
+app.post('/auth/passkeys/authenticate/options', async (request, response) => {
+  if (await passkeyRequestIsRateLimited(request)) { response.status(429).json({ error: 'Too many passkey requests. Wait 15 minutes and try again.' }); return; }
+  const config = webAuthnConfig();
+  const options = await generateAuthenticationOptions({ rpID: config.rpID, userVerification: 'required' });
+  const token = await storeWebAuthnChallenge('authentication', options.challenge, { requestIpHash: authenticationHash('webauthn-ip', request.ip || 'unknown') });
+  response.json({ token, options });
+});
 
-/** Keeps the former registration route compatible with passwordless onboarding. */
-app.post('/register', (request, response) => { response.redirect(307, '/auth/passcode/request'); });
+/** Verifies a passkey signature, advances its replay counter, and starts a session. */
+app.post('/auth/passkeys/authenticate/verify', async (request, response) => {
+  const token = String(request.body.token || '');
+  const credentialResponse = request.body.credential as AuthenticationResponseJSON | undefined;
+  if (!/^[a-f0-9]{64}$/.test(token) || !credentialResponse?.id) { response.status(400).json({ error: 'Invalid authentication response.' }); return; }
+  const tokenHash = authenticationHash('webauthn-token', token);
+  const [challenges] = await pool.query<WebAuthnChallenge[]>('SELECT * FROM webauthn_challenges WHERE token_hash=? AND ceremony=? AND consumed_at IS NULL AND expires_at>NOW()', [tokenHash, 'authentication']);
+  const [credentials] = await pool.query<PasskeyCredential[]>('SELECT credential_id,user_id,credential_public_key,signature_counter AS counter,transports FROM webauthn_credentials WHERE credential_id=?', [credentialResponse.id]);
+  const challenge = challenges[0]; const credential = credentials[0];
+  if (!challenge || !credential) { response.status(401).json({ error: 'Passkey authentication failed.' }); return; }
+  const config = webAuthnConfig();
+  const verification = await verifyAuthenticationResponse({ response: credentialResponse, expectedChallenge: challenge.challenge, expectedOrigin: config.origin, expectedRPID: config.rpID, credential: { id: credential.credential_id, publicKey: new Uint8Array(credential.credential_public_key), counter: Number(credential.counter), transports: credentialTransports(credential.transports) }, requireUserVerification: true });
+  if (!verification.verified) { response.status(401).json({ error: 'Passkey authentication failed.' }); return; }
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+    const [consumed] = await connection.query<ResultSetHeader>('UPDATE webauthn_challenges SET consumed_at=NOW() WHERE id=? AND consumed_at IS NULL', [challenge.id]);
+    if (consumed.affectedRows !== 1) throw new Error('Authentication challenge was already used.');
+    const [updated] = await connection.query<ResultSetHeader>('UPDATE webauthn_credentials SET signature_counter=?,last_used_at=NOW() WHERE credential_id=? AND signature_counter=?', [verification.authenticationInfo.newCounter, credential.credential_id, credential.counter]);
+    if (updated.affectedRows !== 1) throw new Error('Credential counter changed during authentication.');
+    await connection.commit();
+  } catch (error) { await connection.rollback(); throw error; } finally { connection.release(); }
+  await startSession(response, credential.user_id);
+  response.json({ verified: true });
+});
+
+/** Redirects obsolete password and passcode forms to the passkey page. */
+app.post(['/login', '/register', '/auth/passcode/request', '/auth/passcode/verify'], (_request, response) => response.redirect(303, '/login'));
 
 /** Deletes the active server-side session and clears its browser cookie. */
 app.get('/logout', async (request, response) => { const id = cookie(request, 'job_tune_session'); if (id) await pool.query('DELETE FROM sessions WHERE id=?', [id]); response.clearCookie('job_tune_session'); response.redirect('/login'); });
@@ -199,6 +247,6 @@ app.get('/tailored/:id/download.:format', requireUser, async (request, response)
 app.use((error: Error, _request: Request, response: Response, _next: NextFunction) => { console.error(error.message); response.status(400).send('The request could not be processed. Check the file and try again.'); });
 
 /** Starts the HTTP service behind Apache once this module is executed directly. */
-function start(): void { app.listen(Number(process.env.PORT || 3000), () => console.log(`Job Tune listening on port ${process.env.PORT || 3000}`)); }
+function start(): void { webAuthnConfig(); app.listen(Number(process.env.PORT || 3000), () => console.log(`Job Tune listening on port ${process.env.PORT || 3000}`)); }
 
 start();

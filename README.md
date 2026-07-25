@@ -8,7 +8,7 @@ An authenticated user uploads a Word (`.docx`) CV and pastes a job description c
 
 ## What works now
 
-- Passwordless email passcodes and server-side MySQL sessions.
+- Phishing-resistant WebAuthn passkeys and server-side MySQL sessions.
 - User-isolated, versioned `.docx` CV uploads; the original file and extracted text are retained separately.
 - Job-description paste, factual AI tailoring, a clear review summary, and separate stored tailored outputs.
 - Editable DOCX and PDF downloads generated from each output.
@@ -26,13 +26,17 @@ npm run db:migrate
 npm run dev
 ```
 
-Open `http://127.0.0.1:3000`, create an account, and upload a `.docx` CV. `npm run check` runs the TypeScript type checker and `npm run build` emits `dist/`.
+Open `http://localhost:3000`, create an account, and upload a `.docx` CV. Use the same hostname configured in `WEBAUTHN_RP_ID`; `127.0.0.1` and `localhost` are different passkey identities. `npm run check` runs the TypeScript type checker and `npm run build` emits `dist/`.
 
-## Passwordless sign-in
+## Passkey sign-in
 
-Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` to deliver six-digit email passcodes. Set `AUTH_SECRET` to a separate random value containing at least 32 characters. Codes are stored only as HMAC hashes, expire after 10 minutes, are single-use, allow at most five verification attempts, and requests are throttled by email and source IP.
+Set `AUTH_SECRET` to a random value containing at least 32 characters. In production, set `WEBAUTHN_RP_ID` to the public hostname (for example `job.smeird.com`) and `WEBAUTHN_ORIGIN` to the exact HTTPS origin (for example `https://job.smeird.com`). These values bind every registration and authentication signature to this site.
 
-For local development without SMTP, set `DEV_SHOW_PASSCODE=true`; the code is then displayed in the browser. This option is disabled automatically when `NODE_ENV=production` and must never be used on a public server.
+New users create a discoverable passkey after entering their email. Returning users sign in without typing an email. User verification is required, so authenticators use Face ID, Touch ID, Windows Hello, a device PIN, or a security key. Signed-in users can add another passkey at `/passkeys`; keeping a second passkey is strongly recommended because there is no insecure password fallback.
+
+Passkeys require HTTPS on public deployments. `localhost` is supported for local development; passkeys created for localhost are separate from those created for the production domain.
+
+When upgrading an account created before passkeys, keep its existing session open, deploy the migration, visit `/passkeys`, and register a credential before signing out. An existing account without either an active session or a registered passkey requires an administrator-assisted recovery; the public registration endpoint will not allow someone to claim an existing email address.
 
 ## AI configuration
 
