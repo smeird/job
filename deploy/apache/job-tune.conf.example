@@ -1,8 +1,22 @@
-# Apache remains the public-facing server. Point this proxy at the future TypeScript service.
+# Apache remains the public-facing server and supplies runtime configuration.
 <VirtualHost *:80>
     ServerName job-tune.example.com
 
+    # Put real secret values in Apache's protected configuration, never in Git.
+    SetEnv NODE_ENV production
+    SetEnv PORT 3000
+    SetEnv DB_HOST 127.0.0.1
+    SetEnv DB_PORT 3306
+    SetEnv DB_NAME job_tune
+    SetEnv DB_USER job_tune
+    SetEnv DB_PASSWORD change-me
+    SetEnv SESSION_SECRET change-me
+    # Optional: enables AI tailoring; without it the factual local fallback runs.
+    SetEnv OPENAI_API_KEY ""
+    SetEnv OPENAI_MODEL gpt-4.1-mini
+
     ProxyPreserveHost On
+    RequestHeader set X-Forwarded-Proto "http"
     ProxyPass / http://127.0.0.1:3000/
     ProxyPassReverse / http://127.0.0.1:3000/
 </VirtualHost>
