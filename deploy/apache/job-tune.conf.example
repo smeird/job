@@ -11,6 +11,13 @@
     SetEnv DB_USER job_tune
     SetEnv DB_PASSWORD change-me
     SetEnv SESSION_SECRET change-me
+    SetEnv AUTH_SECRET change-me-to-at-least-32-random-characters
+    SetEnv SMTP_HOST smtp.example.com
+    SetEnv SMTP_PORT 587
+    SetEnv SMTP_SECURE false
+    SetEnv SMTP_USER ""
+    SetEnv SMTP_PASSWORD ""
+    SetEnv SMTP_FROM "Job Tune <no-reply@example.com>"
     # Optional: enables AI tailoring; without it the factual local fallback runs.
     SetEnv OPENAI_API_KEY ""
     SetEnv OPENAI_MODEL gpt-4.1-mini

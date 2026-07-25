@@ -1,10 +1,10 @@
 import crypto from 'node:crypto';
-import bcrypt from 'bcryptjs';
 import { Document, Packer, Paragraph, TextRun } from 'docx';
 import dotenv from 'dotenv';
 import express, { NextFunction, Request, Response } from 'express';
 import mammoth from 'mammoth';
 import multer from 'multer';
+import nodemailer from 'nodemailer';
 import PDFDocument from 'pdfkit';
 import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
 import { createDatabasePool } from './db';
@@ -13,18 +13,52 @@ dotenv.config();
 const app = express();
 const pool = createDatabasePool();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 8 * 1024 * 1024 }, fileFilter: (_req, file, callback) => callback(null, file.originalname.toLowerCase().endsWith('.docx')) });
+app.set('trust proxy', 'loopback');
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
 type User = { id: number; email: string };
 type Cv = RowDataPacket & { id: number; original_filename: string; extracted_text: string; version_number: number };
 type Tailored = RowDataPacket & { id: number; tailored_text: string; change_summary: string; generation_mode: string; job_description: string; original_filename: string; created_at: Date };
+type PasscodeChallenge = RowDataPacket & { id: number; email: string; code_hash: string; attempts: number };
 
 /** Escapes untrusted strings before placing them in server-rendered HTML. */
 function escapeHtml(value: string): string { return value.replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#039;', '"': '&quot;' }[character] || character)); }
 
 /** Reads a named cookie without bringing a client-session dependency into the application. */
 function cookie(request: Request, name: string): string | undefined { return request.headers.cookie?.split(';').map((part) => part.trim()).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1); }
+
+/** Returns the server-only secret used to hash passcodes and opaque challenges. */
+function authSecret(): string {
+  const secret = process.env.AUTH_SECRET || process.env.SESSION_SECRET || '';
+  if (process.env.NODE_ENV === 'production' && secret.length < 32) throw new Error('AUTH_SECRET must contain at least 32 characters in production.');
+  return secret || 'development-only-job-tune-auth-secret';
+}
+
+/** Produces a one-way HMAC so passcodes and client challenges are never stored in plaintext. */
+function authenticationHash(purpose: string, value: string): string { return crypto.createHmac('sha256', authSecret()).update(`${purpose}:${value}`).digest('hex'); }
+
+/** Compares fixed-length hexadecimal hashes without leaking useful timing information. */
+function hashesMatch(first: string, second: string): boolean { const left = Buffer.from(first, 'hex'); const right = Buffer.from(second, 'hex'); return left.length === right.length && crypto.timingSafeEqual(left, right); }
+
+/** Reports whether a configured SMTP server can deliver production passcodes. */
+function smtpIsConfigured(): boolean { return Boolean(process.env.SMTP_HOST && process.env.SMTP_FROM); }
+
+/** Allows deliberately visible passcodes only for explicit, non-production local development. */
+function developmentPasscodeIsEnabled(): boolean { return process.env.NODE_ENV !== 'production' && process.env.DEV_SHOW_PASSCODE === 'true'; }
+
+/** Sends a short-lived login passcode without logging its value. */
+async function sendPasscode(email: string, code: string): Promise<void> {
+  if (!smtpIsConfigured()) throw new Error('SMTP delivery is not configured.');
+  const transport = nodemailer.createTransport({ host: process.env.SMTP_HOST, port: Number(process.env.SMTP_PORT || 587), secure: process.env.SMTP_SECURE === 'true', auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD } : undefined });
+  await transport.sendMail({ from: process.env.SMTP_FROM, to: email, subject: 'Your Job Tune sign-in code', text: `Your Job Tune sign-in code is ${code}. It expires in 10 minutes and can be used once. If you did not request it, ignore this email.` });
+}
+
+/** Renders the passcode-entry form for a newly created opaque challenge. */
+function passcodeForm(challenge: string, developmentCode?: string): string {
+  const notice = developmentCode ? `<div class="mb-5 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900"><b>Development only:</b> your passcode is ${escapeHtml(developmentCode)}.</div>` : '<p class="mb-5 text-sm text-slate-300">Check your email for a six-digit code. It expires in 10 minutes.</p>';
+  return page('Enter passcode', `<div class="mx-auto max-w-md rounded-2xl bg-slate-900 p-7">${notice}<h1 class="text-2xl font-bold">Enter your passcode</h1><form class="mt-5" method="post" action="/auth/passcode/verify"><input type="hidden" name="challenge" value="${escapeHtml(challenge)}"><label class="block text-sm font-medium">Six-digit code<input class="mt-2 w-full rounded p-3 text-center font-mono text-2xl tracking-[.35em] text-slate-900" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required autofocus></label><button class="mt-5 w-full rounded bg-cyan-400 px-4 py-3 font-semibold text-slate-950">Sign in securely</button></form><a class="mt-5 block text-center text-sm text-cyan-300" href="/login">Request another code</a></div>`);
+}
 
 /** Looks up the authenticated user from the server-side MySQL session. */
 async function currentUser(request: Request): Promise<User | null> {
@@ -74,14 +108,74 @@ async function pdfBuffer(text: string): Promise<Buffer> { const pdf = new PDFDoc
 /** Shows the post-login hero and the user's stored CV versions and tailored documents. */
 app.get('/', requireUser, async (request, response) => { const user = response.locals.user as User; const [cvs] = await pool.query<Cv[]>('SELECT id,original_filename,version_number,created_at FROM cv_documents WHERE user_id=? ORDER BY version_number DESC', [user.id]); const [outputs] = await pool.query<Tailored[]>('SELECT t.*, c.original_filename FROM tailored_cvs t JOIN cv_documents c ON c.id=t.source_cv_id WHERE t.user_id=? ORDER BY t.created_at DESC LIMIT 10', [user.id]); response.send(page('Workspace', `<section class="grid gap-8 lg:grid-cols-[1.1fr_.9fr]"><div><p class="mb-3 font-medium text-cyan-300">Factual tailoring, under your control</p><h1 class="text-5xl font-bold tracking-tight">Make each application feel written for the role.</h1><p class="mt-5 max-w-xl text-lg text-slate-300">Upload your Word CV, add a job description, review every proposed change, then download editable Word and submission-ready PDF files.</p></div><form class="rounded-3xl bg-white p-6 text-slate-900 shadow-2xl" action="/cvs" method="post" enctype="multipart/form-data"><h2 class="text-xl font-bold">1. Upload your CV</h2><label class="mt-4 block text-sm font-medium">Word .docx file<input required accept=".docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document" name="cv" type="file" class="mt-2 block w-full rounded border p-2"></label><button class="mt-5 rounded bg-slate-950 px-4 py-2 font-semibold text-white">Save CV version</button></form></section><section class="mt-12 grid gap-8 lg:grid-cols-2"><div><h2 class="text-2xl font-bold">Your CV versions</h2><div class="mt-4 space-y-3">${cvs.length ? cvs.map((cv) => `<form class="rounded-xl bg-slate-900 p-4" action="/tailor" method="post"><input type="hidden" name="cvId" value="${cv.id}"><b>${escapeHtml(cv.original_filename)}</b> <span class="text-sm text-slate-400">Version ${cv.version_number}</span><textarea required name="jobDescription" class="mt-3 h-28 w-full rounded border border-slate-700 bg-slate-800 p-2" placeholder="Paste the job description copied from the website"></textarea><button class="mt-3 rounded bg-cyan-400 px-4 py-2 font-semibold text-slate-950">Create tailored CV</button></form>`).join('') : '<p class="text-slate-400">No CV uploaded yet.</p>'}</div></div><div><h2 class="text-2xl font-bold">Recent tailored CVs</h2><div class="mt-4 space-y-3">${outputs.length ? outputs.map((output) => `<div class="rounded-xl bg-slate-900 p-4"><b>${escapeHtml(output.original_filename)}</b><p class="mt-1 text-sm text-slate-400">${escapeHtml(output.generation_mode)}</p><a class="mt-3 inline-block text-cyan-300" href="/tailored/${output.id}">Review changes and download →</a></div>`).join('') : '<p class="text-slate-400">Your reviewed outputs will appear here.</p>'}</div></div></section>`, user)); });
 
-/** Displays login and registration forms for the required account boundary. */
-app.get('/login', (_request, response) => response.send(page('Sign in', `<div class="mx-auto grid max-w-2xl gap-6 md:grid-cols-2"><form class="rounded-2xl bg-slate-900 p-6" method="post" action="/login"><h1 class="text-2xl font-bold">Welcome back</h1><input class="mt-4 w-full rounded p-2 text-slate-900" name="email" type="email" placeholder="Email" required><input class="mt-3 w-full rounded p-2 text-slate-900" name="password" type="password" placeholder="Password" required><button class="mt-4 rounded bg-cyan-400 px-4 py-2 font-semibold text-slate-950">Sign in</button></form><form class="rounded-2xl bg-white p-6 text-slate-900" method="post" action="/register"><h2 class="text-2xl font-bold">Create account</h2><input class="mt-4 w-full rounded border p-2" name="email" type="email" placeholder="Email" required><input class="mt-3 w-full rounded border p-2" name="password" type="password" minlength="10" placeholder="Password (10+ chars)" required><button class="mt-4 rounded bg-slate-950 px-4 py-2 font-semibold text-white">Create account</button></form></div>`)));
+/** Displays one passwordless form for both new and returning users. */
+app.get('/login', (_request, response) => response.send(page('Sign in', `<div class="mx-auto max-w-md rounded-2xl bg-slate-900 p-7"><p class="text-sm font-medium text-cyan-300">Passwordless access</p><h1 class="mt-2 text-3xl font-bold">Sign in with a passcode</h1><p class="mt-3 text-sm leading-6 text-slate-300">Enter your email and we will send a single-use code. New users are created after their email is verified.</p><form class="mt-6" method="post" action="/auth/passcode/request"><label class="block text-sm font-medium">Email address<input class="mt-2 w-full rounded p-3 text-slate-900" name="email" type="email" autocomplete="email" required autofocus></label><button class="mt-5 w-full rounded bg-cyan-400 px-4 py-3 font-semibold text-slate-950">Send passcode</button></form></div>`)));
 
-/** Registers a user with a bcrypt password hash and immediately starts their session. */
-app.post('/register', async (request, response) => { const email = String(request.body.email || '').trim().toLowerCase(); const password = String(request.body.password || ''); if (!/^\S+@\S+\.\S+$/.test(email) || password.length < 10) return response.status(400).send('Use a valid email and password of at least 10 characters.'); try { const [result] = await pool.query<ResultSetHeader>('INSERT INTO users (email,password_hash) VALUES (?,?)', [email, await bcrypt.hash(password, 12)]); await startSession(response, result.insertId); response.redirect('/'); } catch { response.status(409).send('An account with that email already exists.'); } });
+/** Creates and delivers a rate-limited, short-lived passcode challenge. */
+app.post('/auth/passcode/request', async (request, response) => {
+  const email = String(request.body.email || '').trim().toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email)) { response.status(400).send('Enter a valid email address.'); return; }
+  if (!smtpIsConfigured() && !developmentPasscodeIsEnabled()) { response.status(503).send(page('Email unavailable', '<div class="mx-auto max-w-md rounded-2xl bg-slate-900 p-7"><h1 class="text-2xl font-bold">Email sign-in is not configured</h1><p class="mt-3 text-slate-300">Ask the administrator to configure SMTP delivery, then try again.</p></div>')); return; }
+  const requestIpHash = authenticationHash('ip', request.ip || 'unknown');
+  const [limits] = await pool.query<RowDataPacket[]>('SELECT COUNT(*) AS requests FROM login_passcodes WHERE created_at > DATE_SUB(NOW(), INTERVAL 15 MINUTE) AND (email=? OR request_ip_hash=?)', [email, requestIpHash]);
+  if (Number(limits[0].requests) >= 5) { response.status(429).send('Too many passcode requests. Wait 15 minutes and try again.'); return; }
+  const code = crypto.randomInt(0, 1000000).toString().padStart(6, '0');
+  const challenge = crypto.randomBytes(32).toString('hex');
+  const challengeHash = authenticationHash('challenge', challenge);
+  await pool.query('DELETE FROM login_passcodes WHERE expires_at < DATE_SUB(NOW(), INTERVAL 1 DAY)');
+  await pool.query('INSERT INTO login_passcodes (email,challenge_hash,code_hash,request_ip_hash,expires_at) VALUES (?,?,?,?,DATE_ADD(NOW(), INTERVAL 10 MINUTE))', [email, challengeHash, authenticationHash('code', `${challenge}:${code}`), requestIpHash]);
+  try {
+    if (smtpIsConfigured()) await sendPasscode(email, code);
+  } catch (error) {
+    await pool.query('DELETE FROM login_passcodes WHERE challenge_hash=?', [challengeHash]);
+    console.error(`Passcode delivery failed: ${(error as Error).message}`);
+    response.status(502).send('The sign-in email could not be sent. Try again later.');
+    return;
+  }
+  response.send(passcodeForm(challenge, developmentPasscodeIsEnabled() && !smtpIsConfigured() ? code : undefined));
+});
 
-/** Authenticates an existing account and begins a server-side session. */
-app.post('/login', async (request, response) => { const [rows] = await pool.query<RowDataPacket[]>('SELECT id,email,password_hash FROM users WHERE email=?', [String(request.body.email || '').trim().toLowerCase()]); if (!rows.length || !await bcrypt.compare(String(request.body.password || ''), rows[0].password_hash)) return response.status(401).send('Incorrect email or password.'); await startSession(response, rows[0].id); response.redirect('/'); });
+/** Consumes a valid passcode atomically, creates the user if needed, and starts a session. */
+app.post('/auth/passcode/verify', async (request, response) => {
+  const challenge = String(request.body.challenge || '');
+  const code = String(request.body.code || '').trim();
+  if (!/^[a-f0-9]{64}$/.test(challenge) || !/^\d{6}$/.test(code)) { response.status(400).send('Enter the six-digit code from your email.'); return; }
+  const connection = await pool.getConnection();
+  let userId: number | null = null;
+  try {
+    await connection.beginTransaction();
+    const challengeHash = authenticationHash('challenge', challenge);
+    const [rows] = await connection.query<PasscodeChallenge[]>('SELECT id,email,code_hash,attempts FROM login_passcodes WHERE challenge_hash=? AND consumed_at IS NULL AND expires_at > NOW() FOR UPDATE', [challengeHash]);
+    const record = rows[0];
+    if (!record || record.attempts >= 5) { await connection.rollback(); response.status(401).send('This passcode is invalid or expired. Request a new one.'); return; }
+    const submittedHash = authenticationHash('code', `${challenge}:${code}`);
+    if (!hashesMatch(record.code_hash, submittedHash)) {
+      await connection.query('UPDATE login_passcodes SET attempts=attempts+1, consumed_at=IF(attempts+1>=5,NOW(),consumed_at) WHERE id=?', [record.id]);
+      await connection.commit();
+      response.status(401).send('This passcode is invalid or expired. Request a new one.');
+      return;
+    }
+    await connection.query('INSERT INTO users (email,password_hash) VALUES (?,NULL) ON DUPLICATE KEY UPDATE email=VALUES(email)', [record.email]);
+    const [users] = await connection.query<RowDataPacket[]>('SELECT id FROM users WHERE email=?', [record.email]);
+    userId = Number(users[0].id);
+    await connection.query('UPDATE login_passcodes SET consumed_at=NOW() WHERE id=?', [record.id]);
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+  if (userId === null) { response.status(500).send('Sign-in could not be completed.'); return; }
+  await startSession(response, userId);
+  response.redirect('/');
+});
+
+/** Keeps old bookmarks and forms on the new passcode request route. */
+app.post('/login', (request, response) => { response.redirect(307, '/auth/passcode/request'); });
+
+/** Keeps the former registration route compatible with passwordless onboarding. */
+app.post('/register', (request, response) => { response.redirect(307, '/auth/passcode/request'); });
 
 /** Deletes the active server-side session and clears its browser cookie. */
 app.get('/logout', async (request, response) => { const id = cookie(request, 'job_tune_session'); if (id) await pool.query('DELETE FROM sessions WHERE id=?', [id]); response.clearCookie('job_tune_session'); response.redirect('/login'); });

@@ -8,7 +8,7 @@ An authenticated user uploads a Word (`.docx`) CV and pastes a job description c
 
 ## What works now
 
-- Email/password account registration and server-side MySQL sessions.
+- Passwordless email passcodes and server-side MySQL sessions.
 - User-isolated, versioned `.docx` CV uploads; the original file and extracted text are retained separately.
 - Job-description paste, factual AI tailoring, a clear review summary, and separate stored tailored outputs.
 - Editable DOCX and PDF downloads generated from each output.
@@ -27,6 +27,12 @@ npm run dev
 ```
 
 Open `http://127.0.0.1:3000`, create an account, and upload a `.docx` CV. `npm run check` runs the TypeScript type checker and `npm run build` emits `dist/`.
+
+## Passwordless sign-in
+
+Configure `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` to deliver six-digit email passcodes. Set `AUTH_SECRET` to a separate random value containing at least 32 characters. Codes are stored only as HMAC hashes, expire after 10 minutes, are single-use, allow at most five verification attempts, and requests are throttled by email and source IP.
+
+For local development without SMTP, set `DEV_SHOW_PASSCODE=true`; the code is then displayed in the browser. This option is disabled automatically when `NODE_ENV=production` and must never be used on a public server.
 
 ## AI configuration
 
