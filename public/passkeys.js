@@ -5,7 +5,7 @@ const passkeyStatus = document.getElementById('passkey-status');
 /** Updates the visible ceremony state without exposing credential details. */
 function showPasskeyStatus(message, failed = false) {
   passkeyStatus.textContent = message;
-  passkeyStatus.className = `mt-4 text-sm ${failed ? 'text-rose-300' : 'text-cyan-300'}`;
+  passkeyStatus.className = `mt-4 text-sm ${failed ? 'text-rose-600 dark:text-rose-300' : 'text-cyan-700 dark:text-cyan-300'}`;
 }
 
 /** Parses the small JSON contract shared by every passkey endpoint. */

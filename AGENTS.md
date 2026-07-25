@@ -13,3 +13,5 @@ This repository must adhere to the following requirements:
 Record all subsequent changes to either the feature set or the look-and-feel requirements here.
 
 - Replaced obsolete PHP, Tailwind, Tabulator, and Highcharts mandates with the current Apache, TypeScript, and MySQL foundation.
+- Added a user-scoped application tracker, reusable document library, generated cover letters, contact profiles, selectable AI models, and optional document email delivery.
+- Established a light-first professional interface with persistent dark mode and complete mobile workflows.

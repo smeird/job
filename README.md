@@ -12,6 +12,8 @@ An authenticated user uploads a Word (`.docx`) CV and pastes a job description c
 - User-isolated, versioned `.docx` CV uploads; the original file and extracted text are retained separately.
 - Job-description paste, factual AI tailoring, a clear review summary, and separate stored tailored outputs.
 - Editable DOCX and PDF downloads generated from each output.
+- A mobile-ready job application tracker with status, dates, job links, notes, and linked source/tailored documents.
+- A reusable document library, generated cover letters, contact profile, selectable AI models, and optional Word-document email delivery.
 - A safe no-key local fallback: it preserves the original CV verbatim, identifies matching terms already in it, and labels the output as `local_fallback`.
 
 The AI prompt explicitly treats the uploaded CV as the only factual authority. Review the generated change summary before use; automated text generation cannot replace user review.
@@ -40,7 +42,11 @@ When upgrading an account created before passkeys, keep its existing session ope
 
 ## AI configuration
 
-`OPENAI_API_KEY` is optional. When it is set, the app calls the OpenAI Chat Completions API using `OPENAI_MODEL` (default `gpt-4.1-mini`). When it is absent, every local feature works and no external request is made; tailoring is intentionally non-transforming so it cannot introduce claims.
+`OPENAI_API_KEY` is optional. `OPENAI_MODELS` is the comma-separated allow-list shown to users; `OPENAI_MODEL` is the default. The example offers `gpt-5-mini`, `gpt-5-nano`, and `gpt-4.1-mini` so users can choose a cost/quality trade-off. Keep the list aligned with the models available to your API project. When no API key is present, every local feature works and the clearly labelled fallback leaves the source CV unchanged.
+
+## Document email
+
+Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, and `SMTP_FROM` to allow a signed-in user to send a tailored CV and cover letter as Word attachments. Delivery is capped at 20 messages per user per day and the database records only the recipient, selected document flags, and time—not the email body or attachment content.
 
 ## Apache deployment
 

@@ -17,7 +17,15 @@
     SetEnv WEBAUTHN_RP_NAME "Job Tune"
     # Optional: enables AI tailoring; without it the factual local fallback runs.
     SetEnv OPENAI_API_KEY ""
-    SetEnv OPENAI_MODEL gpt-4.1-mini
+    SetEnv OPENAI_MODEL gpt-5-mini
+    SetEnv OPENAI_MODELS "gpt-5-mini,gpt-5-nano,gpt-4.1-mini"
+    # Optional: enables direct emailing of Word application packs.
+    SetEnv SMTP_HOST ""
+    SetEnv SMTP_PORT 587
+    SetEnv SMTP_SECURE false
+    SetEnv SMTP_USER ""
+    SetEnv SMTP_PASSWORD ""
+    SetEnv SMTP_FROM "Job Tune <no-reply@example.com>"
 
     ProxyPreserveHost On
     RequestHeader set X-Forwarded-Proto "http"
