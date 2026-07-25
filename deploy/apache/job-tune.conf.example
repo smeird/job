@@ -1,0 +1,8 @@
+# Apache remains the public-facing server. Point this proxy at the future TypeScript service.
+<VirtualHost *:80>
+    ServerName job-tune.example.com
+
+    ProxyPreserveHost On
+    ProxyPass / http://127.0.0.1:3000/
+    ProxyPassReverse / http://127.0.0.1:3000/
+</VirtualHost>
