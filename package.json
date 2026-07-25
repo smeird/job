@@ -14,7 +14,8 @@
     "db:migrate": "tsx src/migrate.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc",
-    "check": "npm run typecheck"
+    "test": "tsx --test tests/*.test.ts",
+    "check": "npm run typecheck && npm test"
   },
   "dependencies": {
     "@simplewebauthn/browser": "^13.3.0",

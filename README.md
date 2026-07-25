@@ -13,7 +13,7 @@ An authenticated user uploads a Word (`.docx`) CV and pastes a job description c
 - Job-description paste, factual AI tailoring, a clear review summary, and separate stored tailored outputs.
 - Editable DOCX and PDF downloads generated from each output.
 - A mobile-ready job application tracker with status, dates, job links, notes, and linked source/tailored documents.
-- A reusable document library, generated cover letters, contact profile, selectable AI models, and optional Word-document email delivery.
+- A reusable document library, generated cover letters, contact profile, selectable AI models with account-aware catalogue refresh, and optional Word-document email delivery.
 - Searchable document management with custom names, recoverable trash, restore, and guarded permanent deletion.
 - A safe no-key local fallback: it preserves the original CV verbatim, identifies matching terms already in it, and labels the output as `local_fallback`.
 
@@ -45,7 +45,11 @@ When upgrading an account created before passkeys, keep its existing session ope
 
 ## AI configuration
 
-`OPENAI_API_KEY` is optional. `OPENAI_MODELS` is the comma-separated allow-list shown to users; `OPENAI_MODEL` is the default. The example offers `gpt-5-mini`, `gpt-5-nano`, and `gpt-4.1-mini` so users can choose a cost/quality trade-off. Keep the list aligned with the models available to your API project. When no API key is present, every local feature works and the clearly labelled fallback leaves the source CV unchanged.
+`OPENAI_API_KEY` is optional. `OPENAI_MODEL` is the default and `OPENAI_MODELS` is the comma-separated fallback list shown before a provider catalogue has been checked. The example starts with `gpt-5-mini`, `gpt-5-nano`, and `gpt-4.1-mini` so users can choose a cost/quality trade-off.
+
+With a key configured, a signed-in user can open **Settings → Check for newer models**. Job Tune asks OpenAI which models are available to that API project, keeps compatible text-generation aliases, and caches only model identifiers and timestamps in the site-wide settings table. It never sends the key to the browser or stores it in MySQL. Newly discovered models are added to both the Settings and tailoring selectors; audio, image, embedding, realtime, dated snapshot, and other incompatible model types are excluded. The previous valid catalogue stays active if a refresh fails.
+
+`OPENAI_MODEL_DISCOVERY` defaults to `true`; set it to `false` to disable the check. `OPENAI_MODEL_REFRESH_MINUTES` controls the shared refresh cooldown and defaults to five minutes. Tailoring uses the OpenAI Responses API with strict structured output. Model availability and pricing can differ, so review OpenAI pricing before selecting a newly discovered model. When no API key is present, every local feature works and the clearly labelled fallback leaves the source CV unchanged.
 
 ## Document email
 

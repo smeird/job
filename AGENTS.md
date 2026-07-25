@@ -16,3 +16,4 @@ Record all subsequent changes to either the feature set or the look-and-feel req
 - Added a user-scoped application tracker, reusable document library, generated cover letters, contact profiles, selectable AI models, and optional document email delivery.
 - Established a light-first professional interface with persistent dark mode and complete mobile workflows.
 - Added searchable document management with custom names, recoverable trash, restore controls, and guarded permanent deletion.
+- Added server-side OpenAI model discovery with a rate-limited shared cache and user-selectable compatible models.

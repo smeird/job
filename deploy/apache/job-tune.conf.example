@@ -19,6 +19,8 @@
     SetEnv OPENAI_API_KEY ""
     SetEnv OPENAI_MODEL gpt-5-mini
     SetEnv OPENAI_MODELS "gpt-5-mini,gpt-5-nano,gpt-4.1-mini"
+    SetEnv OPENAI_MODEL_DISCOVERY true
+    SetEnv OPENAI_MODEL_REFRESH_MINUTES 5
     # Optional: enables direct emailing of Word application packs.
     SetEnv SMTP_HOST ""
     SetEnv SMTP_PORT 587
