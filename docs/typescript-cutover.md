@@ -13,6 +13,18 @@ git pull --ff-only origin main # First run only, to obtain the deployment script
 
 The initial manual pull is needed only because an older checkout does not contain the script yet. On every later release, run only `./bin/deploy-production.sh --cutover`; its first deployment action is a fast-forward-only pull from `origin/main`. The script then validates the checkout and production environment, installs locked dependencies, tests and builds the applications, audits production dependencies, backs up and characterises MySQL, applies and verifies migrations, installs the Node services, configures the existing Apache HTTPS vhost, checks the private and public health endpoints, and stops the PHP worker only after its queue reaches zero. It discovers the Apache vhost from `APP_URL`; pass `--apache-vhost /etc/apache2/sites-available/example.conf` if the server has an ambiguous layout.
 
+The pull happens before application prerequisite checks, so a missing `.env` or outdated Node installation cannot prevent the deployment script from updating itself. Permission-only drift in the deployment checkout is ignored, while any tracked content change still stops deployment. Apache site files containing several virtual hosts are supported; the proxy include is inserted only into the matching HTTPS `ServerName` block.
+
+Ubuntu 20.04's standard repository supplies an obsolete Node release. Install the NodeSource 24.x package before the first TypeScript deployment:
+
+```bash
+curl -fsSL https://deb.nodesource.com/setup_24.x -o /tmp/nodesource_setup.sh
+sudo -E bash /tmp/nodesource_setup.sh
+sudo apt-get install -y nodejs
+node --version
+npm --version
+```
+
 Use `--phased` for the coexistence stage. This starts the TypeScript services and exposes only `/_next/*` and `/__ts/healthz`, leaving PHP as the public application. The TypeScript worker is deliberately installed as `job-typescript-worker.service` so an existing `job-worker.service` PHP process is never overwritten.
 
 The command must not be run as root. It requests `sudo` only for protected deployment operations. Use `--skip-tests` or `--skip-db-dump` only during a deliberate recovery deployment; neither is the normal release path.

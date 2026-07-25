@@ -196,15 +196,33 @@ fs.writeFileSync(output, rendered);
 NODE
 }
 
-# Find the single enabled Apache vhost whose ServerName matches APP_URL.
+# Return success when one HTTPS vhost block in a file matches the application host.
+apache_file_has_single_https_host() {
+  local file="$1"
+  local host="$2"
+  sudo awk -v expected="${host}" '
+    /<VirtualHost[[:space:]][^>]*>/ {
+      inside = 1
+      https = ($0 ~ /:443([[:space:]]|>)/)
+      server = 0
+    }
+    inside && $1 == "ServerName" && ($2 == expected || $2 == expected ":443") { server = 1 }
+    inside && /<\/VirtualHost>/ {
+      if (https && server) matches += 1
+      inside = 0
+    }
+    END { exit matches == 1 ? 0 : 1 }
+  ' "${file}"
+}
+
+# Find the enabled Apache file containing the application's HTTPS vhost block.
 discover_apache_vhost() {
   local host="$1"
   local file
   local -a matches=()
   shopt -s nullglob
   for file in /etc/apache2/sites-enabled/*.conf; do
-    if sudo grep -Eq '<VirtualHost[[:space:]][^>]*:443>' "${file}" \
-      && sudo awk -v expected="${host}" '$1 == "ServerName" && ($2 == expected || $2 == expected ":443") { found = 1 } END { exit found ? 0 : 1 }' "${file}"; then
+    if apache_file_has_single_https_host "${file}" "${host}"; then
       matches+=("$(readlink -f -- "${file}")")
     fi
   done
@@ -215,24 +233,36 @@ discover_apache_vhost() {
   APACHE_VHOST="${matches[0]}"
 }
 
-# Add the stable proxy include to a simple one-vhost Apache site file.
+# Add the stable proxy include only to the matching HTTPS block in an Apache file.
 ensure_apache_include() {
   local include_line="IncludeOptional ${APACHE_PROXY_PATH}"
-  local closing_count
-  closing_count="$(sudo grep -c '</VirtualHost>' "${APACHE_VHOST}" || true)"
-  [[ "${closing_count}" == "1" ]] || fail "Apache vhost must contain exactly one </VirtualHost>: ${APACHE_VHOST}"
 
   APACHE_VHOST_BACKUP="${BACKUP_DIR}/$(basename "${APACHE_VHOST}").${DEPLOY_TIMESTAMP}.bak"
   sudo cp --preserve=mode,ownership,timestamps -- "${APACHE_VHOST}" "${APACHE_VHOST_BACKUP}"
-  if sudo grep -Fq "${include_line}" "${APACHE_VHOST}"; then
+  awk -v expected="${APP_HOST}" -v include_line="    ${include_line}" '
+    /<VirtualHost[[:space:]][^>]*>/ {
+      inside = 1
+      https = ($0 ~ /:443([[:space:]]|>)/)
+      server = 0
+      included = 0
+    }
+    inside && $1 == "ServerName" && ($2 == expected || $2 == expected ":443") { server = 1 }
+    inside && index($0, include_line) > 0 { included = 1 }
+    inside && /<\/VirtualHost>/ {
+      if (https && server) {
+        matches += 1
+        if (!included) print include_line
+      }
+      print
+      inside = 0
+      next
+    }
+    { print }
+    END { if (matches != 1) exit 2 }
+  ' "${APACHE_VHOST}" > "${TEMP_DIR}/apache-vhost.conf"
+  if cmp --silent "${APACHE_VHOST}" "${TEMP_DIR}/apache-vhost.conf"; then
     return
   fi
-
-  awk -v include_line="    ${include_line}" '
-    /<\/VirtualHost>/ && !inserted { print include_line; inserted = 1 }
-    { print }
-    END { if (!inserted) exit 2 }
-  ' "${APACHE_VHOST}" > "${TEMP_DIR}/apache-vhost.conf"
   sudo install -m 0644 -o root -g root "${TEMP_DIR}/apache-vhost.conf" "${APACHE_VHOST}"
   APACHE_VHOST_CHANGED=1
 }
@@ -278,14 +308,10 @@ if [[ "${EUID}" == "0" ]]; then
   fail "Run this script as the normal deployment user, not with sudo."
 fi
 [[ "${DEPLOY_MODE}" == "cutover" || "${DEPLOY_MODE}" == "phased" ]] || fail "DEPLOY_MODE must be cutover or phased."
-[[ -f "${ENV_SOURCE}" ]] || fail "Environment file not found: ${ENV_SOURCE}"
 
-for command_name in git node npm curl sudo flock gzip readlink install awk grep systemctl apache2ctl a2enmod; do
+for command_name in git sudo flock; do
   require_command "${command_name}"
 done
-if [[ "${SKIP_DB_DUMP}" != "1" ]]; then
-  require_command mysqldump
-fi
 
 CURRENT_STEP="acquiring the deployment lock"
 exec 9>/tmp/job-tune-production-deploy.lock
@@ -296,19 +322,32 @@ TEMP_DIR="$(mktemp -d -t job-tune-deploy.XXXXXX)"
 cd -- "${APP_DIR}"
 CURRENT_STEP="checking the Git checkout"
 [[ "$(git branch --show-current)" == "${DEPLOY_BRANCH}" ]] || fail "Checkout must be on ${DEPLOY_BRANCH}."
-git diff --quiet && git diff --cached --quiet || fail "Tracked files have local changes; refusing to pull."
+git -c core.fileMode=false diff --quiet && git -c core.fileMode=false diff --cached --quiet \
+  || fail "Tracked file contents have local changes; commit or restore them before deploying."
 
 CURRENT_STEP="pulling ${DEPLOY_BRANCH}"
 log "Pulling origin/${DEPLOY_BRANCH}"
-git pull --ff-only origin "${DEPLOY_BRANCH}"
+git -c core.fileMode=false pull --ff-only origin "${DEPLOY_BRANCH}"
 DEPLOY_COMMIT="$(git rev-parse HEAD)"
 DEPLOY_TIMESTAMP="$(date -u +'%Y%m%dT%H%M%SZ')"
+
+CURRENT_STEP="checking deployment prerequisites"
+[[ -f "${ENV_SOURCE}" ]] \
+  || fail "Environment file not found: ${ENV_SOURCE}. Create it from .env.example; .env is Git-ignored and cannot block a pull."
+for command_name in node npm curl gzip readlink install awk grep cmp systemctl apache2ctl a2enmod; do
+  require_command "${command_name}"
+done
+if [[ "${SKIP_DB_DUMP}" != "1" ]]; then
+  require_command mysqldump
+fi
 
 CURRENT_STEP="checking Node and npm"
 NODE_MAJOR="$(node -p 'Number(process.versions.node.split(".")[0])')"
 NPM_MAJOR="$(npm --version | cut -d. -f1)"
-((NODE_MAJOR >= 24)) || fail "Node.js 24 or newer is required; found $(node --version)."
-((NPM_MAJOR >= 11)) || fail "npm 11 or newer is required; found $(npm --version)."
+((NODE_MAJOR >= 24)) \
+  || fail "Node.js 24 or newer is required; found $(node --version). Install Node 24 system-wide, then rerun—the Git pull has already completed."
+((NPM_MAJOR >= 11)) \
+  || fail "npm 11 or newer is required; found $(npm --version). Install npm 11 system-wide, then rerun—the Git pull has already completed."
 NODE_BINARY="$(command -v node)"
 sudo -u www-data test -x "${NODE_BINARY}" || fail "www-data cannot execute ${NODE_BINARY}; install Node 24 system-wide."
 
@@ -398,10 +437,8 @@ if [[ -z "${APACHE_VHOST}" ]]; then
 fi
 [[ -f "${APACHE_VHOST}" ]] || fail "Apache vhost not found: ${APACHE_VHOST}"
 APACHE_VHOST="$(readlink -f -- "${APACHE_VHOST}")"
-sudo grep -Eq '<VirtualHost[[:space:]][^>]*:443>' "${APACHE_VHOST}" \
-  || fail "Apache vhost is not an HTTPS :443 site: ${APACHE_VHOST}"
-sudo awk -v expected="${APP_HOST}" '$1 == "ServerName" && ($2 == expected || $2 == expected ":443") { found = 1 } END { exit found ? 0 : 1 }' "${APACHE_VHOST}" \
-  || fail "Apache vhost does not declare ServerName ${APP_HOST}: ${APACHE_VHOST}"
+apache_file_has_single_https_host "${APACHE_VHOST}" "${APP_HOST}" \
+  || fail "Apache file must contain exactly one HTTPS vhost for ${APP_HOST}: ${APACHE_VHOST}"
 
 if [[ -f "${APACHE_PROXY_PATH}" ]]; then
   APACHE_PROXY_EXISTED=1
