@@ -7,14 +7,15 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "tsx watch src/index.ts",
+    "dev": "npm run css:build && tsx watch src/index.ts",
     "start": "node dist/index.js",
     "deploy:production": "bash bin/deploy-production.sh",
     "deploy:dry-run": "bash bin/deploy-production.sh --dry-run",
     "db:migrate": "tsx src/migrate.ts",
     "documents:samples": "tsx scripts/generate-document-samples.ts",
     "typecheck": "tsc --noEmit",
-    "build": "tsc",
+    "build": "npm run css:build && tsc",
+    "css:build": "tailwindcss -c tailwind.config.cjs -i styles/app.css -o public/app.css --minify",
     "test": "tsx --test tests/*.test.ts",
     "check": "npm run typecheck && npm test"
   },
@@ -36,6 +37,7 @@
     "@types/node": "^24.3.0",
     "@types/nodemailer": "^8.0.1",
     "@types/pdfkit": "^0.17.3",
+    "tailwindcss": "^3.4.17",
     "tsx": "^4.20.5",
     "typescript": "^5.9.3"
   }

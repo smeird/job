@@ -13,7 +13,8 @@ An authenticated user uploads a Word (`.docx`) CV and pastes a job description c
 - Job-description paste, factual AI tailoring, a clear review summary, and separate stored tailored outputs.
 - Immutable re-tailoring revisions with selectable models, balanced/management/technical/impact emphasis, professional tone controls, optional presentation guidance, and side-by-side comparison.
 - Editable DOCX and PDF downloads generated from each output using one shared, printer-friendly professional layout with matching hierarchy, typography, spacing, bullets, contact details, and restrained page footers.
-- A mobile-ready job application tracker with status, dates, job links, notes, and linked source/tailored documents.
+- A mobile-ready job application tracker with status, submission age, explicit follow-up dates, job links, notes, and linked source/tailored documents.
+- A separate chronological application timeline, cautious response guidance, and a dashboard attention queue for overdue or unanswered applications.
 - A reusable document library, generated cover letters, contact profile, selectable AI models with account-aware catalogue refresh, and optional Word-document email delivery.
 - Searchable document management with custom names, recoverable trash, restore, and guarded permanent deletion.
 - A safe no-key local fallback: it preserves the original CV verbatim, identifies matching terms already in it, and labels the output as `local_fallback`.
@@ -21,6 +22,8 @@ An authenticated user uploads a Word (`.docx`) CV and pastes a job description c
 The AI prompt explicitly treats the uploaded CV as the only factual authority. Review the generated change summary before use; automated text generation cannot replace user review.
 
 An existing application pack can be re-tailored from its review page, the document library, or a linked tracked application. Every rerun starts again from the original uploaded CV and stored job description—not from an AI-edited draft—then creates a separate retained revision. The selected model, emphasis, tone, optional guidance, change summary, CV, and cover letter are stored with that revision. Starting from a tracked application also offers to update only that application's document link after the new revision succeeds. Revision history supports side-by-side model and presentation comparison without overwriting earlier files.
+
+The application timeline calculates whole calendar days from the recorded submission date. An optional next follow-up date creates a due or overdue reminder; when no date is set, an unanswered application in the `Applied` state joins the attention queue after 14 days. Longer-wait guidance is deliberately phrased as a decision prompt, not a prediction about an employer. Closed applications remain visible but do not generate reminders.
 
 Generated CVs and cover letters use structured Word and PDF renderers rather than plain-text export. Both formats share the same semantic layout rules. Profile and account contact details appear only when already stored for that user; the renderer does not invent missing details. Run `npm run documents:samples` to create non-personal QA fixtures under ignored `tmp/docs/`.
 
@@ -72,7 +75,7 @@ After `git pull --ff-only`, run this from the repository checkout:
 npm run deploy:production
 ```
 
-It uses `npm ci` to install exactly the dependency versions in `package-lock.json`, type-checks and compiles the TypeScript application, then runs the idempotent SQL migration files. It does not print `.env` or Apache environment values.
+It uses `npm ci` to install exactly the dependency versions in `package-lock.json`, builds the local Tailwind stylesheet, type-checks and compiles the TypeScript application, then runs the idempotent SQL migration files. It does not print `.env` or Apache environment values, and the deployed interface does not depend on Tailwind's browser CDN.
 
 The repository deliberately does not assume a Node service or Apache unit name. After the script finishes, restart the Node process with the server's existing supervisor. To include known restart operations in the same command without adding their names to the repository, set commands in the shell running the deploy:
 

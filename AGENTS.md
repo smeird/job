@@ -19,3 +19,4 @@ Record all subsequent changes to either the feature set or the look-and-feel req
 - Added server-side OpenAI model discovery with a rate-limited shared cache and user-selectable compatible models.
 - Added matching professional DOCX/PDF layouts for generated CVs and cover letters, with synthetic visual-regression fixtures.
 - Added immutable re-tailoring revisions with model, emphasis, tone, application relinking, and comparison controls.
+- Completed light/dark colour coverage across shared surfaces and added a responsive application timeline with elapsed days, follow-up dates, and attention guidance.
