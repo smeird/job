@@ -66,6 +66,7 @@ input[type='checkbox'] { accent-color: rgb(8 145 178); }
 .dark .button-primary:hover { background: rgb(6 182 212); color: rgb(8 47 73); }
 .button-secondary { border: 1px solid rgb(var(--border-strong)); background: rgb(var(--surface-raised)); color: rgb(var(--text)); }
 .button-secondary:hover { border-color: rgb(var(--accent)); background: rgb(var(--surface-subtle)); }
+.button-primary:disabled, .button-secondary:disabled { cursor: not-allowed; opacity: .42; transform: none; }
 .button-danger { border: 1px solid rgb(254 202 202); background: rgb(255 241 242); color: rgb(190 18 60); }
 .button-danger:hover { background: rgb(255 228 230); }
 .dark .button-danger { border-color: rgb(136 19 55); background: rgb(76 5 25); color: rgb(253 164 175); }
