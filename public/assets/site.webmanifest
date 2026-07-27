@@ -1,0 +1,13 @@
+{
+  "name": "Job Tune",
+  "short_name": "Job Tune",
+  "description": "Factual CV tailoring, career evidence, document management and job application tracking.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0891b2",
+  "icons": [
+    { "src": "/assets/job-tune-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/assets/job-tune-icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

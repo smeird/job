@@ -17,6 +17,7 @@ An authenticated user uploads a Word (`.docx`) CV and pastes a job description c
 - A concise, status-coloured application timeline whose entries open dedicated detail pages, plus cautious response guidance and a dashboard attention queue.
 - A user-scoped career evidence database with roles, categorised facts, CV provenance, missing-detail questions, and manual confirmation controls.
 - One-click master-CV creation without a job advert or AI charge, using every active stored fact verbatim and retaining the exact evidence/contact snapshot.
+- Rich IM/social link previews with a dedicated Job Tune sharing card, product description, favicon, touch icon, and installable-app manifest.
 - A whole-career CV builder that selects pertinent facts across roles and retains the exact evidence snapshot used for every generated pack.
 - A reusable document library, generated cover letters, contact profile, selectable AI models with account-aware catalogue refresh, and optional Word-document email delivery.
 - Searchable document management with custom names, recoverable trash, restore, and guarded permanent deletion.
@@ -77,6 +78,8 @@ Set `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD`, and `
 ## Apache deployment
 
 Use [deploy/apache/job-tune.conf.example](deploy/apache/job-tune.conf.example) as a starting point. It assumes Apache reverse-proxies to a separately supervised Node process running `npm run start`. Set real database and session values in protected Apache configuration; never commit them. Enable Apache's `proxy`, `proxy_http`, and `headers` modules, terminate TLS in the production virtual host, and set `X-Forwarded-Proto` to `https` there.
+
+Set `PUBLIC_ORIGIN` to the exact public HTTPS origin (for example `https://job.smeird.com`) so IM and social preview metadata uses absolute production URLs. It falls back to `WEBAUTHN_ORIGIN` when omitted. The 1200×630 sharing image and the document-with-tuning-controls icon are served locally; no third-party branding or tracking service is used.
 
 ## Post-deploy update
 

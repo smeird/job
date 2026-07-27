@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title description">
+  <title id="title">Job Tune — Tune your CV. Track every opportunity.</title>
+  <desc id="description">Social sharing image for Job Tune, a factual CV tailoring and job application workspace.</desc>
+  <defs>
+    <linearGradient id="page" x1="70" y1="35" x2="1110" y2="595" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#ECFEFF"/>
+    </linearGradient>
+    <linearGradient id="mark" x1="770" y1="110" x2="1090" y2="520" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#06B6D4"/>
+      <stop offset="1" stop-color="#155E75"/>
+    </linearGradient>
+    <filter id="card-shadow" x="720" y="65" width="430" height="520" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0F172A" flood-opacity=".15"/>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" fill="url(#page)"/>
+  <circle cx="1110" cy="30" r="250" fill="#CFFAFE" opacity=".58"/>
+  <circle cx="75" cy="610" r="205" fill="#E0F2FE" opacity=".68"/>
+  <g font-family="Arial, Helvetica, sans-serif">
+    <rect x="76" y="72" width="290" height="40" rx="20" fill="#CFFAFE"/>
+    <text x="221" y="98" fill="#155E75" font-size="16" font-weight="700" letter-spacing="1.6" text-anchor="middle">FACTUAL CAREER WORKSPACE</text>
+    <text x="76" y="210" fill="#0F172A" font-size="80" font-weight="800" letter-spacing="-2">Job Tune</text>
+    <text x="76" y="280" fill="#0E7490" font-size="35" font-weight="700">Tune your CV.</text>
+    <text x="76" y="326" fill="#0E7490" font-size="35" font-weight="700">Track every opportunity.</text>
+    <text x="76" y="394" fill="#475569" font-size="24">Create grounded CVs and cover letters from</text>
+    <text x="76" y="428" fill="#475569" font-size="24">your real experience — then organise every</text>
+    <text x="76" y="462" fill="#475569" font-size="24">document, application and follow-up.</text>
+    <g fill="#0F172A" font-size="17" font-weight="700">
+      <circle cx="88" cy="526" r="12" fill="#0891B2"/>
+      <path d="m82 526 4 4 8-9" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
+      <text x="110" y="532">Factual by design</text>
+      <circle cx="290" cy="526" r="12" fill="#0891B2"/>
+      <path d="m284 526 4 4 8-9" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"/>
+      <text x="312" y="532">Built for job seekers</text>
+    </g>
+  </g>
+  <g filter="url(#card-shadow)">
+    <rect x="752" y="92" width="372" height="446" rx="84" fill="url(#mark)"/>
+    <path d="M829 158a16 16 0 0 1 16-16h110l82 82v220a16 16 0 0 1-16 16H845a16 16 0 0 1-16-16V158Z" fill="#fff"/>
+    <path d="M955 142v64a18 18 0 0 0 18 18h64" fill="#CFFAFE"/>
+    <g fill="none" stroke="#0E7490" stroke-linecap="round" stroke-width="13">
+      <path d="M870 278h126"/>
+      <path d="M870 338h126"/>
+      <path d="M870 398h126"/>
+    </g>
+    <g fill="#F59E0B" stroke="#fff" stroke-width="7">
+      <circle cx="912" cy="278" r="16"/>
+      <circle cx="968" cy="338" r="16"/>
+      <circle cx="894" cy="398" r="16"/>
+    </g>
+    <g fill="none" stroke="#FDE68A" stroke-linecap="round" stroke-linejoin="round" stroke-width="11">
+      <path d="M1047 155v48"/>
+      <path d="M1047 156l29-7v44"/>
+    </g>
+    <g fill="#FDE68A">
+      <ellipse cx="1034" cy="207" rx="16" ry="11" transform="rotate(-18 1034 207)"/>
+      <ellipse cx="1063" cy="195" rx="16" ry="11" transform="rotate(-18 1063 195)"/>
+    </g>
+  </g>
+</svg>

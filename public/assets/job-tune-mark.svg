@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 256 256" role="img" aria-labelledby="title description">
+  <title id="title">Job Tune</title>
+  <desc id="description">A CV document with three tuning controls and a musical note.</desc>
+  <defs>
+    <linearGradient id="background" x1="32" y1="18" x2="224" y2="238" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#06B6D4"/>
+      <stop offset="1" stop-color="#155E75"/>
+    </linearGradient>
+    <filter id="shadow" x="35" y="30" width="188" height="202" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="7" stdDeviation="6" flood-color="#083344" flood-opacity=".24"/>
+    </filter>
+  </defs>
+  <rect x="8" y="8" width="240" height="240" rx="58" fill="url(#background)"/>
+  <g filter="url(#shadow)">
+    <path d="M56 42a12 12 0 0 1 12-12h78l54 54v130a12 12 0 0 1-12 12H68a12 12 0 0 1-12-12V42Z" fill="#fff"/>
+    <path d="M146 30v42a12 12 0 0 0 12 12h42" fill="#CFFAFE"/>
+  </g>
+  <g fill="none" stroke="#0E7490" stroke-linecap="round" stroke-width="9">
+    <path d="M82 112h92"/>
+    <path d="M82 148h92"/>
+    <path d="M82 184h92"/>
+  </g>
+  <g fill="#F59E0B" stroke="#fff" stroke-width="5">
+    <circle cx="111" cy="112" r="11"/>
+    <circle cx="153" cy="148" r="11"/>
+    <circle cx="99" cy="184" r="11"/>
+  </g>
+  <g fill="none" stroke="#FDE68A" stroke-linecap="round" stroke-linejoin="round" stroke-width="8">
+    <path d="M202 47v34"/>
+    <path d="M202 48l20-5v31"/>
+  </g>
+  <g fill="#FDE68A">
+    <ellipse cx="193" cy="84" rx="11" ry="8" transform="rotate(-18 193 84)"/>
+    <ellipse cx="213" cy="76" rx="11" ry="8" transform="rotate(-18 213 76)"/>
+  </g>
+</svg>

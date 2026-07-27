@@ -15,6 +15,8 @@
     SetEnv WEBAUTHN_RP_ID job-tune.example.com
     SetEnv WEBAUTHN_ORIGIN https://job-tune.example.com
     SetEnv WEBAUTHN_RP_NAME "Job Tune"
+    # Canonical origin used by Open Graph and social-link preview metadata.
+    SetEnv PUBLIC_ORIGIN https://job-tune.example.com
     # Optional: enables AI tailoring; without it the factual local fallback runs.
     SetEnv OPENAI_API_KEY ""
     SetEnv OPENAI_MODEL gpt-5-mini
