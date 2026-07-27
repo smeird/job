@@ -12,12 +12,14 @@ test('tailoring control validation', () => {
 /** Verifies that presentation preferences remain subordinate to original-CV factual authority. */
 test('factual re-tailoring prompt', () => {
   const controls = tailoringControlsFromInput('technical', 'concise', 'Highlight only documented platform work.');
-  const prompt = buildTailoringPrompt({ cvText: 'Synthetic source CV fact.', jobDescription: 'Synthetic role description.', contact: '{"fullName":"Alex Example"}', companyName: 'Example Ltd', jobTitle: 'Platform Engineer', controls });
+  const prompt = buildTailoringPrompt({ cvText: 'Synthetic source CV fact.', jobDescription: 'Synthetic role description.', contact: '{"fullName":"Alex Example"}', companyName: 'Example Ltd', jobTitle: 'Platform Engineer', controls, framework: 'profile_led' });
   assert.match(tailoringControlInstructions(controls), /Technical depth/);
   assert.match(prompt, /factual source material is the sole authority/i);
   assert.match(prompt, /cannot add facts/i);
   assert.match(prompt, /EMPHASIS: Technical depth/);
   assert.match(prompt, /TONE: Concise and direct/);
+  assert.match(prompt, /CV FRAMEWORK: Profile-led/);
+  assert.match(prompt, /Do not invent ambitions/);
   assert.match(prompt, /FACTUAL SOURCE MATERIAL:\nSynthetic source CV fact\./);
   assert.match(prompt, /JOB DESCRIPTION:\nSynthetic role description\./);
 });

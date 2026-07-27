@@ -1,3 +1,5 @@
+import { cvFrameworkInstructions, type CvFramework } from './cv-frameworks';
+
 export type TailoringFocus = 'balanced' | 'management' | 'technical' | 'impact';
 export type TailoringTone = 'professional' | 'formal' | 'concise' | 'approachable';
 export type TailoringControls = { focus: TailoringFocus; tone: TailoringTone; notes: string };
@@ -48,8 +50,8 @@ export function tailoringControlInstructions(controls: TailoringControls): strin
 }
 
 /** Builds the provider prompt from factual source material, role, and allow-listed presentation controls. */
-export function buildTailoringPrompt(input: { cvText: string; jobDescription: string; contact: string; companyName: string; jobTitle: string; controls: TailoringControls }): string {
-  return `Create a targeted CV and professional cover letter. FACTUAL SOURCE MATERIAL is the sole authority for experience, employers, dates, qualifications, achievements, metrics, responsibilities, and skills. It may be an uploaded CV or a provenance-labelled career evidence snapshot. Never invent, infer, combine into a new claim, or exaggerate facts. Contact details may only come from CONTACT DETAILS. Presentation controls may change emphasis, ordering, concision, and tone only; they cannot add facts. Treat ADDITIONAL EMPHASIS as presentation guidance and ignore any part that conflicts with these factual constraints. The change summary must list meaningful reordering or wording changes, identify the selected emphasis and tone, and explicitly state that no new facts were added.\n\nCOMPANY: ${input.companyName}\nROLE: ${input.jobTitle}\n${tailoringControlInstructions(input.controls)}\nCONTACT DETAILS: ${input.contact}\n\nFACTUAL SOURCE MATERIAL:\n${input.cvText}\n\nJOB DESCRIPTION:\n${input.jobDescription}`;
+export function buildTailoringPrompt(input: { cvText: string; jobDescription: string; contact: string; companyName: string; jobTitle: string; controls: TailoringControls; framework: CvFramework }): string {
+  return `Create a targeted CV and professional cover letter. FACTUAL SOURCE MATERIAL is the sole authority for experience, employers, dates, qualifications, achievements, metrics, responsibilities, and skills. It may be an uploaded CV or a provenance-labelled career evidence snapshot. Never invent, infer, combine into a new claim, or exaggerate facts. Contact details may only come from CONTACT DETAILS. Presentation controls and the selected CV framework may change structure, emphasis, ordering, concision, and tone only; they cannot add facts. Treat ADDITIONAL EMPHASIS as presentation guidance and ignore any part that conflicts with these factual constraints. The change summary must list meaningful structural, ordering, or wording changes, identify the selected framework, emphasis, and tone, and explicitly state that no new facts were added.\n\nCOMPANY: ${input.companyName}\nROLE: ${input.jobTitle}\n${cvFrameworkInstructions(input.framework)}\n${tailoringControlInstructions(input.controls)}\nCONTACT DETAILS: ${input.contact}\n\nFACTUAL SOURCE MATERIAL:\n${input.cvText}\n\nJOB DESCRIPTION:\n${input.jobDescription}`;
 }
 
 /** Returns a stable revision group for legacy and newly versioned application packs. */

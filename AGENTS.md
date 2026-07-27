@@ -22,6 +22,7 @@ Record all subsequent changes to either the feature set or the look-and-feel req
 - Completed light/dark colour coverage across shared surfaces and added a responsive application timeline with elapsed days, follow-up dates, and attention guidance.
 - Simplified the timeline into status-coloured links to application detail pages and made logout explicit across desktop and mobile layouts.
 - Added a user-scoped, provenance-aware career evidence library, grounded CV extraction, missing-detail questions, and immutable whole-career tailoring snapshots.
+- Added researched experience-led, profile-led, skills-led, and hybrid CV structures with immutable revision storage, plus accessible progress feedback for slow application tasks.
 - Added transactional career-role merging, multi-CV fact provenance, explicit role deletion, and role ordering controls.
 - Added a restrained accessible icon system and no-advert master-CV creation from immutable, user-scoped career evidence.
 - Added rich IM/social link-preview metadata and a document-tuning brand mark used across the header, favicon, touch icon, manifest, and sharing card.

@@ -11,13 +11,14 @@ An authenticated user uploads a Word (`.docx`) CV and pastes a job description c
 - Phishing-resistant WebAuthn passkeys and server-side MySQL sessions.
 - User-isolated, versioned `.docx` CV uploads; the original file and extracted text are retained separately.
 - Job-description paste, factual AI tailoring, a clear review summary, and separate stored tailored outputs.
-- Immutable re-tailoring revisions with selectable models, balanced/management/technical/impact emphasis, professional tone controls, optional presentation guidance, and side-by-side comparison.
+- Immutable re-tailoring revisions with selectable models, researched experience/profile/skills/hybrid CV structures, balanced/management/technical/impact emphasis, professional tone controls, optional presentation guidance, and side-by-side comparison.
 - Editable DOCX and PDF downloads generated from each output using one shared, printer-friendly professional layout with matching hierarchy, typography, spacing, bullets, contact details, and restrained page footers.
 - A mobile-ready job application tracker with status, submission age, explicit follow-up dates, job links, notes, and linked source/tailored documents.
 - A concise, status-coloured application timeline whose entries open dedicated detail pages, plus cautious response guidance and a dashboard attention queue.
 - A user-scoped career evidence database with roles, categorised facts, CV provenance, missing-detail questions, and manual confirmation controls.
 - One-click master-CV creation without a job advert or AI charge, using every active stored fact verbatim and retaining the exact evidence/contact snapshot.
 - Rich IM/social link previews with a dedicated Job Tune sharing card, product description, favicon, touch icon, and installable-app manifest.
+- A branded, accessible progress overlay for long-running tailoring, grounded extraction, upload, document creation, model discovery, and email tasks, with reduced-motion support and duplicate-submission protection.
 - A whole-career CV builder that selects pertinent facts across roles and retains the exact evidence snapshot used for every generated pack.
 - A reusable document library, generated cover letters, contact profile, selectable AI models with account-aware catalogue refresh, and optional Word-document email delivery.
 - Searchable document management with custom names, recoverable trash, restore, and guarded permanent deletion.
@@ -25,7 +26,17 @@ An authenticated user uploads a Word (`.docx`) CV and pastes a job description c
 
 The AI prompt explicitly treats the uploaded CV as the only factual authority. Review the generated change summary before use; automated text generation cannot replace user review.
 
-An existing application pack can be re-tailored from its review page, the document library, or a linked tracked application. Every rerun starts again from the original uploaded CV and stored job description—not from an AI-edited draft—then creates a separate retained revision. The selected model, emphasis, tone, optional guidance, change summary, CV, and cover letter are stored with that revision. Starting from a tracked application also offers to update only that application's document link after the new revision succeeds. Revision history supports side-by-side model and presentation comparison without overwriting earlier files.
+### CV structures
+
+The tailoring forms offer four allow-listed document frameworks. **Experience-led** is the conservative default: relevant employment is presented in reverse chronological order without a generic profile. **Profile-led** starts with a concise, job-specific professional summary whose every claim must be supported by the source. **Skills-led** groups evidenced transferable capabilities before a concise employment timeline. **Hybrid achievement-led** combines a factual profile and selected achievements with full reverse-chronological history.
+
+These options reflect guidance from the [Oxford Careers Service](https://www.careers.ox.ac.uk/cvs), the [University of Edinburgh Careers Service](https://careers.ed.ac.uk/cvs-and-applications/building-your-cv), the [Open University](https://help.open.ac.uk/how-to-write-a-cv-curriculum-vitae/choose-right-type-of-cv), and the [UK National Careers Service](https://nationalcareers.service.gov.uk/careers-advice/cv-sections). Their shared themes are clear sections, evidence, relevance, concise bullets, and reverse chronology for conventional CVs; skills-based or combination structures are useful when transferable capability needs greater prominence. Academic and creative CV formats are not presented as superficial style choices because they require specialist content models that Job Tune does not yet store.
+
+Frameworks change structure and prominence only. Unsupported optional sections are omitted, and profile-led output cannot invent ambitions, desired progression, or career goals. The selected framework is saved with each immutable revision and can be changed during re-tailoring for direct comparison.
+
+Long-running requests use an indeterminate progress state instead of a fabricated percentage. Users should keep the tab open while the server waits for AI, SMTP, document processing, or provider discovery; submit buttons are temporarily disabled to prevent duplicate work and restored on browser-history navigation.
+
+An existing application pack can be re-tailored from its review page, the document library, or a linked tracked application. Every rerun starts again from the original uploaded CV and stored job description—not from an AI-edited draft—then creates a separate retained revision. The selected model, framework, emphasis, tone, optional guidance, change summary, CV, and cover letter are stored with that revision. Starting from a tracked application also offers to update only that application's document link after the new revision succeeds. Revision history supports side-by-side model and presentation comparison without overwriting earlier files.
 
 The application timeline calculates whole calendar days from the recorded submission date. An optional next follow-up date creates a due or overdue reminder; when no date is set, an unanswered application in the `Applied` state joins the attention queue after 14 days. Longer-wait guidance is deliberately phrased as a decision prompt, not a prediction about an employer. Closed applications remain visible but do not generate reminders.
 
