@@ -1,0 +1,25 @@
+[Unit]
+Description=Job Tune Node application
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=job
+Group=job
+WorkingDirectory=/var/www/job
+EnvironmentFile=/etc/job/job.env
+Environment=NODE_ENV=production
+Environment=HOST=127.0.0.1
+Environment=PORT=3101
+ExecStart=/usr/bin/node dist/index.js
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/www/job
+
+[Install]
+WantedBy=multi-user.target
