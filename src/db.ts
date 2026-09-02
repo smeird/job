@@ -8,10 +8,26 @@ type QueryResult<T> = [T, []];
 
 function postgresSql(sql: string): string {
   let parameter = 0;
-  const converted = sql.replace(/`([^`]+)`/g, '"$1"').replace(/\?/g, () => `$${++parameter}`)
+  const conflictTargets: Record<string, string> = {
+    site_settings: 'setting_key', document_metadata: 'user_id, document_type, document_id',
+    user_profiles: 'user_id', user_preferences: 'user_id',
+    career_facts: 'user_id, role_id, fact_hash', career_questions: 'user_id, role_id, question_hash',
+    career_role_sources: 'user_id, role_id, source_cv_id', career_fact_sources: 'user_id, fact_id, source_cv_id',
+  };
+  let converted = sql.replace(/`([^`]+)`/g, '"$1"').replace(/\?/g, () => `$${++parameter}`)
     .replace(/DATE_SUB\(NOW\(\), INTERVAL (\d+) (DAY|MINUTE)\)/g, "NOW() - INTERVAL '$1 $2'")
-    .replace(/DATE_ADD\(NOW\(\), INTERVAL (\d+) (DAY|MINUTE)\)/g, "NOW() + INTERVAL '$1 $2'");
-  return /^INSERT INTO (?:users|cv_documents|tailored_cvs|career_roles|career_facts|career_questions|webauthn_challenges|job_applications|sent_document_emails)\b/i.test(converted) && !/ON DUPLICATE|RETURNING/i.test(converted) ? `${converted} RETURNING id` : converted;
+    .replace(/DATE_ADD\(NOW\(\), INTERVAL (\d+) (DAY|MINUTE)\)/g, "NOW() + INTERVAL '$1 $2'")
+    .replace(/CURDATE\(\)/g, 'CURRENT_DATE');
+  const table = converted.match(/^INSERT(?: IGNORE)? INTO\s+"?([a-z_]+)"?/i)?.[1];
+  if (/^INSERT IGNORE/i.test(converted)) converted = converted.replace(/^INSERT IGNORE/i, 'INSERT') + ' ON CONFLICT DO NOTHING';
+  if (table && /ON DUPLICATE KEY UPDATE/i.test(converted)) {
+    const target = conflictTargets[table];
+    if (!target) throw new Error(`No PostgreSQL conflict target configured for ${table}.`);
+    converted = converted.replace(/ON DUPLICATE KEY UPDATE/i, `ON CONFLICT (${target}) DO UPDATE SET`)
+      .replace(/VALUES\(([^)]+)\)/g, 'EXCLUDED.$1')
+      .replace(/id=LAST_INSERT_ID\(id\)/g, `id=${table}.id`);
+  }
+  return /^INSERT INTO (?:users|cv_documents|tailored_cvs|career_roles|career_facts|career_questions|webauthn_challenges|job_applications|sent_document_emails)\b/i.test(converted) && !/RETURNING/i.test(converted) ? `${converted} RETURNING id` : converted;
 }
 
 export class PoolConnection {
