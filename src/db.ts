@@ -8,9 +8,10 @@ type QueryResult<T> = [T, []];
 
 function postgresSql(sql: string): string {
   let parameter = 0;
-  return sql.replace(/`([^`]+)`/g, '"$1"').replace(/\?/g, () => `$${++parameter}`)
+  const converted = sql.replace(/`([^`]+)`/g, '"$1"').replace(/\?/g, () => `$${++parameter}`)
     .replace(/DATE_SUB\(NOW\(\), INTERVAL (\d+) (DAY|MINUTE)\)/g, "NOW() - INTERVAL '$1 $2'")
     .replace(/DATE_ADD\(NOW\(\), INTERVAL (\d+) (DAY|MINUTE)\)/g, "NOW() + INTERVAL '$1 $2'");
+  return /^INSERT INTO (?:users|cv_documents|tailored_cvs|career_roles|career_facts|career_questions|webauthn_challenges|job_applications|sent_document_emails)\b/i.test(converted) && !/ON DUPLICATE|RETURNING/i.test(converted) ? `${converted} RETURNING id` : converted;
 }
 
 export class PoolConnection {
