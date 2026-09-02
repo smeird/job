@@ -991,7 +991,12 @@ app.post('/tailored/:id/email', requireUser, async (request, response) => { cons
 /** Sends concise operational errors without exposing internal details or personal input. */
 app.use((error: Error, _request: Request, response: Response, _next: NextFunction) => { console.error(error.message); response.status(400).send('The request could not be processed. Check the file and try again.'); });
 
-/** Starts the HTTP service behind Apache once this module is executed directly. */
-function start(): void { webAuthnConfig(); app.listen(Number(process.env.PORT || 3000), () => console.log(`Job Tune listening on port ${process.env.PORT || 3000}`)); }
+/** Starts the HTTP service behind the reverse proxy when this module is executed directly. */
+function start(): void {
+  webAuthnConfig();
+  const port = Number(process.env.PORT || 3000);
+  const host = process.env.HOST || '127.0.0.1';
+  app.listen(port, host, () => console.log(`Job Tune listening on ${host}:${port}`));
+}
 
 start();
