@@ -1,4 +1,4 @@
-import { Pool, PoolConnection, RowDataPacket } from 'mysql2/promise';
+import { Pool, PoolConnection, RowDataPacket } from './db';
 
 export type CareerRoleMergeMetadata = {
   location: string | null;

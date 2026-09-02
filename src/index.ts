@@ -7,7 +7,7 @@ import express, { NextFunction, Request, Response } from 'express';
 import mammoth from 'mammoth';
 import multer from 'multer';
 import nodemailer from 'nodemailer';
-import { ResultSetHeader, RowDataPacket } from 'mysql2/promise';
+import { ResultSetHeader, RowDataPacket } from './db';
 import { applicationNeedsAttention, daysSinceSubmitted, followUpLabel, responseGuidance, submissionAgeLabel, type ApplicationStatus } from './applications';
 import { publicSiteOrigin, SITE_DESCRIPTION, SITE_SHARE_TITLE } from './branding';
 import { CareerRoleAdminError, mergeCareerRoles, moveCareerRole } from './career-admin';
